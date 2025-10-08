@@ -1,0 +1,1394 @@
+<template>
+  <div class="contacts">
+    <div class="set" v-if="issetting">
+      <div class="set_" @click="toBeige">Beige</div>
+      <div class="set_" @click="toMist">Mist</div>
+      <div class="set_" @click="toApricot">Apricot</div>
+    </div>
+    <div class="top">
+      <div class="top_child">
+        <input type="button" value="◁" @click="back" id="button" />
+        <span>Chat</span>
+        <div class="chatroom">
+          <button @click="$router.push('/chatbox/chathall')">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="middle">
+      <div class="setting" @click="setcolor">
+        <font-awesome-icon :icon="['fas', 'gear']" title="更换背景色" />
+      </div>
+      <div class="avatar" @click="showAvatarSelector" title="点击更换头像">
+        <div class="frame">
+          <img :src="(userava || '/images/avatar/out.webp') + '?t=' + avatarKey" :key="avatarKey" alt="" />
+          <div class="avatar-overlay">
+            <img
+              src="/images/icon/camera.png"
+              alt="相机"
+              style="width: 32px; height: 32px"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 头像选择器 -->
+      <div v-if="avatarSelector.show" class="avatar-selector">
+        <div class="avatar-selector-content">
+          <h3>选择头像</h3>
+
+          <!-- 上传自定义头像 -->
+          <div class="upload-section">
+            <input
+              type="file"
+              ref="avatarFileInput"
+              accept="image/*"
+              @change="handleAvatarUpload"
+              style="display: none"
+            />
+            <button @click="triggerAvatarUpload" class="upload-btn">
+              <img src="/images/icon/upload.png" alt="上传" />
+              上传自定义头像
+            </button>
+          </div>
+
+          <div class="divider">或选择预设头像</div>
+
+          <div class="avatar-grid">
+            <div
+              v-for="avatar in predefinedAvatars"
+              :key="avatar.name"
+              class="avatar-option"
+              @click="selectAvatar(avatar.url)"
+            >
+              <img :src="avatar.url" :alt="avatar.name" />
+              <span>{{ avatar.name }}</span>
+            </div>
+          </div>
+          <div class="avatar-selector-actions">
+            <button @click="hideAvatarSelector" class="cancel-btn">取消</button>
+          </div>
+        </div>
+        <div class="avatar-selector-overlay" @click="hideAvatarSelector"></div>
+      </div>
+      <div class="friendname">{{ username ? username : "游客" }}</div>
+      <div class="status" :class="statu === 'occupied' ? 'busy' : ''">
+        <div class="sta">
+          <select name="status" id="statusbox" v-model="statu">
+            <option value="available" class="aval">available</option>
+            <option value="occupied" class="occu">occupied</option>
+          </select>
+        </div>
+      </div>
+      <div class="search">
+        <input type="text" name="" id="" placeholder="Search" />
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="head">Last chats</div>
+      <ul class="chat-list">
+        <li
+          class="chat-item"
+          v-for="friend in friends"
+          @click="switchChat(friend)"
+          @contextmenu.prevent="showContextMenu($event, friend)"
+        >
+          <div class="avatar-box">
+            <div class="avatar-small">
+              <div :class="{ tips: friend.isNewmsg }"></div>
+              <img :src="friend.avatar" alt="图片" />
+            </div>
+          </div>
+          <div class="detail">
+            <div class="name">{{ friend.name }}</div>
+            <div class="info">{{ friend.lastMessage }}</div>
+          </div>
+          <div class="time">{{ formatDate(friend.lastTime) }}</div>
+        </li>
+      </ul>
+
+      <!-- 右键菜单 -->
+      <div
+        v-if="contextMenu.show"
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click.stop
+      >
+        <div class="context-menu-item" @click="clearAllChats">
+          <img
+            src="/images/icon/delete-2.png"
+            alt="删除"
+            style="width: 16px; height: 16px"
+          />
+          一键清空所有聊天记录
+        </div>
+        <div
+          class="context-menu-item"
+          @click="deleteChatWith(contextMenu.friend)"
+        >
+          ❌ 删除与{{ contextMenu.friend?.name }}的聊天记录
+        </div>
+      </div>
+
+      <!-- 遮罩层，点击关闭菜单 -->
+      <div
+        v-if="contextMenu.show"
+        class="context-menu-overlay"
+        @click="hideContextMenu"
+      ></div>
+    </div>
+    <!-- <div class="privacy"><div class="avatar"><img src="../images/avatar.jpg" alt=""></div></div> -->
+  </div>
+</template>
+
+<script setup>
+import axios from "axios";
+import { onBeforeUnmount, ref, nextTick } from "vue";
+import { defineEmits } from "vue";
+import { onMounted } from "vue";
+import { useChatStore } from "../stores/useChatStore";
+import { socket } from "../../utils/socket";
+import { watch } from "vue";
+
+const statu = ref("available");
+const issetting = ref(false);
+const friends = ref([]);
+const From = ref("");
+
+const userid = ref("");
+const username = ref("");
+const userava = ref("");
+const avatarKey = ref(0); // 用于强制刷新头像的key
+
+// 右键菜单状态
+const contextMenu = ref({
+  show: false,
+  x: 0,
+  y: 0,
+  friend: null,
+});
+
+// 头像选择器状态
+const avatarSelector = ref({
+  show: false,
+});
+
+// 头像文件输入引用
+const avatarFileInput = ref(null);
+
+// 预定义头像列表
+const predefinedAvatars = ref([
+  { name: "忧郁女头", url: "/images/avatar/b-girl.webp" },
+  { name: "氛围男头", url: "/images/avatar/g-boy.webp" },
+  { name: "卡皮巴拉", url: "/images/avatar/kapibala.jpg" },
+  { name: "蜡笔小新", url: "/images/avatar/labixiaoxin.png" },
+  { name: "美少女战士", url: "/images/avatar/meishaonv.webp" },
+  { name: "日落意境", url: "/images/avatar/sunset.webp" },
+  { name: "默认头像", url: "/images/avatar/default-avatar.webp" },
+]);
+
+const chatStore = useChatStore();
+
+const emit = defineEmits(["hidechat", "changecolor", "todetail"]);
+
+function back() {
+  emit("hidechat", "关掉聊天");
+}
+
+function setcolor() {
+  issetting.value = true;
+}
+
+function toBeige() {
+  emit("changecolor", { color: "beige" });
+  issetting.value = false;
+}
+function toMist() {
+  emit("changecolor", { color: "mist" });
+  issetting.value = false;
+}
+function toApricot() {
+  emit("changecolor", { color: "apricot" });
+  issetting.value = false;
+}
+
+// UI切换聊天页
+function switchChat(friend) {
+  chatStore.switchChatUser(friend.id);
+  emit("todetail", { uname: friend.name, img: friend.avatar, userId: friend.id });
+
+  // 直接将当前点击的 friend 标记为已读
+  if (friend) {
+    friend.isNewmsg = false;
+  }
+}
+
+// 时间格式化
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  const current_date = new Date();
+  if (date.toLocaleDateString() === current_date.toLocaleDateString()) {
+    return isNaN(date.getTime()) ? "" : date.toLocaleTimeString().slice(0, 5);
+  } else {
+    return isNaN(date.getTime()) ? "" : date.toLocaleDateString().slice(0, 10);
+  }
+}
+
+// 获取用户信息
+async function getinfo() {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/user/info`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    userava.value = res.data.ava;
+    avatarKey.value = Date.now(); // 使用时间戳强制刷新头像显示
+    userid.value = res.data.id;
+    username.value = res.data.name;
+
+    // 发送登录事件
+    socket.emit("login", res.data.id);
+  } catch (err) {
+    console.error("用户名获取失败：", err);
+  }
+}
+
+// 获取好友列表
+async function getfriends() {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios(`${import.meta.env.VITE_BASE_URL}/user/friends`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    const newFriends = Array.isArray(res.data) ? res.data : [];
+
+    const lastMsgPromises = newFriends.map((friend) =>
+      axios
+        .get(
+          `${import.meta.env.VITE_BASE_URL}/chat/last_message/${friend.id}`,
+          {
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+          }
+        )
+        .then((msgRes) => ({
+          id: friend.id,
+          lastMessage: msgRes.data.content,
+          lastTime: msgRes.data.time,
+        }))
+        .catch((err) => {
+          console.error(`初始化时获取${friend.name}的消息失败`, err);
+          return { id: friend.id, lastMessage: "", lastTime: "" };
+        })
+    );
+
+    const lastMessages = await Promise.all(lastMsgPromises);
+
+    newFriends.forEach((friend) => {
+      const msg = lastMessages.find((m) => m.id === friend.id);
+      const existingFriend = friends.value.find(f => f.id === friend.id);
+      Object.assign(friend, {
+        lastMessage: msg?.lastMessage || "",
+        lastTime: msg?.lastTime || "",
+        isNewmsg: existingFriend ? existingFriend.isNewmsg : false, // 保留现有的isNewmsg状态
+      });
+    });
+
+    friends.value = [...newFriends]
+      .filter((friend) => friend.lastMessage !== "")
+      .sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime)); // 按时间倒序排列
+  } catch (err) {
+    console.error("初始化联系人或消息失败:", err);
+  }
+}
+
+async function updateFriendMessage(fromUserId) {
+  const senderIndex = friends.value.findIndex(
+    (friend) => friend.id === fromUserId
+  );
+  if (senderIndex !== -1) {
+    try {
+      const token = localStorage.getItem("token");
+      const msgRes = await axios.get(
+        `${import.meta.env.VITE_BASE_URL}/chat/last_message/${fromUserId}`,
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      friends.value[senderIndex].isNewmsg = true;
+      friends.value[senderIndex].lastMessage = msgRes.data.content || "";
+      friends.value[senderIndex].lastTime = msgRes.data.time || "";
+
+      // 重新按时间排序
+      friends.value.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+    } catch (err) {
+      console.error(
+        `收到新消息通知后，获取用户 ${fromUserId} 最新消息失败:`,
+        err
+      );
+      friends.value[senderIndex].isNewmsg = true;
+    }
+  } else {
+    console.warn(`未找到 ID 为 ${fromUserId} 的朋友在 friends 列表中。`);
+  }
+}
+
+onMounted(async () => {
+  await getinfo();
+  await getfriends();
+
+  socket.on("private-message", ({ from }) => {
+    From.value = from;
+    // 只有当消息不是来自当前用户自己时，才显示红点提醒
+    if (from.toString() !== userid.value.toString()) {
+      updateFriendMessage(from);
+    }
+  });
+
+  // 监听头像更新事件
+  socket.on("avatar-updated", (data) => {
+    // 更新好友列表中对应好友的头像
+    const friendIndex = friends.value.findIndex(
+      (friend) => friend.id.toString() === data.userId.toString()
+    );
+    if (friendIndex !== -1) {
+      friends.value[friendIndex].avatar = data.newAvatarUrl;
+    }
+    
+    // 如果是自己的头像更新，则更新左下角的头像显示
+    if (data.userId.toString() === userid.value.toString()) {
+      userava.value = data.newAvatarUrl;
+      avatarKey.value = Date.now(); // 强制刷新头像显示
+    }
+  });
+
+  // 监听刷新好友列表事件（转发消息后触发）
+  socket.on("refresh-friend-list", () => {
+    getfriends();
+  });
+
+  // 点击其他地方关闭右键菜单
+  document.addEventListener("click", hideContextMenu);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", hideContextMenu);
+});
+
+// 显示右键菜单
+function showContextMenu(event, friend) {
+  contextMenu.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    friend: friend,
+  };
+}
+
+// 隐藏右键菜单
+function hideContextMenu() {
+  contextMenu.value.show = false;
+}
+
+// 一键清空所有聊天记录
+async function clearAllChats() {
+  if (confirm("确定要清空所有聊天记录吗？此操作不可恢复！")) {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${import.meta.env.VITE_BASE_URL}/chat/messages`, {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      // 清空本地聊天列表
+      friends.value = [];
+      alert("所有聊天记录已清空！");
+    } catch (err) {
+      console.error("清空聊天记录失败:", err);
+      alert("清空聊天记录失败，请重试！");
+    }
+  }
+  hideContextMenu();
+}
+
+// 删除与指定用户的聊天记录
+async function deleteChatWith(friend) {
+  if (confirm(`确定要删除与${friend.name}的所有聊天记录吗？此操作不可恢复！`)) {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `${import.meta.env.VITE_BASE_URL}/chat/messages/${friend.id}`,
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // 从本地聊天列表中移除该好友
+      const index = friends.value.findIndex((f) => f.id === friend.id);
+      if (index !== -1) {
+        friends.value.splice(index, 1);
+      }
+
+      alert(`与${friend.name}的聊天记录已删除！`);
+    } catch (err) {
+      console.error("删除聊天记录失败:", err);
+      alert("删除聊天记录失败，请重试！");
+    }
+  }
+  hideContextMenu();
+}
+
+// 显示头像选择器
+function showAvatarSelector() {
+  avatarSelector.value.show = true;
+}
+
+// 隐藏头像选择器
+function hideAvatarSelector() {
+  avatarSelector.value.show = false;
+}
+
+// 触发头像文件选择
+function triggerAvatarUpload() {
+  avatarFileInput.value.click();
+}
+
+// 处理头像文件上传
+async function handleAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // 验证文件类型
+  if (!file.type.startsWith("image/")) {
+    alert("请选择图片文件！");
+    return;
+  }
+
+  // 验证文件大小（限制为5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    alert("图片文件大小不能超过5MB！");
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("token");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // 上传文件到服务器
+    const uploadRes = await axios.post(
+      `${import.meta.env.VITE_BASE_URL}/api/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const avatarUrl = uploadRes.data.fileUrl;
+
+    // 更新用户头像
+    const res = await axios.put(
+      `${import.meta.env.VITE_BASE_URL}/user/avatar`,
+      { avatarUrl },
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // 保存新的token（如果服务器返回了新token）
+    if (res.data.token) {
+      localStorage.setItem("token", res.data.token);
+    }
+
+    // 更新本地头像
+    userava.value = avatarUrl;
+    avatarKey.value = Date.now(); // 使用时间戳强制刷新头像显示
+
+    // 强制DOM更新
+    await nextTick();
+
+    // 刷新用户信息和好友列表
+    await getinfo();
+    await getfriends();
+
+    // 通过Socket通知其他用户头像更新
+    socket.emit("avatar-updated", {
+      userId: userid.value,
+      newAvatarUrl: avatarUrl,
+    });
+
+    alert("头像上传成功！");
+    hideAvatarSelector();
+
+    // 清空文件输入
+    if (avatarFileInput.value) {
+      avatarFileInput.value.value = "";
+    }
+  } catch (err) {
+    console.error("头像上传失败:", err);
+    alert("头像上传失败，请重试！");
+  }
+}
+
+// 选择预设头像
+async function selectAvatar(avatarUrl) {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.put(
+      `${import.meta.env.VITE_BASE_URL}/user/avatar`,
+      { avatarUrl },
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // 保存新的token（如果服务器返回了新token）
+    if (res.data.token) {
+      localStorage.setItem("token", res.data.token);
+    }
+
+    // 更新本地头像
+    userava.value = avatarUrl;
+    avatarKey.value = Date.now(); // 使用时间戳强制刷新头像显示
+
+    // 强制DOM更新
+    await nextTick();
+
+    // 刷新用户信息和好友列表
+    await getinfo();
+    await getfriends();
+
+    // 通过Socket通知其他用户头像更新
+    socket.emit("avatar-updated", {
+      userId: userid.value,
+      newAvatarUrl: avatarUrl,
+    });
+
+    alert("头像更换成功！");
+    hideAvatarSelector();
+  } catch (err) {
+    console.error("头像更换失败:", err);
+    alert("头像更换失败，请重试！");
+  }
+}
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", hideContextMenu);
+  socket.off("private-message");
+  socket.off("avatar-updated");
+  socket.off("refresh-friend-list");
+});
+</script>
+
+<style scoped lang="scss">
+:root {
+  --primary-color: #4caf50;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contacts {
+  height: 100%;
+  /* min-width: 100%; */
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+  overflow: hidden;
+}
+
+.set {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  /* flex-direction: column; */
+  height: 100%;
+  width: 100%;
+  z-index: 999;
+  cursor: pointer;
+}
+
+.set_ {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5rem;
+  white-space: wrap;
+  flex-wrap: wrap;
+  transition: all 1.5s ease;
+  -webkit-app-region: no-drag;
+}
+
+.set_:hover {
+  font-size: 3rem;
+}
+
+.set_:first-child {
+  color: #444444;
+  background-color: #f9f9f9;
+  border: none;
+}
+.set_:nth-child(2) {
+  background-color: rgba(220, 225, 230, 1);
+  color: #2c3e50;
+  border: none;
+}
+
+.set_:last-child {
+  color: #5c4033;
+  background-color: rgba(255, 235, 215, 1);
+  border: none;
+}
+
+/* 顶部区域 */
+.top {
+  height: 60px;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  box-shadow: 0 1px 1px 0px rgba(0, 0, 0, 0.1);
+}
+
+#button,
+.status,
+.search,
+.setting,
+.avatar,
+.chat-list,
+.chatroom button {
+  -webkit-app-region: no-drag;
+}
+
+.top_child {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+
+  input {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}
+
+.chatroom {
+  position: absolute;
+  right: 0;
+
+  button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: larger;
+
+    &:hover {
+      transform: scale(1.05);
+
+      &::after {
+        opacity: 1;
+      }
+    }
+
+    &::after {
+      content: "加入聊天室";
+      position: absolute;
+      top: 50%;
+      left: -200%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+  }
+}
+
+/* 中间区域 */
+.middle {
+  height: 15rem;
+  padding: 2rem 1rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setting {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 100%;
+  max-width: 120px;
+  /* margin-bottom: 1rem; */
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+
+  &:hover .avatar-overlay {
+    opacity: 1;
+  }
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: white;
+  font-size: 1.5rem;
+  width: 80%;
+}
+
+.frame {
+  width: 80%;
+  /* width: 100%; */
+  border-radius: 50%;
+  overflow: hidden;
+  aspect-ratio: 1/1;
+  box-shadow: var(--shadow);
+
+  img {
+    max-width: 100%;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+  }
+}
+
+.friendname {
+  font-size: 1.2rem;
+  font-weight: 600;
+  /* margin-bottom: 0.5rem; */
+}
+
+.status {
+  width: 150px;
+  padding: 0.5rem;
+  border-radius: 20px;
+  background-color: rgba(127, 255, 212, 0.3);
+
+  select {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: green;
+    padding: 0.25rem;
+    cursor: pointer;
+    font-weight: bolder;
+  }
+
+  &.busy {
+    background-color: #f5f2f7;
+
+    select {
+      color: red;
+    }
+  }
+}
+
+.aval {
+  color: green;
+  background-color: #ccffeb;
+}
+.occu {
+  color: red;
+  background-color: #f8f1e4;
+}
+
+.search {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 1rem;
+
+  input {
+    width: 80%;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    border: none;
+    border-radius: 20px;
+    background-color: rgba(0, 0, 0, 0.05);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+  }
+}
+
+/* 底部聊天列表 */
+.bottom {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.head {
+  margin-top: 50px;
+  /*max-height: 10px; */
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  color: #666;
+  flex-shrink: 0;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.1);
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* background-color: #4CAF50; */
+}
+
+.chat-item {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  /* flex: 0 0 25%; */
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+}
+
+.avatar-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.avatar-small {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.tips {
+  position: absolute;
+  color: white;
+  top: 0;
+  right: 0;
+  background-color: red;
+  border-radius: 50%;
+  height: 25%;
+  aspect-ratio: 1/1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: small;
+  transform: translate(50%, -50%);
+}
+
+.detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.info {
+  color: #666;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.time {
+  color: #999;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background-color: #f5f5f5;
+  }
+
+  &:first-child:hover {
+    background-color: #fff3cd;
+  }
+
+  &:last-child:hover {
+    background-color: #f8d7da;
+  }
+}
+
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+}
+
+/* 头像选择器样式 */
+.avatar-selector {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-selector-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.avatar-selector-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1002;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+  h3 {
+    margin: 0 0 20px 0;
+    text-align: center;
+    color: #333;
+  }
+}
+
+.upload-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.upload-btn {
+  display: flex;
+  gap: 8px;
+  padding: 0.8rem 1.5rem;
+  // background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: rgb(179, 81, 81);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  img {
+    width: 24px;
+    height: 24px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
+}
+
+.divider {
+  text-align: center;
+  margin: 1.5rem 0;
+  color: #666;
+  font-size: 0.9rem;
+  position: relative;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: #ddd;
+  }
+
+  &::before {
+    left: 0;
+  }
+
+  &::after {
+    right: 0;
+  }
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.avatar-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #4caf50;
+    background-color: #f8f9fa;
+  }
+
+  img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 8px;
+  }
+
+  span {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+  }
+}
+
+.avatar-selector-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 8px 24px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: #f5f5f5;
+  }
+}
+
+/* 响应式设计 */
+
+/* 大屏幕设备 */
+@media (min-width: 1200px) {
+  .contacts {
+    padding: 1rem;
+  }
+
+  .top {
+    padding: 1.2rem 1rem;
+  }
+
+  .middle {
+    padding: 1rem;
+  }
+
+  .search {
+    padding: 0 1rem;
+  }
+}
+
+/* 平板设备 */
+@media (max-width: 1199px) and (min-width: 769px) {
+  .contacts {
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    padding: 0.8rem;
+  }
+
+  .top {
+    padding: 1rem 0.8rem;
+  }
+
+  .middle {
+    padding: 0 0.8rem;
+  }
+
+  .search {
+    padding: 0 0.8rem;
+
+    input {
+      width: 60%;
+    }
+  }
+
+  .friend_request {
+    button {
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+    }
+  }
+}
+
+/* 移动设备 */
+@media (max-width: 768px) {
+  .contacts {
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .top {
+    padding: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .top_child {
+    span {
+      font-weight: bolder;
+      font-size: 1.1rem;
+    }
+  }
+
+  .middle {
+    padding: 0;
+    flex: 1;
+
+    ul {
+      padding: 0.5rem;
+
+      li {
+        padding: 1rem;
+        border-bottom: 1px solid #f5f5f5;
+
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+  }
+
+  .search {
+    padding: 1rem;
+    background: #fafafa;
+    border-top: 1px solid #e0e0e0;
+
+    input {
+      width: 70%;
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+    }
+
+    input[type="button"] {
+      padding: 0.8rem 1.2rem;
+      font-size: 0.9rem;
+    }
+  }
+
+  .set {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  #button {
+    display: none;
+  }
+
+  .friend_request {
+    position: static;
+    margin-top: 0.5rem;
+
+    button {
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+    }
+  }
+}
+
+/* 小屏移动设备 */
+@media (max-width: 480px) {
+  .contacts {
+    font-size: 14px;
+  }
+
+  .top {
+    padding: 0.8rem;
+  }
+
+  .top_child {
+    span {
+      font-size: 1rem;
+    }
+  }
+
+  .middle {
+    ul {
+      li {
+        padding: 0.8rem;
+
+        .avatar {
+          width: 45px;
+          height: 45px;
+        }
+
+        .text {
+          .name {
+            font-size: 0.9rem;
+          }
+
+          .lastmsg {
+            font-size: 0.8rem;
+          }
+        }
+      }
+    }
+  }
+
+  .search {
+    padding: 0.8rem;
+
+    input {
+      width: 65%;
+      padding: 0.7rem 0.8rem;
+      font-size: 0.9rem;
+    }
+
+    input[type="button"] {
+      padding: 0.7rem 1rem;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+/* 横屏适配 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .contacts {
+    height: 100vh;
+  }
+
+  .middle {
+    ul {
+      li {
+        padding: 0.6rem 1rem;
+      }
+    }
+  }
+
+  .search {
+    padding: 0.6rem 1rem;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .middle ul li {
+    padding: 1.2rem 1rem;
+
+    &:active {
+      background-color: #f0f0f0;
+      transform: scale(0.98);
+    }
+  }
+
+  .search input[type="button"] {
+    padding: 1rem 1.2rem;
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}
+</style>
