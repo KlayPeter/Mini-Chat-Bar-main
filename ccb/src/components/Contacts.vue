@@ -10,6 +10,17 @@
       </div>
     </div>
     <div class="bottom">
+      <!-- 搜索联系人功能 -->
+      <div class="contact-search">
+        <input
+          type="text"
+          placeholder="搜索联系人..."
+          v-model="searchKeyword"
+          @input="handleSearch"
+          class="search-input"
+        />
+      </div>
+      
       <div class="search" v-if="newfriend">
         <input
           type="text"
@@ -21,7 +32,9 @@
         />
         <input type="button" value="添加♂好友" @click="friend_request" />
       </div>
-      <ul class="chat-list">
+      
+      <!-- 显示搜索结果或好友列表 -->
+      <ul class="chat-list" v-if="!searchKeyword || searchKeyword.trim() === ''">
         <li
           class="chat-item"
           v-for="friend in friends"
@@ -38,6 +51,30 @@
           </div>
         </li>
       </ul>
+      
+      <!-- 搜索结果列表 -->
+      <ul class="chat-list" v-else-if="filteredFriends.length > 0">
+        <li
+          class="chat-item"
+          v-for="friend in filteredFriends"
+          @click="switchChat(friend)"
+        >
+          <div class="avatar-box">
+            <div class="avatar-small">
+              <div :class="{ tips: friend.isNewmsg }"></div>
+              <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
+            </div>
+          </div>
+          <div class="detail">
+            <div class="name" v-html="friend.highlightedName || friend.name"></div>
+          </div>
+        </li>
+      </ul>
+      
+      <!-- 无搜索结果 -->
+      <div v-else-if="searchKeyword.trim() !== ''" class="no-results">
+        <p>未找到匹配的联系人</p>
+      </div>
     </div>
   </div>
 </template>
@@ -51,6 +88,8 @@ import { useChatStore } from "../stores/useChatStore";
 
 const friends = ref([]);
 const friend_name = ref("");
+const searchKeyword = ref("");
+const filteredFriends = ref([]);
 
 const newfriend = ref(false);
 
@@ -89,6 +128,32 @@ async function friend_request() {
     alert(res.data.message);
     location.reload();
   }
+}
+
+// 搜索联系人功能
+function handleSearch() {
+  if (!searchKeyword.value || searchKeyword.value.trim() === '') {
+    filteredFriends.value = [];
+    return;
+  }
+  
+  const keyword = searchKeyword.value.toLowerCase();
+  filteredFriends.value = friends.value.filter(friend => 
+    friend.name.toLowerCase().includes(keyword)
+  ).map(friend => {
+    // 高亮匹配的文本
+    const name = friend.name;
+    const index = name.toLowerCase().indexOf(keyword);
+    if (index !== -1) {
+      const highlightedName = name.substring(0, index) + 
+        '<span style="background-color: yellow;">' + 
+        name.substring(index, index + keyword.length) + 
+        '</span>' + 
+        name.substring(index + keyword.length);
+      return { ...friend, highlightedName };
+    }
+    return friend;
+  });
 }
 
 // UI切换聊天页
@@ -181,6 +246,7 @@ onMounted(async () => {
 #button,
 .status,
 .search,
+.contact-search,
 .setting,
 .avatar,
 .chat-list,
@@ -225,6 +291,40 @@ onMounted(async () => {
       transition: opacity 0.3s ease;
       pointer-events: none;
     }
+  }
+}
+
+/* 联系人搜索样式 */
+.contact-search {
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  
+  .search-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    background-color: rgba(0, 0, 0, 0.05);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    
+    &:focus {
+      outline: none;
+      border-color: #007bff;
+      background-color: white;
+    }
+  }
+}
+
+/* 无搜索结果样式 */
+.no-results {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  
+  p {
+    margin: 0;
+    font-size: 0.9rem;
   }
 }
 

@@ -80,12 +80,85 @@
         </div>
       </div>
       <div class="search">
-        <input type="text" name="" id="" placeholder="Search" />
+        <input 
+          type="text" 
+          v-model="searchKeyword"
+          @input="handleSearch"
+          placeholder="搜索用户..." 
+        />
       </div>
     </div>
     <div class="bottom">
-      <div class="head">Last chats</div>
-      <ul class="chat-list">
+      <div class="head">{{ searchKeyword ? '用户搜索结果' : 'Last chats' }}</div>
+      
+      <!-- 搜索结果列表 -->
+      <div v-if="searchKeyword && searchResults.length > 0" class="search-results-container">
+        <!-- 用户搜索结果 -->
+        <div v-if="userSearchResults.length > 0" class="search-section">
+          <div class="search-section-header">
+            <span class="section-title">联系人</span>
+            <span class="section-count">{{ userSearchResults.length }}</span>
+          </div>
+          <ul class="search-results-list">
+            <li
+              v-for="user in userSearchResults"
+              :key="'user-' + user._id"
+              class="search-result-item user-result"
+              @click="jumpToUserChat(user)"
+            >
+              <div class="avatar-box">
+                <div class="avatar-small">
+                  <img :src="user.avatar || '/images/avatar/default-avatar.webp'" alt="头像" />
+                </div>
+              </div>
+              <div class="detail">
+                <div class="name" v-html="user.highlightedName || user.name"></div>
+                <div class="user-info">用户</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 消息搜索结果 -->
+        <div v-if="messageSearchResults.length > 0" class="search-section">
+          <div class="search-section-header">
+            <span class="section-title">聊天记录</span>
+            <span class="section-count">{{ messageSearchResults.length }}</span>
+          </div>
+          <ul class="search-results-list">
+            <li
+              v-for="result in messageSearchResults"
+              :key="'msg-' + result._id"
+              class="search-result-item message-result"
+              @click="jumpToSearchResult(result)"
+            >
+              <div class="avatar-box">
+                <div class="avatar-small">
+                  <img :src="result.senderAvatar || '/images/avatar/default-avatar.webp'" alt="头像" />
+                </div>
+              </div>
+              <div class="detail">
+                <div class="name">{{ result.senderName || result.from }}</div>
+                <div class="info" v-html="result.highlightedContent || result.content"></div>
+                <div class="search-time">{{ formatDate(result.time) }}</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 搜索状态提示 -->
+      <div v-else-if="searchKeyword && isSearching" class="search-status">
+        <div class="loading">搜索中...</div>
+      </div>
+      
+      <!-- 无搜索结果提示 -->
+      <div v-else-if="searchKeyword && !isSearching && searchResults.length === 0" class="search-status">
+        <div class="no-results">未找到相关用户</div>
+      </div>
+      
+      <!-- 正常聊天列表 -->
+      <ul class="chat-list" v-else>
         <li
           class="chat-item"
           v-for="friend in friends"
@@ -142,7 +215,7 @@
 
 <script setup>
 import axios from "axios";
-import { onBeforeUnmount, ref, nextTick } from "vue";
+import { onBeforeUnmount, ref, nextTick, computed } from "vue";
 import { defineEmits } from "vue";
 import { onMounted } from "vue";
 import { useChatStore } from "../stores/useChatStore";
@@ -158,6 +231,20 @@ const userid = ref("");
 const username = ref("");
 const userava = ref("");
 const avatarKey = ref(0); // 用于强制刷新头像的key
+
+// 搜索相关状态
+const searchKeyword = ref("");
+const searchResults = ref([]);
+const isSearching = ref(false);
+
+// 计算属性：分离用户和消息搜索结果
+const userSearchResults = computed(() => {
+  return searchResults.value.filter(result => result.resultType === 'user');
+});
+
+const messageSearchResults = computed(() => {
+  return searchResults.value.filter(result => result.resultType === 'message' || !result.resultType);
+});
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -591,6 +678,100 @@ async function selectAvatar(avatarUrl) {
   }
 }
 
+// 搜索处理方法
+let searchTimeout = null;
+async function handleSearch() {
+  // 清除之前的搜索定时器
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // 如果搜索关键词为空，清空搜索结果
+  if (!searchKeyword.value.trim()) {
+    searchResults.value = [];
+    isSearching.value = false;
+    return;
+  }
+  
+  // 设置搜索状态
+  isSearching.value = true;
+  
+  // 防抖处理，500ms后执行搜索
+  searchTimeout = setTimeout(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // 只调用用户搜索接口
+      const response = await axios.get("http://localhost:3000/chat/search/users", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          keyword: searchKeyword.value,
+          page: 1,
+          limit: 20
+        }
+      });
+      
+      console.log("用户搜索响应:", response.data);
+      
+      if (response.data && response.data.success) {
+        const userResults = response.data.data.results || [];
+        // 为用户结果添加类型标识
+        searchResults.value = userResults.map(user => ({
+          ...user,
+          resultType: 'user'
+        }));
+      } else {
+        console.error("搜索失败:", response.data?.message || "未知错误");
+        searchResults.value = [];
+      }
+      
+    } catch (error) {
+      console.error("搜索请求失败:", error.response?.data || error.message);
+      searchResults.value = [];
+    } finally {
+      isSearching.value = false;
+    }
+  }, 500);
+}
+
+// 跳转到搜索结果对应的聊天
+function jumpToSearchResult(result) {
+  // 找到对应的好友
+  const friend = friends.value.find(f => 
+    f.id.toString() === result.from.toString() || 
+    f.id.toString() === result.to.toString()
+  );
+  
+  if (friend) {
+    // 切换到对应的聊天
+    switchChat(friend);
+    // 清空搜索
+    searchKeyword.value = "";
+    searchResults.value = [];
+  }
+}
+
+// 跳转到用户聊天
+function jumpToUserChat(user) {
+  // 找到对应的好友
+  const friend = friends.value.find(f => 
+    f.id.toString() === user._id.toString() || 
+    f.name === user.name
+  );
+  
+  if (friend) {
+    // 切换到对应的聊天
+    switchChat(friend);
+  } else {
+    // 如果好友列表中没有，可能需要添加到好友列表或直接开始聊天
+    console.log('用户不在好友列表中:', user);
+  }
+  
+  // 清空搜索
+  searchKeyword.value = "";
+  searchResults.value = [];
+}
+
 onBeforeUnmount(() => {
   document.removeEventListener("click", hideContextMenu);
   socket.off("private-message");
@@ -907,6 +1088,115 @@ onBeforeUnmount(() => {
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.02);
+  }
+}
+
+/* 搜索结果样式 */
+.search-results-container {
+  padding: 0;
+}
+
+.search-section {
+  margin-bottom: 1rem;
+}
+
+.search-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.section-title {
+  font-weight: 500;
+}
+
+.section-count {
+  background-color: #007aff;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+.search-results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.search-result-item {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  border-left: 3px solid #4caf50;
+
+  &:hover {
+    background-color: rgba(76, 175, 80, 0.05);
+  }
+
+  .detail {
+    flex: 1;
+    min-width: 0;
+
+    .search-time {
+      color: #999;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+    }
+
+    .info {
+      /* 高亮样式 */
+      :deep(mark) {
+        background-color: #ffeb3b;
+        color: #333;
+        padding: 0 2px;
+        border-radius: 2px;
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+.user-result {
+  .detail .user-info {
+    color: #999;
+    font-size: 0.8rem;
+  }
+}
+
+.message-result {
+  .search-time {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 0.2rem;
+  }
+}
+
+/* 搜索状态样式 */
+.search-status {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+
+  .loading {
+    font-size: 0.9rem;
+    color: #4caf50;
+  }
+
+  .no-results {
+    font-size: 0.9rem;
+    color: #999;
   }
 }
 

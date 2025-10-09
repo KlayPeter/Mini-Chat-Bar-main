@@ -3,6 +3,154 @@ const router = express.Router()
 const Msg = require("../models/Messages")
 const auth = require('../middlewares/auth')
 
+// 专门的用户搜索接口
+router.get("/search/users", auth, async (req, res) => {
+    const { keyword, page = 1, limit = 20 } = req.query
+    
+    try {
+        if (!keyword || keyword.trim() === '') {
+            return res.status(400).json({ 
+                success: false,
+                message: "搜索关键词不能为空" 
+            })
+        }
+
+        const User = require('../models/Users')
+        const skip = (page - 1) * limit
+        
+        const userQuery = {
+            $or: [
+                { name: { $regex: keyword, $options: 'i' } },
+                { email: { $regex: keyword, $options: 'i' } }
+            ]
+        }
+        
+        const users = await User.find(userQuery)
+            .select('name email avatar')
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean()
+
+        const total = await User.countDocuments(userQuery)
+
+        const userResults = users.map(user => {
+            // 为用户名添加高亮
+            if (user.name && user.name.toLowerCase().includes(keyword.toLowerCase())) {
+                const regex = new RegExp(`(${keyword})`, 'gi')
+                user.highlightedName = user.name.replace(regex, '<mark>$1</mark>')
+            }
+            user.resultType = 'user'
+            return user
+        })
+
+        res.json({
+            success: true,
+            data: {
+                results: userResults,
+                pagination: {
+                    current: parseInt(page),
+                    limit: parseInt(limit),
+                    total: total,
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        })
+    } catch (error) {
+        console.error("用户搜索失败:", error)
+        res.status(500).json({ 
+            success: false,
+            message: "用户搜索失败" 
+        })
+    }
+})
+
+// 搜索聊天记录接口
+router.get("/search", auth, async (req, res) => {
+    const myId = req.user.uid
+    const { keyword, page = 1, limit = 20, targetUser } = req.query
+    
+    try {
+        if (!keyword || keyword.trim() === '') {
+            return res.status(400).json({ message: "搜索关键词不能为空" })
+        }
+
+        const skip = (page - 1) * limit
+        let searchQuery = {
+            $or: [
+                { from: myId },
+                { to: myId }
+            ]
+        }
+
+        // 如果指定了目标用户，则只搜索与该用户的聊天记录
+        if (targetUser) {
+            searchQuery = {
+                $or: [
+                    { from: myId, to: targetUser },
+                    { from: targetUser, to: myId }
+                ]
+            }
+        }
+
+        // 添加关键词搜索条件
+        const keywordQuery = {
+            $and: [
+                searchQuery,
+                {
+                    $or: [
+                        { content: { $regex: keyword, $options: 'i' } }, // 模糊匹配消息内容
+                        { from: { $regex: keyword, $options: 'i' } }, // 模糊匹配发送者
+                        { to: { $regex: keyword, $options: 'i' } }, // 模糊匹配接收者
+                        { 'fileInfo.fileName': { $regex: keyword, $options: 'i' } } // 模糊匹配文件名
+                    ]
+                }
+            ]
+        }
+
+        // 执行消息搜索查询，并关联用户信息
+        const messages = await Msg.find(keywordQuery)
+            .sort({ time: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .populate('from', 'uName uAvatar')
+            .populate('to', 'uName uAvatar')
+            .lean()
+
+        // 获取消息总数用于分页
+        const messageTotal = await Msg.countDocuments(keywordQuery)
+
+        // 为消息搜索结果添加高亮标记和类型标识
+        const highlightedMessages = messages.map(msg => {
+            if (msg.content && msg.content.toLowerCase().includes(keyword.toLowerCase())) {
+                const regex = new RegExp(`(${keyword})`, 'gi')
+                msg.highlightedContent = msg.content.replace(regex, '<mark>$1</mark>')
+            }
+            msg.resultType = 'message' // 标识为消息结果
+            return msg
+        })
+
+        // 只返回消息搜索结果，不搜索用户
+        res.json({
+            success: true,
+            data: {
+                results: highlightedMessages,
+                pagination: {
+                    current: parseInt(page),
+                    total: Math.ceil(messageTotal / limit),
+                    count: messageTotal,
+                    limit: parseInt(limit)
+                },
+                keyword: keyword,
+                userCount: 0,
+                messageCount: highlightedMessages.length
+            }
+        })
+
+    } catch (err) {
+        console.error('搜索聊天记录失败:', err)
+        res.status(500).json({ message: "搜索失败，请稍后重试" })
+    }
+})
 
 router.get("/last_message/:id",auth,async(req,res)=>{
     const myId = req.user.uid

@@ -24,4 +24,11 @@ const msgSchema = new mongoose.Schema({
     forwardedFrom: String // 转发来源用户名
 })
 
+// 为content字段创建文本索引，支持全文搜索
+msgSchema.index({ content: 'text' })
+// 为from和to字段创建复合索引，优化用户相关搜索
+msgSchema.index({ from: 1, to: 1 })
+// 为时间字段创建索引，支持按时间排序
+msgSchema.index({ time: -1 })
+
 module.exports = mongoose.model('Msg',msgSchema)

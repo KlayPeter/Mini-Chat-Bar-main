@@ -269,6 +269,13 @@
                 style="width: 16px; height: 16px"
               />
             </button>
+            <button class="search-button" @click="openSearchModal" title="搜索历史记录">
+              <img
+                src="/images/icon/search.png"
+                alt="搜索"
+                style="width: 16px; height: 16px"
+              />
+            </button>
             <button
               @click="send"
               :class="{
@@ -486,6 +493,15 @@
       </div>
       <div class="preview-dialog-overlay" @click="closePreview"></div>
     </div>
+
+    <!-- 搜索弹窗 -->
+    <SearchModal 
+      v-if="searchModal.show"
+      :is-visible="searchModal.show"
+      :current-user="chatstore.currentChatUser"
+      @close="closeSearchModal"
+      @jump-to-message="jumpToMessage"
+    />
   </div>
 </template>
 
@@ -499,6 +515,7 @@ import { socket } from "../../utils/socket";
 import { onBeforeUnmount } from "vue";
 import EmojiPicker from "vue3-emoji-picker";
 import "vue3-emoji-picker/css";
+import SearchModal from "../components/SearchModal.vue";
 
 const messages = ref([]);
 const messageList = ref(null);
@@ -554,6 +571,11 @@ const previewDialog = ref({
   fileSize: 0,
   fileType: "",
   content: "", // 用于文本文件内容
+});
+
+// 搜索弹窗相关状态
+const searchModal = ref({
+  show: false,
 });
 
 onMounted(() => {
@@ -1544,6 +1566,51 @@ function addEmoji(event) {
   showPicker.value = false;
 }
 
+// 搜索弹窗相关方法
+function openSearchModal() {
+  searchModal.value.show = true;
+}
+
+function closeSearchModal() {
+  searchModal.value.show = false;
+}
+
+function jumpToMessage(messageId) {
+  console.log('跳转到消息:', messageId);
+  closeSearchModal();
+  
+  // 查找消息在当前消息列表中的索引
+  const messageIndex = messages.value.findIndex(msg => msg._id === messageId);
+  
+  if (messageIndex !== -1) {
+    // 找到消息，滚动到对应位置
+    nextTick(() => {
+      const messageList = document.querySelector('.middle ul');
+      const messageElements = messageList.querySelectorAll('.message');
+      
+      if (messageElements[messageIndex]) {
+        // 滚动到目标消息
+        messageElements[messageIndex].scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+        
+        // 高亮显示目标消息
+        messageElements[messageIndex].classList.add('highlight-message');
+        
+        // 3秒后移除高亮效果
+        setTimeout(() => {
+          messageElements[messageIndex].classList.remove('highlight-message');
+        }, 3000);
+      }
+    });
+  } else {
+    console.warn('未找到对应的消息:', messageId);
+    // 如果当前消息列表中没有找到，可能需要加载更多历史消息
+    // 这里可以添加加载历史消息的逻辑
+  }
+}
+
 watch(showPicker, (newValue) => {
   if (newValue) {
     nextTick(() => {
@@ -1670,6 +1737,16 @@ watch(showPicker, (newValue) => {
   flex-direction: row;
   // align-items: flex-end;
   padding-bottom: 10px;
+  transition: background-color 0.3s ease;
+
+  /* 高亮消息样式 */
+  &.highlight-message {
+    background-color: rgba(255, 235, 59, 0.3);
+    border-radius: 8px;
+    padding: 8px;
+    margin: 2px 0;
+    animation: highlight-pulse 0.6s ease-in-out;
+  }
 
   /* 自己发送的消息：头像在右边 */
   &.my-message {
@@ -1700,6 +1777,21 @@ watch(showPicker, (newValue) => {
       aspect-ratio: 1/1;
       object-fit: cover;
     }
+  }
+}
+
+/* 高亮动画 */
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(255, 235, 59, 0.6);
+    transform: scale(1.02);
+  }
+  50% {
+    background-color: rgba(255, 235, 59, 0.4);
+  }
+  100% {
+    background-color: rgba(255, 235, 59, 0.3);
+    transform: scale(1);
   }
 }
 .text {
