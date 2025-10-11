@@ -26,8 +26,8 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 app.use('/room', roomRouter)
-app.use('/user', userRouter)
-app.use("/chat",chatRouter)
+app.use('/api/user', userRouter)
+app.use("/api/chat",chatRouter)
 app.use("/api/upload",uploadRouter)
 app.use("/api",dsRouter)
 
