@@ -69,7 +69,7 @@ function logout() {
 onMounted(async () => {
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/user/info`, {
+    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/info`, {
       headers: {
         authorization: `Bearer ${token}`,
       },

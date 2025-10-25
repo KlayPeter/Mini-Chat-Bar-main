@@ -119,15 +119,13 @@ class UserController {
         return res.status(404).json({ message: "用户不存在" });
       }
 
+      const friendIds = user.Friends.map(friend => friend.uID);
       const friends = await Users.find(
-        { uID: { $in: user.Friends } },
+        { uID: { $in: friendIds } },
         { uID: 1, uName: 1, uAvatar: 1, _id: 0 }
       );
 
-      res.status(200).json({
-        message: "获取好友列表成功",
-        friends: friends,
-      });
+      res.status(200).json(friends);
     } catch (err) {
       console.error("获取好友列表失败", err);
       res.status(500).json({ message: "服务器内部错误" });
@@ -151,18 +149,18 @@ class UserController {
         return res.status(404).json({ message: "用户不存在" });
       }
 
-      if (user.Friends.includes(friendId)) {
+      if (user.Friends.some(friend => friend.uID === friendId)) {
         return res.status(400).json({ message: "已经是好友关系" });
       }
 
       await Users.updateOne(
         { uID: userId },
-        { $push: { Friends: friendId } }
+        { $push: { Friends: { uID: friendId } } }
       );
 
       await Users.updateOne(
         { uID: friendId },
-        { $push: { Friends: userId } }
+        { $push: { Friends: { uID: userId } } }
       );
 
       res.status(200).json({ message: "添加好友成功" });
@@ -189,6 +187,41 @@ class UserController {
       });
     } catch (err) {
       console.error("更新头像失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 删除好友
+  static async deleteFriend(req, res) {
+    try {
+      const { friendId } = req.params;
+      const userId = req.user.userId;
+
+      if (userId === friendId) {
+        return res.status(400).json({ message: "不能删除自己" });
+      }
+
+      const user = await Users.findOne({ uID: userId });
+      const friend = await Users.findOne({ uID: friendId });
+
+      if (!user || !friend) {
+        return res.status(404).json({ message: "用户不存在" });
+      }
+
+      // 双向删除好友关系
+      await Users.updateOne(
+        { uID: userId },
+        { $pull: { Friends: { uID: friendId } } }
+      );
+
+      await Users.updateOne(
+        { uID: friendId },
+        { $pull: { Friends: { uID: userId } } }
+      );
+
+      res.status(200).json({ message: "删除好友成功" });
+    } catch (err) {
+      console.error("删除好友失败", err);
       res.status(500).json({ message: "服务器内部错误" });
     }
   }

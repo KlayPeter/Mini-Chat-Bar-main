@@ -1,4 +1,4 @@
-<template>
+6<template>
   <div class="box">
     <div class="main">
       <div class="header">

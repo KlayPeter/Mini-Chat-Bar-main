@@ -32,4 +32,7 @@ router.post("/add", auth, UserController.addFriend);
 //更新用户头像
 router.put("/avatar", auth, UserController.updateAvatar);
 
+//删除好友
+router.delete("/friend/:friendId", auth, UserController.deleteFriend);
+
 module.exports = router;

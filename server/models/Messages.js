@@ -21,7 +21,12 @@ const msgSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    forwardedFrom: String // 转发来源用户名
+    forwardedFrom: String, // 转发来源用户名
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    readTime: Date // 已读时间
 })
 
 // 为content字段创建文本索引，支持全文搜索

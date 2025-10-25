@@ -24,7 +24,7 @@ class ChatController {
       };
       
       const users = await Users.find(userQuery)
-        .select('uName email uAvatar')
+        .select('uID uName email uAvatar')
         .skip(skip)
         .limit(parseInt(limit))
         .lean();
@@ -210,7 +210,8 @@ class ChatController {
         time: new Date(),
         fileInfo: fileInfo,
         isForwarded: isForwarded,
-        forwardedFrom: forwardedFrom
+        forwardedFrom: forwardedFrom,
+        isRead: false // 新消息默认为未读
       });
 
       const savedMessage = await newMessage.save();
@@ -289,6 +290,90 @@ class ChatController {
       res.status(200).json({ message: "消息批量删除成功" });
     } catch (err) {
       console.error("批量删除消息失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 标记消息为已读
+  static async markMessagesAsRead(req, res) {
+    try {
+      const { fromUserId } = req.params;
+      const currentUserId = req.user.userId;
+
+      // 标记所有来自fromUserId发送给当前用户的未读消息为已读
+      const result = await Msg.updateMany(
+        {
+          from: fromUserId,
+          to: currentUserId,
+          isRead: false
+        },
+        {
+          $set: {
+            isRead: true,
+            readTime: new Date()
+          }
+        }
+      );
+
+      res.status(200).json({
+        message: "消息已标记为已读",
+        modifiedCount: result.modifiedCount
+      });
+    } catch (err) {
+      console.error("标记消息为已读失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 获取未读消息数量
+  static async getUnreadCount(req, res) {
+    try {
+      const { fromUserId } = req.params;
+      const currentUserId = req.user.userId;
+
+      const count = await Msg.countDocuments({
+        from: fromUserId,
+        to: currentUserId,
+        isRead: false
+      });
+
+      res.status(200).json({ count });
+    } catch (err) {
+      console.error("获取未读消息数量失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 获取所有好友的未读消息数量
+  static async getAllUnreadCounts(req, res) {
+    try {
+      const currentUserId = req.user.userId;
+
+      // 聚合查询,按发送者分组统计未读消息数量
+      const unreadCounts = await Msg.aggregate([
+        {
+          $match: {
+            to: currentUserId,
+            isRead: false
+          }
+        },
+        {
+          $group: {
+            _id: "$from",
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // 转换为对象格式 { userId: count }
+      const result = {};
+      unreadCounts.forEach(item => {
+        result[item._id] = item.count;
+      });
+
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("获取所有未读消息数量失败", err);
       res.status(500).json({ message: "服务器内部错误" });
     }
   }

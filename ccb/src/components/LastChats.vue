@@ -68,16 +68,12 @@
             <button @click="hideAvatarSelector" class="cancel-btn">取消</button>
           </div>
         </div>
-        <div class="avatar-selector-overlay" @click="hideAvatarSelector"></div>
+        <div v-if="avatarSelector.show" class="avatar-selector-overlay" @click="hideAvatarSelector"></div>
       </div>
       <div class="friendname">{{ username ? username : "游客" }}</div>
-      <div class="status" :class="statu === 'occupied' ? 'busy' : ''">
-        <div class="sta">
-          <select name="status" id="statusbox" v-model="statu">
-            <option value="available" class="aval">available</option>
-            <option value="occupied" class="occu">occupied</option>
-          </select>
-        </div>
+      <div class="status-display" @click="toggleStatus" :title="statu === 'available' ? '在线' : '忙碌'">
+        <span class="status-dot" :class="statu === 'occupied' ? 'busy' : 'online'"></span>
+        <span class="status-text">{{ statu === 'available' ? '在线' : '忙碌' }}</span>
       </div>
       <div class="search">
         <input 
@@ -162,18 +158,19 @@
         <li
           class="chat-item"
           v-for="friend in friends"
+          :key="friend.id"
           @click="switchChat(friend)"
           @contextmenu.prevent="showContextMenu($event, friend)"
         >
           <div class="avatar-box">
+            <div v-if="friend.unreadCount > 0" class="unread-badge">{{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}</div>
             <div class="avatar-small">
-              <div :class="{ tips: friend.isNewmsg }"></div>
               <img :src="friend.avatar" alt="图片" />
             </div>
           </div>
           <div class="detail">
             <div class="name">{{ friend.name }}</div>
-            <div class="info">{{ friend.lastMessage }}</div>
+            <div class="info" :class="{ 'unread-text': friend.unreadCount > 0 }">{{ friend.lastMessage }}</div>
           </div>
           <div class="time">{{ formatDate(friend.lastTime) }}</div>
         </li>
@@ -224,6 +221,11 @@ import { watch } from "vue";
 
 const statu = ref("available");
 const issetting = ref(false);
+
+// 切换在线状态
+function toggleStatus() {
+  statu.value = statu.value === 'available' ? 'occupied' : 'available';
+}
 const friends = ref([]);
 const From = ref("");
 
@@ -299,13 +301,31 @@ function toApricot() {
 }
 
 // UI切换聊天页
-function switchChat(friend) {
+async function switchChat(friend) {
   chatStore.switchChatUser(friend.id);
   emit("todetail", { uname: friend.name, img: friend.avatar, userId: friend.id });
-
-  // 直接将当前点击的 friend 标记为已读
-  if (friend) {
-    friend.isNewmsg = false;
+  
+  // 标记消息为已读
+  if (friend && friend.unreadCount > 0) {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${import.meta.env.VITE_BASE_URL}/api/chat/read/${friend.id}`,
+        {},
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      // 清除未读标记
+      friend.unreadCount = 0;
+      
+      console.log(`已标记与 ${friend.name} 的消息为已读`);
+    } catch (err) {
+      console.error("标记消息为已读失败:", err);
+    }
   }
 }
 
@@ -324,7 +344,7 @@ function formatDate(dateStr) {
 async function getinfo() {
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/user/info`, {
+    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/info`, {
       headers: {
         authorization: `Bearer ${token}`,
       },
@@ -346,7 +366,7 @@ async function getinfo() {
 async function getfriends() {
   try {
     const token = localStorage.getItem("token");
-    const res = await axios(`${import.meta.env.VITE_BASE_URL}/user/friends`, {
+    const res = await axios(`${import.meta.env.VITE_BASE_URL}/api/user/friends`, {
       headers: {
         authorization: `Bearer ${token}`,
       },
@@ -354,10 +374,20 @@ async function getfriends() {
 
     const newFriends = Array.isArray(res.data) ? res.data : [];
 
-    const lastMsgPromises = newFriends.map((friend) =>
+    // 转换后端数据结构为前端期望的结构
+    const transformedFriends = newFriends.map(friend => ({
+      id: friend.uID,
+      name: friend.uName,
+      avatar: friend.uAvatar,
+      uID: friend.uID,
+      uName: friend.uName,
+      uAvatar: friend.uAvatar
+    }));
+
+    const lastMsgPromises = transformedFriends.map((friend) =>
       axios
         .get(
-          `${import.meta.env.VITE_BASE_URL}/chat/last_message/${friend.id}`,
+          `${import.meta.env.VITE_BASE_URL}/api/chat/last_message/${friend.id}`,
           {
             headers: {
               authorization: `Bearer ${token}`,
@@ -377,25 +407,47 @@ async function getfriends() {
 
     const lastMessages = await Promise.all(lastMsgPromises);
 
-    newFriends.forEach((friend) => {
+    transformedFriends.forEach((friend) => {
       const msg = lastMessages.find((m) => m.id === friend.id);
       const existingFriend = friends.value.find(f => f.id === friend.id);
       Object.assign(friend, {
         lastMessage: msg?.lastMessage || "",
         lastTime: msg?.lastTime || "",
-        isNewmsg: existingFriend ? existingFriend.isNewmsg : false, // 保留现有的isNewmsg状态
+        unreadCount: existingFriend ? existingFriend.unreadCount : 0, // 保留未读数量
       });
     });
 
-    friends.value = [...newFriends]
-      .filter((friend) => friend.lastMessage !== "")
-      .sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime)); // 按时间倒序排列
+    // 获取所有好友的未读消息数量
+    try {
+      const token = localStorage.getItem("token");
+      const unreadRes = await axios.get(
+        `${import.meta.env.VITE_BASE_URL}/api/chat/unread`,
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      // 更新每个好友的未读消息数量
+      const unreadCounts = unreadRes.data;
+      transformedFriends.forEach(friend => {
+        friend.unreadCount = unreadCounts[friend.id] || 0;
+      });
+      
+      console.log('未读消息数量:', unreadCounts);
+    } catch (err) {
+      console.error("获取未读消息数量失败:", err);
+    }
+
+    friends.value = [...transformedFriends]
+      .sort((a, b) => new Date(b.lastTime || 0) - new Date(a.lastTime || 0)); // 按时间倒序排列，包含所有好友
   } catch (err) {
     console.error("初始化联系人或消息失败:", err);
   }
 }
 
-async function updateFriendMessage(fromUserId) {
+async function updateFriendMessage(fromUserId, showRedDot = true) {
   const senderIndex = friends.value.findIndex(
     (friend) => friend.id === fromUserId
   );
@@ -403,7 +455,7 @@ async function updateFriendMessage(fromUserId) {
     try {
       const token = localStorage.getItem("token");
       const msgRes = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/chat/last_message/${fromUserId}`,
+        `${import.meta.env.VITE_BASE_URL}/api/chat/last_message/${fromUserId}`,
         {
           headers: {
             authorization: `Bearer ${token}`,
@@ -411,10 +463,27 @@ async function updateFriendMessage(fromUserId) {
         }
       );
 
-      friends.value[senderIndex].isNewmsg = true;
       friends.value[senderIndex].lastMessage = msgRes.data.content || "";
       friends.value[senderIndex].lastTime = msgRes.data.time || "";
 
+      // 获取未读消息数量
+      if (showRedDot && chatStore.currentChatUser?.toString() !== fromUserId?.toString()) {
+        const unreadRes = await axios.get(
+          `${import.meta.env.VITE_BASE_URL}/api/chat/unread/${fromUserId}`,
+          {
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        friends.value[senderIndex].unreadCount = unreadRes.data.count;
+      }
+
+      console.log(`更新 ${friends.value[senderIndex].name} 的最后消息`, {
+        lastMessage: msgRes.data.content,
+        unreadCount: friends.value[senderIndex].unreadCount
+      });
+      
       // 重新按时间排序
       friends.value.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
     } catch (err) {
@@ -422,10 +491,11 @@ async function updateFriendMessage(fromUserId) {
         `收到新消息通知后，获取用户 ${fromUserId} 最新消息失败:`,
         err
       );
-      friends.value[senderIndex].isNewmsg = true;
     }
   } else {
-    console.warn(`未找到 ID 为 ${fromUserId} 的朋友在 friends 列表中。`);
+    console.warn(`未找到 ID 为 ${fromUserId} 的朋友在 friends 列表中。可能需要刷新好友列表`);
+    // 如果好友列表中没有这个人，刷新整个好友列表
+    await getfriends();
   }
 }
 
@@ -433,11 +503,17 @@ onMounted(async () => {
   await getinfo();
   await getfriends();
 
-  socket.on("private-message", ({ from }) => {
+  socket.on("private-message", ({ from, to }) => {
     From.value = from;
-    // 只有当消息不是来自当前用户自己时，才显示红点提醒
-    if (from.toString() !== userid.value.toString()) {
+    console.log('收到消息通知:', { from, to, currentUser: userid.value });
+    
+    // 确保消息是发给当前用户的，或者是当前用户发送的
+    if (to.toString() === userid.value.toString()) {
+      // 收到别人发来的消息，显示小红点
       updateFriendMessage(from);
+    } else if (from.toString() === userid.value.toString()) {
+      // 自己发送的消息，更新lastChat但不显示小红点
+      updateFriendMessage(to, false);
     }
   });
 
@@ -491,7 +567,7 @@ async function clearAllChats() {
   if (confirm("确定要清空所有聊天记录吗？此操作不可恢复！")) {
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`${import.meta.env.VITE_BASE_URL}/chat/messages`, {
+      await axios.delete(`${import.meta.env.VITE_BASE_URL}/api/chat/messages`, {
         headers: {
           authorization: `Bearer ${token}`,
         },
@@ -514,7 +590,7 @@ async function deleteChatWith(friend) {
     try {
       const token = localStorage.getItem("token");
       await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/chat/messages/${friend.id}`,
+        `${import.meta.env.VITE_BASE_URL}/api/chat/messages/${friend.id}`,
         {
           headers: {
             authorization: `Bearer ${token}`,
@@ -590,7 +666,7 @@ async function handleAvatarUpload(event) {
 
     // 更新用户头像
     const res = await axios.put(
-      `${import.meta.env.VITE_BASE_URL}/user/avatar`,
+      `${import.meta.env.VITE_BASE_URL}/api/user/avatar`,
       { avatarUrl },
       {
         headers: {
@@ -639,7 +715,7 @@ async function selectAvatar(avatarUrl) {
   try {
     const token = localStorage.getItem("token");
     const res = await axios.put(
-      `${import.meta.env.VITE_BASE_URL}/user/avatar`,
+      `${import.meta.env.VITE_BASE_URL}/api/user/avatar`,
       { avatarUrl },
       {
         headers: {
@@ -702,7 +778,7 @@ async function handleSearch() {
       const token = localStorage.getItem("token");
       
       // 只调用用户搜索接口
-      const response = await axios.get("http://localhost:3000/chat/search/users", {
+      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/chat/search/users`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           keyword: searchKeyword.value,
@@ -995,39 +1071,56 @@ onBeforeUnmount(() => {
   /* margin-bottom: 0.5rem; */
 }
 
-.status {
-  width: 150px;
-  padding: 0.5rem;
+/* 新的状态显示样式 */
+.status-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
   border-radius: 20px;
-  background-color: rgba(127, 255, 212, 0.3);
+  background-color: rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: fit-content;
 
-  select {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: green;
-    padding: 0.25rem;
-    cursor: pointer;
-    font-weight: bolder;
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    transform: scale(1.05);
   }
 
-  &.busy {
-    background-color: #f5f2f7;
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
 
-    select {
-      color: red;
+    &.online {
+      background-color: #4caf50;
+      box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+    }
+
+    &.busy {
+      background-color: #ff5252;
+      box-shadow: 0 0 8px rgba(255, 82, 82, 0.6);
     }
   }
+
+  .status-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #666;
+  }
 }
 
-.aval {
-  color: green;
-  background-color: #ccffeb;
-}
-.occu {
-  color: red;
-  background-color: #f8f1e4;
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
 }
 
 .search {
@@ -1221,20 +1314,30 @@ onBeforeUnmount(() => {
   }
 }
 
-.tips {
+/* 未读消息徽章 - 微信风格 */
+.unread-badge {
   position: absolute;
   color: white;
-  top: 0;
-  right: 0;
-  background-color: red;
-  border-radius: 50%;
-  height: 25%;
-  aspect-ratio: 1/1;
+  top: -4px;
+  right: -4px;
+  background-color: #ff4444;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: small;
-  transform: translate(50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  z-index: 10;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.unread-text {
+  font-weight: 600 !important;
+  color: #333 !important;
 }
 
 .detail {
@@ -1325,6 +1428,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
+  z-index: 1000; /* 确保覆盖层不会阻止其他元素的交互 */
 }
 
 .avatar-selector-content {

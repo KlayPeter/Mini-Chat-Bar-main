@@ -18,6 +18,7 @@ if (!fs.existsSync(thumbnailDir)) {
     fs.mkdirSync(thumbnailDir, { recursive: true })
 }
 
+
 // 配置multer存储
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {

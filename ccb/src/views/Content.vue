@@ -35,28 +35,33 @@
             "
             @click="toggleMessageSelection(index)"
           >
-            <!-- 多选模式下的选择框 -->
-            <div v-if="isSelectionMode" class="message-checkbox">
-              <input
-                type="checkbox"
-                :checked="selectedMessages.includes(index)"
-                @change="toggleMessageSelection(index)"
-                @click.stop
-              />
-            </div>
+            <!-- 消息时间 - 独立居中显示在最上方 -->
+            <div class="message-time-header">{{ formatMessageTime(message.time) }}</div>
 
-            <!-- 对方消息：头像在左边 -->
-            <div
-              class="avatar"
-              v-if="message.from === chatstore.currentChatUser"
-            >
-              <img :src="avatar || '/images/avatar/out.webp'" alt="头像" />
-            </div>
+            <!-- 消息内容行 -->
+            <div class="message-content-row" :class="{ 'my-message-row': message.from !== chatstore.currentChatUser }">
+              <!-- 多选模式下的选择框 -->
+              <div v-if="isSelectionMode" class="message-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="selectedMessages.includes(index)"
+                  @change="toggleMessageSelection(index)"
+                  @click.stop
+                />
+              </div>
 
-            <div
-              class="text"
-              :class="{ me: message.from !== chatstore.currentChatUser }"
-            >
+              <!-- 对方消息：头像在左边 -->
+              <div
+                class="avatar"
+                v-if="message.from === chatstore.currentChatUser"
+              >
+                <img :src="avatar || '/images/avatar/out.webp'" alt="头像" />
+              </div>
+
+              <div
+                class="text"
+                :class="{ me: message.from !== chatstore.currentChatUser }"
+              >
               <!-- 消息内容 -->
               <!-- 文件和图片消息直接显示，不在content容器内 -->
               <template
@@ -182,14 +187,15 @@
               <div v-else class="content">
                 {{ message.content }}
               </div>
-            </div>
+              </div>
 
-            <!-- 自己消息：头像在右边 -->
-            <div
-              class="avatar"
-              v-if="message.from !== chatstore.currentChatUser"
-            >
-              <img :src="myAvatar || '/images/avatar/out.webp'" alt="头像" />
+              <!-- 自己消息：头像在右边 -->
+              <div
+                class="avatar"
+                v-if="message.from !== chatstore.currentChatUser"
+              >
+                <img :src="myAvatar || '/images/avatar/out.webp'" alt="头像" />
+              </div>
             </div>
           </li>
         </ul>
@@ -674,16 +680,17 @@ onMounted(() => {
 //拿对方头像
 async function getavatar() {
   const res = await axios.get(
-    `${baseUrl}/user/friend_avatar/${chatstore.currentChatUser}`
+    `${baseUrl}/api/user/friend_avatar/${chatstore.currentChatUser}`
   );
-  avatar.value = res.data.ava;
+  avatar.value = res.data.avatar || '/images/avatar/default-avatar.webp';
+  console.log('获取到对方头像:', avatar.value);
 }
 
 //获取自己的头像
 async function getMyAvatar() {
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.get(`${baseUrl}/user/info`, {
+    const res = await axios.get(`${baseUrl}/api/user/info`, {
       headers: {
         authorization: `Bearer ${token}`,
       },
@@ -694,12 +701,66 @@ async function getMyAvatar() {
   }
 }
 
+// 时间格式化函数 - 类似微信的逻辑
+function formatMessageTime(dateStr) {
+  if (!dateStr) return "";
+  
+  const date = new Date(dateStr);
+  const currentDate = new Date();
+  
+  // 检查是否是无效日期
+  if (isNaN(date.getTime())) return "";
+  
+  // 今天：显示时间（如 14:30）
+  if (date.toDateString() === currentDate.toDateString()) {
+    return date.toLocaleTimeString("zh-CN", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    });
+  }
+  
+  // 昨天：显示"昨天 时间"
+  const yesterday = new Date(currentDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `昨天 ${date.toLocaleTimeString("zh-CN", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    })}`;
+  }
+  
+  // 本周内：显示星期几和时间
+  const weekStart = new Date(currentDate);
+  weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+  if (date >= weekStart) {
+    const weekDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    return `${weekDays[date.getDay()]} ${date.toLocaleTimeString("zh-CN", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    })}`;
+  }
+  
+  // 今年内：显示月-日 时间
+  if (date.getFullYear() === currentDate.getFullYear()) {
+    return `${date.getMonth() + 1}月${date.getDate()}日 ${date.toLocaleTimeString("zh-CN", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    })}`;
+  }
+  
+  // 其他：显示年-月-日 时间
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.toLocaleTimeString("zh-CN", { 
+    hour: "2-digit", 
+    minute: "2-digit" 
+  })}`;
+}
+
 //拿对话消息
 async function getlists() {
   try {
     const token = localStorage.getItem("token");
     const res = await axios.get(
-      `${baseUrl}/chat/messages/${chatstore.currentChatUser}`,
+      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     messages.value = res.data;
@@ -816,7 +877,7 @@ async function uploadFiles(textMessage = "") {
 
       // 发送文件消息到后端
       await axios.post(
-        `${baseUrl}/chat/messages/${chatstore.currentChatUser}`,
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
         {
           content: messageContent,
           messageType: messageType,
@@ -848,8 +909,12 @@ async function uploadFiles(textMessage = "") {
         fileType: fileInfo.fileType,
         messageType: messageType,
       });
-      // 触发好友列表刷新，更新lastChat
-      socket.emit("refresh-friend-list");
+      
+      // 通知接收方有新消息(用于更新lastChat)
+      socket.emit("private-message", { 
+        to: chatstore.currentChatUser,
+        from: localStorage.getItem("userId")
+      });
     }
 
     // 清理所有预览URL和文件选择
@@ -908,7 +973,7 @@ async function send(e) {
       const token = localStorage.getItem("token");
       const messageContent = new_message.value;
       const res = await axios.post(
-        `${baseUrl}/chat/messages/${chatstore.currentChatUser}`,
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
         { content: messageContent },
         {
           headers: {
@@ -929,9 +994,11 @@ async function send(e) {
 
       new_message.value = "";
 
-      socket.emit("private-message", { to: chatstore.currentChatUser });
-      // 触发好友列表刷新，更新lastChat
-      socket.emit("refresh-friend-list");
+      // 通知对方有新消息
+      socket.emit("private-message", { 
+        to: chatstore.currentChatUser,
+        from: localStorage.getItem("userId")
+      });
 
       nextTick(() => {
         const el = messageList.value;
@@ -1007,7 +1074,7 @@ async function deleteCurrentChat() {
     try {
       const token = localStorage.getItem("token");
       await axios.delete(
-        `${baseUrl}/chat/messages/${chatstore.currentChatUser}`,
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1112,7 +1179,7 @@ async function deleteSingleMessage(index) {
       const message = messages.value[index];
 
       // 调用删除单条消息的API
-      await axios.delete(`${baseUrl}/chat/message/${message._id}`, {
+      await axios.delete(`${baseUrl}/api/chat/message/${message._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -1147,7 +1214,7 @@ async function deleteSelectedMessages() {
       for (const index of sortedIndexes) {
         const message = messages.value[index];
         // 调用API删除消息
-        await axios.delete(`${baseUrl}/chat/message/${message._id}`, {
+        await axios.delete(`${baseUrl}/api/chat/message/${message._id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -1175,7 +1242,7 @@ async function deleteSelectedMessages() {
 async function loadForwardFriends() {
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.get(`${baseUrl}/user/friends`, {
+    const res = await axios.get(`${baseUrl}/api/user/friends`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     forwardFriends.value = res.data;
@@ -1240,7 +1307,7 @@ async function confirmForward() {
 
         // 发送转发的消息
         await axios.post(
-          `${baseUrl}/chat/messages/${friendId}`,
+          `${baseUrl}/api/chat/messages/${friendId}`,
           {
             content: forwardedContent,
             messageType: message.messageType || "text",
@@ -1734,10 +1801,52 @@ watch(showPicker, (newValue) => {
 /* 消息容器基础样式 */
 .message {
   display: flex;
-  flex-direction: row;
-  // align-items: flex-end;
+  flex-direction: column;
   padding-bottom: 10px;
   transition: background-color 0.3s ease;
+
+  /* 消息时间头部 - 居中显示 */
+  .message-time-header {
+    text-align: center;
+    font-size: 12px;
+    color: #b2b2b2;
+    margin: 8px 0 10px;
+    padding: 2px 0;
+  }
+
+  /* 消息内容行 - 头像+消息横向排列 */
+  .message-content-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 0 10px;
+    
+    /* 对方的消息：头像在左 */
+    .avatar {
+      order: 1;
+      margin-right: 0;
+    }
+    
+    .text {
+      order: 2;
+    }
+    
+    /* 自己发送的消息：消息+头像 */
+    &.my-message-row {
+      justify-content: flex-end;
+      
+      .text {
+        order: 1;
+      }
+      
+      .avatar {
+        order: 2;
+        margin-left: 0;
+        margin-right: 0;
+      }
+    }
+  }
 
   /* 高亮消息样式 */
   &.highlight-message {
@@ -1746,22 +1855,6 @@ watch(showPicker, (newValue) => {
     padding: 8px;
     margin: 2px 0;
     animation: highlight-pulse 0.6s ease-in-out;
-  }
-
-  /* 自己发送的消息：头像在右边 */
-  &.my-message {
-    .avatar {
-      margin-left: 10px;
-      margin-right: 0;
-    }
-  }
-
-  /* 对方发送的消息头像左边距 */
-  &:not(.my-message) {
-    .avatar {
-      margin-right: 10px;
-      margin-left: 0;
-    }
   }
 
   .avatar {
@@ -1816,6 +1909,24 @@ watch(showPicker, (newValue) => {
       background-color: rgba(165, 42, 42, 0.8);
       color: white;
     }
+  }
+
+  /* 消息时间显示样式 */
+  .message-time {
+    font-size: 12px;
+    color: #999;
+    text-align: center;
+    margin: 8px auto;
+    padding: 4px 12px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    display: block;
+    width: fit-content;
+    max-width: 200px;
+    word-break: keep-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .content {

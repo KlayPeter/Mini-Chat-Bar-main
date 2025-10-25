@@ -71,8 +71,14 @@ const router = createRouter({
 router.beforeEach((to,from,next)=>{
   const isLoggedIn = localStorage.getItem('token')
   
+  // 如果访问需要认证的页面但没有token,跳转到登录页
   if(to.meta.requiresAuth && !isLoggedIn){
+    console.log('未登录,跳转到登录页')
     next("/login")
+  }
+  // 如果已登录但访问登录页,跳转到首页
+  else if(to.path === '/login' && isLoggedIn){
+    next("/")
   }
   else{
     next()

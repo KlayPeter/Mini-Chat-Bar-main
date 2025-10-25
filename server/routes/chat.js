@@ -27,4 +27,13 @@ router.delete("/messages/:id", auth, ChatController.deleteMessagesWithUser)
 // 批量删除消息
 router.delete("/messages", auth, ChatController.deleteMultipleMessages)
 
+// 标记消息为已读
+router.put("/read/:fromUserId", auth, ChatController.markMessagesAsRead)
+
+// 获取未读消息数量
+router.get("/unread/:fromUserId", auth, ChatController.getUnreadCount)
+
+// 获取所有好友的未读消息数量
+router.get("/unread", auth, ChatController.getAllUnreadCounts)
+
 module.exports = router

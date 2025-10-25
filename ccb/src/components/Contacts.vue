@@ -34,46 +34,139 @@
       </div>
       
       <!-- 显示搜索结果或好友列表 -->
-      <ul class="chat-list" v-if="!searchKeyword || searchKeyword.trim() === ''">
-        <li
-          class="chat-item"
-          v-for="friend in friends"
-          @click="switchChat(friend)"
-        >
-          <div class="avatar-box">
-            <div class="avatar-small">
-              <div :class="{ tips: friend.isNewmsg }"></div>
-              <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
+      <div v-if="!searchKeyword || searchKeyword.trim() === ''">
+        <!-- 好友列表 -->
+        <ul class="chat-list" v-if="friends.length > 0">
+          <li
+            class="chat-item"
+            v-for="friend in friends"
+            :key="friend.id"
+            @click="switchChat(friend)"
+            @contextmenu.prevent="showContextMenu($event, friend)"
+          >
+            <div class="avatar-box">
+              <div class="avatar-small">
+                <div :class="{ tips: friend.isNewmsg }"></div>
+                <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
+              </div>
             </div>
-          </div>
-          <div class="detail">
-            <div class="name">{{ friend.name }}</div>
-          </div>
-        </li>
-      </ul>
+            <div class="detail">
+              <div class="name">{{ friend.name }}</div>
+            </div>
+          </li>
+        </ul>
+        
+        <!-- 空状态提示 -->
+        <div v-else class="empty-state">
+          <div class="empty-icon">👥</div>
+          <p class="empty-text">暂无好友</p>
+          <p class="empty-subtext">点击右上角"+"按钮添加好友</p>
+        </div>
+      </div>
       
-      <!-- 搜索结果列表 -->
-      <ul class="chat-list" v-else-if="filteredFriends.length > 0">
-        <li
-          class="chat-item"
-          v-for="friend in filteredFriends"
-          @click="switchChat(friend)"
-        >
-          <div class="avatar-box">
-            <div class="avatar-small">
-              <div :class="{ tips: friend.isNewmsg }"></div>
-              <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
-            </div>
+      <!-- 搜索中提示 -->
+      <div v-else-if="isSearching" class="search-status">
+        <div class="loading">搜索中...</div>
+      </div>
+      
+      <!-- 用户搜索结果列表 -->
+      <div v-else-if="searchResults.length > 0" class="search-results-container">
+        <div class="search-section">
+          <div class="search-section-header">
+            <span class="section-title">搜索结果</span>
+            <span class="section-count">{{ searchResults.length }}</span>
           </div>
-          <div class="detail">
-            <div class="name" v-html="friend.highlightedName || friend.name"></div>
-          </div>
-        </li>
-      </ul>
+          <ul class="search-results-list">
+            <li
+              v-for="user in searchResults"
+              :key="'user-' + user._id"
+              class="search-result-item user-result"
+              :class="{ 'already-friend-item': user.isAlreadyFriend }"
+              @click="user.isAlreadyFriend ? null : showAddFriendDialog(user)"
+            >
+              <div class="avatar-box">
+                <div class="avatar-small">
+                  <img :src="user.uAvatar || '/images/avatar/default-avatar.webp'" alt="头像" />
+                </div>
+              </div>
+              <div class="detail">
+                <div class="name" v-html="user.highlightedName || user.uName || user.name"></div>
+                <div class="info" :class="{ 'already-friend': user.isAlreadyFriend }">
+                  {{ user.isAlreadyFriend ? '已经是好友' : '点击添加好友' }}
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
       
       <!-- 无搜索结果 -->
       <div v-else-if="searchKeyword.trim() !== ''" class="no-results">
-        <p>未找到匹配的联系人</p>
+        <p>未找到相关用户</p>
+      </div>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="contextMenu.show"
+      class="context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+    >
+      <div class="context-menu-item" @click="deleteFriend">
+        <img
+          src="/images/icon/delete-2.png"
+          alt="删除"
+          style="width: 16px; height: 16px"
+        />
+        删除好友
+      </div>
+    </div>
+
+    <!-- 遮罩层，点击关闭菜单 -->
+    <div
+      v-if="contextMenu.show"
+      class="context-menu-overlay"
+      @click="hideContextMenu"
+    ></div>
+  </div>
+
+  <!-- 添加好友弹窗 -->
+  <div v-if="showAddFriendModal" class="modal-overlay" @click="closeAddFriendDialog">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>添加好友</h3>
+        <button class="close-btn" @click="closeAddFriendDialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="user-info">
+          <img 
+            :src="selectedUser.uAvatar || '/images/avatar/default-avatar.webp'" 
+            alt="用户头像" 
+            class="user-avatar"
+          />
+          <div class="user-details">
+            <h4>{{ selectedUser.uName || selectedUser.name }}</h4>
+            <p class="user-id">ID: {{ selectedUser._id || selectedUser.id }}</p>
+          </div>
+        </div>
+        <p class="confirm-text">确认要添加该用户为好友吗？</p>
+      </div>
+      <div class="modal-footer">
+        <button 
+          class="btn-cancel" 
+          @click="closeAddFriendDialog"
+          :disabled="isAddingFriend"
+        >
+          取消
+        </button>
+        <button 
+          class="btn-confirm" 
+          @click="confirmAddFriend"
+          :disabled="isAddingFriend"
+        >
+          {{ isAddingFriend ? '添加中...' : '确认添加' }}
+        </button>
       </div>
     </div>
   </div>
@@ -81,17 +174,29 @@
 
 <script setup>
 import axios from "axios";
-import { ref } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { defineEmits } from "vue";
-import { onMounted } from "vue";
 import { useChatStore } from "../stores/useChatStore";
 
 const friends = ref([]);
 const friend_name = ref("");
 const searchKeyword = ref("");
 const filteredFriends = ref([]);
+const searchResults = ref([]);
+const isSearching = ref(false);
 
 const newfriend = ref(false);
+const showAddFriendModal = ref(false);
+const selectedUser = ref(null);
+const isAddingFriend = ref(false);
+
+// 右键菜单状态
+const contextMenu = ref({
+  show: false,
+  x: 0,
+  y: 0,
+  friend: null,
+});
 
 const chatStore = useChatStore();
 
@@ -114,9 +219,9 @@ async function friend_request() {
     const name = friend_name.value;
     friend_name.value = "";
     const res = await axios.post(
-      `${import.meta.env.VITE_BASE_URL}/user/add`,
+      `${import.meta.env.VITE_BASE_URL}/api/user/add`,
       {
-        content: name,
+        friendId: name,
       },
       {
         headers: {
@@ -131,42 +236,130 @@ async function friend_request() {
 }
 
 // 搜索联系人功能
-function handleSearch() {
-  if (!searchKeyword.value || searchKeyword.value.trim() === '') {
+let searchTimeout = null;
+async function handleSearch() {
+  // 清除之前的搜索定时器
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // 如果搜索关键词为空，清空搜索结果
+  if (!searchKeyword.value.trim()) {
     filteredFriends.value = [];
+    searchResults.value = [];
+    isSearching.value = false;
     return;
   }
   
-  const keyword = searchKeyword.value.toLowerCase();
-  filteredFriends.value = friends.value.filter(friend => 
-    friend.name.toLowerCase().includes(keyword)
-  ).map(friend => {
-    // 高亮匹配的文本
-    const name = friend.name;
-    const index = name.toLowerCase().indexOf(keyword);
-    if (index !== -1) {
-      const highlightedName = name.substring(0, index) + 
-        '<span style="background-color: yellow;">' + 
-        name.substring(index, index + keyword.length) + 
-        '</span>' + 
-        name.substring(index + keyword.length);
-      return { ...friend, highlightedName };
+  // 设置搜索状态
+  isSearching.value = true;
+  
+  // 防抖处理，500ms后执行搜索
+  searchTimeout = setTimeout(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // 调用用户搜索接口
+      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/chat/search/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          keyword: searchKeyword.value,
+          page: 1,
+          limit: 20
+        }
+      });
+      
+      console.log("用户搜索响应:", response.data);
+      
+      if (response.data && response.data.success) {
+        const userResults = response.data.data.results || [];
+        
+        // 检测哪些用户已经是好友
+        const currentFriendIds = new Set(friends.value.map(friend => friend.id));
+        
+        // 为用户结果添加类型标识和好友状态
+        searchResults.value = userResults.map(user => ({
+          ...user,
+          resultType: 'user',
+          isAlreadyFriend: currentFriendIds.has(user._id || user.id)
+        }));
+      } else {
+        console.error("搜索失败:", response.data?.message || "未知错误");
+        searchResults.value = [];
+      }
+      
+    } catch (error) {
+      console.error("搜索请求失败:", error.response?.data || error.message);
+      searchResults.value = [];
+    } finally {
+      isSearching.value = false;
     }
-    return friend;
-  });
+  }, 500);
 }
 
-// UI切换聊天页
-function switchChat(friend) {
-  chatStore.switchChatUser(friend.id);
-  emit("todetail", { uname: friend.name, img: friend.img });
+// 显示添加好友弹窗
+function showAddFriendDialog(user) {
+  selectedUser.value = user;
+  showAddFriendModal.value = true;
 }
 
-// 初始化 friends 数组（获取好友基本信息和最近聊天内容）
-onMounted(async () => {
+// 关闭添加好友弹窗
+function closeAddFriendDialog() {
+  showAddFriendModal.value = false;
+  selectedUser.value = null;
+  isAddingFriend.value = false;
+}
+
+// 确认添加好友
+async function confirmAddFriend() {
+  if (!selectedUser.value || isAddingFriend.value) return;
+  
+  isAddingFriend.value = true;
+  
   try {
     const token = localStorage.getItem("token");
-    const res = await axios(`${import.meta.env.VITE_BASE_URL}/user/friends`, {
+    
+    // 调试：打印用户信息
+    console.log("添加好友用户信息:", selectedUser.value);
+    
+    // 确保friendId是数字类型
+    const friendId = selectedUser.value.uID || selectedUser.value.id;
+    
+    if (!friendId) {
+      throw new Error("无法获取用户ID");
+    }
+    
+    const res = await axios.post(
+      `${import.meta.env.VITE_BASE_URL}/api/user/add`,
+      {
+        friendId: Number(friendId) // 确保是数字类型
+      },
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert(res.data.message);
+    closeAddFriendDialog();
+    
+    // 刷新好友列表
+    await initFriends();
+    
+  } catch (error) {
+    console.error("添加好友失败:", error);
+    alert(error.response?.data?.message || "添加好友失败，请重试");
+  } finally {
+    isAddingFriend.value = false;
+  }
+}
+
+// 初始化好友列表
+async function initFriends() {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios(`${import.meta.env.VITE_BASE_URL}/api/user/friends`, {
       headers: {
         authorization: `Bearer ${token}`,
       },
@@ -179,10 +372,20 @@ onMounted(async () => {
       return;
     }
 
-    const lastMsgPromises = newFriends.map((friend) =>
+    // 转换后端数据结构为前端期望的结构
+    const transformedFriends = newFriends.map(friend => ({
+      id: friend.uID,
+      name: friend.uName,
+      avatar: friend.uAvatar,
+      uID: friend.uID,
+      uName: friend.uName,
+      uAvatar: friend.uAvatar
+    }));
+
+    const lastMsgPromises = transformedFriends.map((friend) =>
       axios
         .get(
-          `${import.meta.env.VITE_BASE_URL}/chat/last_message/${friend.id}`,
+          `${import.meta.env.VITE_BASE_URL}/api/chat/last_message/${friend.id}`,
           {
             headers: {
               authorization: `Bearer ${token}`,
@@ -191,8 +394,8 @@ onMounted(async () => {
         )
         .then((msgRes) => ({
           id: friend.id,
-          lastMessage: msgRes.data.content,
-          lastTime: msgRes.data.time,
+          lastMessage: msgRes.data?.content || "",
+          lastTime: msgRes.data?.time || "",
         }))
         .catch((err) => {
           console.error(`初始化时获取${friend.name}的消息失败`, err);
@@ -202,7 +405,7 @@ onMounted(async () => {
 
     const lastMessages = await Promise.all(lastMsgPromises);
 
-    newFriends.forEach((friend) => {
+    transformedFriends.forEach((friend) => {
       const msg = lastMessages.find((m) => m.id === friend.id);
       Object.assign(friend, {
         lastMessage: msg?.lastMessage || "",
@@ -211,10 +414,75 @@ onMounted(async () => {
       });
     });
 
-    friends.value = [...newFriends]; // 确保这里是响应式更新
+    friends.value = [...transformedFriends]; // 确保这里是响应式更新
   } catch (err) {
     console.error("初始化联系人或消息失败:", err);
   }
+}
+
+// UI切换聊天页
+function switchChat(friend) {
+  chatStore.switchChatUser(friend.id);
+  emit("todetail", { uname: friend.name, img: friend.img });
+}
+
+// 显示右键菜单
+function showContextMenu(event, friend) {
+  contextMenu.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    friend: friend,
+  };
+}
+
+// 隐藏右键菜单
+function hideContextMenu() {
+  contextMenu.value.show = false;
+}
+
+// 删除好友
+async function deleteFriend() {
+  if (!contextMenu.value.friend) return;
+  
+  const friendName = contextMenu.value.friend.name;
+  const friendId = contextMenu.value.friend.id;
+  
+  if (confirm(`确定要删除好友 ${friendName} 吗？`)) {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `${import.meta.env.VITE_BASE_URL}/api/user/friend/${friendId}`,
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      alert("删除好友成功！");
+      hideContextMenu();
+      
+      // 刷新好友列表
+      await initFriends();
+    } catch (error) {
+      console.error("删除好友失败:", error);
+      alert(error.response?.data?.message || "删除好友失败，请重试");
+    }
+  }
+  hideContextMenu();
+}
+
+// 初始化 friends 数组（获取好友基本信息和最近聊天内容）
+onMounted(async () => {
+  await initFriends();
+  
+  // 点击其他地方关闭右键菜单
+  document.addEventListener("click", hideContextMenu);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", hideContextMenu);
 });
 </script>
 
@@ -654,43 +922,246 @@ onMounted(async () => {
       font-size: 1rem;
     }
   }
+}
 
-  .middle {
-    ul {
-      li {
-        padding: 0.8rem;
+/* 搜索结果样式 */
+.search-status {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  
+  .loading {
+    font-size: 0.9rem;
+  }
+}
 
-        .avatar {
-          width: 45px;
-          height: 45px;
-        }
+.search-results-container {
+  flex: 1;
+  overflow-y: auto;
+}
 
-        .text {
-          .name {
-            font-size: 0.9rem;
-          }
+.search-section {
+  margin-bottom: 1rem;
+}
 
-          .lastmsg {
-            font-size: 0.8rem;
-          }
+.search-section-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid #e0e0e0;
+  
+  .section-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+  }
+  
+  .section-count {
+    color: #666;
+    font-size: 0.8rem;
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+  }
+}
+
+.search-results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.search-result-item {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+  
+  &.user-result {
+    .detail {
+      .info {
+        color: #007bff;
+        font-size: 0.8rem;
+        
+        &.already-friend {
+          color: #28a745;
         }
       }
     }
+    
+    &.already-friend-item {
+      cursor: default;
+      opacity: 0.7;
+      
+      &:hover {
+        background-color: transparent;
+      }
+    }
   }
+}
 
-  .search {
-    padding: 0.8rem;
+/* 添加好友弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
 
-    input {
-      width: 65%;
-      padding: 0.7rem 0.8rem;
-      font-size: 0.9rem;
+.modal-content {
+  background-color: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+  padding: 1.5rem 1.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  
+  h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+      color: #333;
     }
+  }
+}
 
-    input[type="button"] {
-      padding: 0.7rem 1rem;
-      font-size: 0.8rem;
+.modal-body {
+  padding: 1.5rem;
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    
+    .user-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
     }
+    
+    .user-details {
+      h4 {
+        margin: 0 0 0.25rem;
+        font-size: 1.1rem;
+        color: #333;
+      }
+      
+      .user-id {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #666;
+      }
+    }
+  }
+  
+  .confirm-text {
+    margin: 0;
+    text-align: center;
+    color: #666;
+    font-size: 0.95rem;
+  }
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  
+  button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    &.btn-cancel {
+      background-color: #f0f0f0;
+      color: #666;
+      
+      &:hover:not(:disabled) {
+        background-color: #e0e0e0;
+      }
+    }
+    
+    &.btn-confirm {
+      background-color: #007bff;
+      color: white;
+      
+      &:hover:not(:disabled) {
+        background-color: #0056b3;
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -711,6 +1182,43 @@ onMounted(async () => {
   .search {
     padding: 0.6rem 1rem;
   }
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 150px;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background-color: #f8d7da;
+    color: #dc3545;
+  }
+}
+
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
 }
 
 /* 触摸设备优化 */
@@ -735,6 +1243,55 @@ onMounted(async () => {
   .friend_request button {
     &:active {
       transform: scale(0.9);
+    }
+  }
+}
+
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #999;
+  
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  
+  .empty-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #666;
+  }
+  
+  .empty-subtext {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-width: 300px;
+  }
+}
+
+/* 响应式空状态 */
+@media (max-width: 768px) {
+  .empty-state {
+    padding: 2rem 1rem;
+    
+    .empty-icon {
+      font-size: 2.5rem;
+    }
+    
+    .empty-text {
+      font-size: 1rem;
+    }
+    
+    .empty-subtext {
+      font-size: 0.85rem;
     }
   }
 }

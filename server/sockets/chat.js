@@ -13,13 +13,33 @@ module.exports = function(socket, io) {
     users.get(userId).add(socket.id)
   })
 
-  socket.on("private-message", ({to}) => {
-    const targetSockets = users.get(to)
+  socket.on("private-message", ({to, from}) => {
+    const senderId = from || socket.userId;
+    const targetSockets = users.get(to);
+    
     if (targetSockets && targetSockets.size > 0) {
+      console.log(`转发消息通知: ${senderId} -> ${to}`);
       // 向该用户的所有连接发送消息
       targetSockets.forEach(socketId => {
-        io.to(socketId).emit('private-message',{from:socket.userId})
-      })
+        io.to(socketId).emit('private-message', {
+          from: senderId,
+          to: to
+        });
+      });
+    }
+    
+    // 同时通知发送者自己的其他设备
+    const senderSockets = users.get(senderId);
+    if (senderSockets && senderSockets.size > 0) {
+      senderSockets.forEach(socketId => {
+        // 不要发给当前socket
+        if (socketId !== socket.id) {
+          io.to(socketId).emit('private-message', {
+            from: senderId,
+            to: to
+          });
+        }
+      });
     }
   })
 

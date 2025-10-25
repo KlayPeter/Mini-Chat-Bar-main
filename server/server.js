@@ -32,12 +32,7 @@ app.use("/api/upload",uploadRouter)
 app.use("/api",dsRouter)
 
 // 静态文件服务 - 提供上传的文件访问
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))) 
- 
-
-app.get("/user/info", auth, async (req, res) => {
-  res.json({ user: req.user })
-})
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 io.on("connection",(socket)=>{
   private_msg(socket,io)

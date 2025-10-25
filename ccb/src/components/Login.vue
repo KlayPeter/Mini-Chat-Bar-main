@@ -123,11 +123,20 @@ const login = async () => {
   }
 
   try {
-    const res = await axios.post(`${import.meta.env.VITE_BASE_URL}/user/login`, {
+    const res = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/user/login`, {
       username: username.value,
       password: password.value
     })
+    console.log('登录响应:', res.data)
+    
+    // 保存登录信息到localStorage
     localStorage.setItem('token', res.data.token)
+    localStorage.setItem('userId', res.data.user.id)
+    localStorage.setItem('username', res.data.user.name)
+    localStorage.setItem('avatar', res.data.user.ava)
+    
+    console.log('已保存userId到localStorage:', res.data.user.id)
+    
     router.push('/')
   } catch (err) {
     console.error('登录失败', err)
@@ -158,9 +167,9 @@ const register = async () => {
   }
 
   try {
-    const res = await axios.post(`${import.meta.env.VITE_BASE_URL}/user/register`, {
-      username: regUsername.value,
-      password: regPassword.value
+    const res = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/user/register`, {
+      uName: regUsername.value,
+      uPassword: regPassword.value
     })
     const message = res.data.message
     alert(message)

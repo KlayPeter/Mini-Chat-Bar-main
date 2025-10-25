@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell, protocol } from 'electron'
+import { app, BrowserWindow, Menu, shell, protocol, Tray} from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFile } from 'fs/promises'
@@ -10,6 +10,8 @@ const isDev = process.env.NODE_ENV === 'development';
 // 保持对窗口对象的全局引用，如果不这么做的话，当JavaScript对象被
 // 垃圾回收的时候，窗口会被自动地关闭
 let mainWindow;
+
+let tray = null; // 托盘变量
 
 function createWindow() {
   // 创建浏览器窗口
@@ -55,7 +57,12 @@ function createWindow() {
     // 取消引用 window 对象，如果你的应用支持多窗口的话，
     // 通常会把多个 window 对象存放在一个数组里面，
     // 与此同时，你应该删除相应的元素。
-    mainWindow = null;
+    // mainWindow = null;
+    // 如果用户点击关闭按钮，不退出，只隐藏到托盘
+  if (process.platform === 'win32') {
+    event.preventDefault();
+    mainWindow.hide();
+  }
   });
 
   // 处理窗口导航
@@ -91,6 +98,57 @@ protocol.registerSchemesAsPrivileged([
     }
   }
 ]);
+
+// 创建托盘图标函数
+function createTray() {
+  // 托盘图标路径（建议放在项目的 build 或 assets 目录）
+  const iconPath = path.join(__dirname, 'build/icon.png');
+
+  // 创建托盘对象
+  tray = new Tray(iconPath);
+
+  // 鼠标悬停提示
+  tray.setToolTip('Mini Chat Bar');
+
+  tray.displayBalloon({
+  icon: iconPath,
+  title: '提示',
+  content: '应用正在后台运行'
+});
+
+  // 托盘右键菜单
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示主窗口',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: '退出',
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+
+  // 设置菜单
+  tray.setContextMenu(contextMenu);
+
+  // 点击托盘图标时显示/隐藏主窗口
+  tray.on('click', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
 
 // Electron 会在初始化后并准备创建浏览器窗口时，调用这个函数。
 // 部分 API 在 ready 事件触发后才能使用。
@@ -133,6 +191,8 @@ app.whenReady().then(() => {
   });
   
   createWindow();
+
+  createTray();
 
   // 在 macOS 上，当点击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建一个窗口。
