@@ -1,9 +1,62 @@
 <template>
   <div class="contacts">
-    <div class="set" v-if="issetting">
-      <div class="set_" @click="toBeige">Beige</div>
-      <div class="set_" @click="toMist">Mist</div>
-      <div class="set_" @click="toApricot">Apricot</div>
+    <!-- 配色设置弹窗 -->
+    <div class="theme-modal" v-if="issetting" @click.self="issetting = false">
+      <div class="theme-container">
+        <div class="theme-header">
+          <h2>🎨 选择主题配色</h2>
+          <button class="close-btn" @click="issetting = false">✕</button>
+        </div>
+        <div class="theme-options">
+          <div class="theme-card" @click="toBeige">
+            <div class="theme-preview beige-preview">
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+            </div>
+            <div class="theme-info">
+              <h3>米色经典</h3>
+              <p>Beige Classic</p>
+            </div>
+            <div class="theme-colors">
+              <span class="color-dot" style="background: #f9f9f9"></span>
+              <span class="color-dot" style="background: #444444"></span>
+            </div>
+          </div>
+          
+          <div class="theme-card" @click="toMist">
+            <div class="theme-preview mist-preview">
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+            </div>
+            <div class="theme-info">
+              <h3>晴空薄雾</h3>
+              <p>Sky Mist</p>
+            </div>
+            <div class="theme-colors">
+              <span class="color-dot" style="background: rgba(220, 225, 230, 1)"></span>
+              <span class="color-dot" style="background: #2c3e50"></span>
+            </div>
+          </div>
+          
+          <div class="theme-card" @click="toApricot">
+            <div class="theme-preview apricot-preview">
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+              <div class="preview-circle"></div>
+            </div>
+            <div class="theme-info">
+              <h3>温暖杏黄</h3>
+              <p>Warm Apricot</p>
+            </div>
+            <div class="theme-colors">
+              <span class="color-dot" style="background: rgba(255, 235, 215, 1)"></span>
+              <span class="color-dot" style="background: #5c4033"></span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="top">
       <div class="top_child">
@@ -873,50 +926,254 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.set {
+/* 主题配色弹窗样式 */
+.theme-modal {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  /* flex-direction: column; */
-  height: 100%;
+  top: 0;
+  left: 0;
   width: 100%;
-  z-index: 999;
-  cursor: pointer;
-}
-
-.set_ {
-  flex: 1;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.5rem;
-  white-space: wrap;
-  flex-wrap: wrap;
-  transition: all 1.5s ease;
+  z-index: 999;
+  animation: fadeIn 0.3s ease;
   -webkit-app-region: no-drag;
 }
 
-.set_:hover {
-  font-size: 3rem;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.set_:first-child {
+.theme-container {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 680px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-app-region: no-drag;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.theme-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  -webkit-app-region: no-drag;
+}
+
+.theme-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  background: #f5f5f5;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+
+.close-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+  transform: rotate(90deg);
+}
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  -webkit-app-region: no-drag;
+}
+
+.theme-card {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 3px solid transparent;
+  position: relative;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+.theme-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.theme-card:hover::before {
+  opacity: 1;
+}
+
+.theme-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  border-color: #4CAF50;
+}
+
+.theme-card:active {
+  transform: translateY(-4px) scale(0.98);
+}
+
+.theme-preview {
+  height: 100px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  animation: float 3s ease-in-out infinite;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.preview-circle:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.preview-circle:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.preview-circle:nth-child(3) {
+  animation-delay: 1s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.beige-preview {
+  background: linear-gradient(135deg, #f9f9f9, #e8e8e8);
   color: #444444;
-  background-color: #f9f9f9;
-  border: none;
-}
-.set_:nth-child(2) {
-  background-color: rgba(220, 225, 230, 1);
-  color: #2c3e50;
-  border: none;
 }
 
-.set_:last-child {
+.mist-preview {
+  background: linear-gradient(135deg, rgba(220, 225, 230, 1), rgba(180, 190, 200, 1));
+  color: #2c3e50;
+}
+
+.apricot-preview {
+  background: linear-gradient(135deg, rgba(255, 235, 215, 1), rgba(255, 215, 180, 1));
   color: #5c4033;
-  background-color: rgba(255, 235, 215, 1);
-  border: none;
+}
+
+.theme-info {
+  margin-bottom: 12px;
+}
+
+.theme-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.theme-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #888;
+  font-style: italic;
+}
+
+.theme-colors {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.theme-card:hover .color-dot {
+  transform: scale(1.2);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .theme-container {
+    padding: 24px;
+    max-width: 95%;
+  }
+  
+  .theme-options {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .theme-header h2 {
+    font-size: 20px;
+  }
+  
+  .theme-card {
+    padding: 16px;
+  }
 }
 
 /* 顶部区域 */
