@@ -1,10 +1,18 @@
 <template>
   <div class="bottom-navbar">
-    <div class="nav-item" @click="chat" :class="{ active: activeTab === 'chat' }">
+    <div
+      class="nav-item"
+      @click="chat"
+      :class="{ active: activeTab === 'chat' }"
+    >
       <font-awesome-icon icon="comment" />
       <span>聊天</span>
     </div>
-    <div class="nav-item" @click="contacts" :class="{ active: activeTab === 'contacts' }">
+    <div
+      class="nav-item"
+      @click="contacts"
+      :class="{ active: activeTab === 'contacts' }"
+    >
       <font-awesome-icon icon="users" />
       <span>通讯录</span>
     </div>
@@ -12,23 +20,43 @@
       <img src="/images/ai-logo.png" alt="AI" class="ai-icon" />
       <span>AI助手</span>
     </div>
-    <div class="nav-item" @click="tocsdn" :class="{ active: activeTab === 'moments' }">
+    <div
+      class="nav-item"
+      @click="tocsdn"
+      :class="{ active: activeTab === 'moments' }"
+    >
       <font-awesome-icon :icon="['fas', 'eye']" />
       <span>朋友圈</span>
     </div>
-    <div class="nav-item" @click="showProfile" :class="{ active: activeTab === 'profile' }">
+    <div
+      class="nav-item"
+      @click="showProfile"
+      :class="{ active: activeTab === 'profile' }"
+    >
       <div class="avatar-wrapper">
-        <img :src="avatar || '/images/avatar/out.webp'" alt="头像" class="avatar" />
+        <img
+          :src="avatar || '/images/avatar/out.webp'"
+          alt="头像"
+          class="avatar"
+        />
       </div>
       <span>我的</span>
     </div>
   </div>
 
   <!-- 个人资料弹窗 -->
-  <div v-if="showProfileModal" class="profile-modal-overlay" @click="hideProfile">
+  <div
+    v-if="showProfileModal"
+    class="profile-modal-overlay"
+    @click="hideProfile"
+  >
     <div class="profile-modal" @click.stop>
       <div class="profile-header">
-        <img :src="avatar || '/images/avatar/out.webp'" alt="头像" class="profile-avatar" />
+        <img
+          :src="avatar || '/images/avatar/out.webp'"
+          alt="头像"
+          class="profile-avatar"
+        />
         <h3>个人中心</h3>
       </div>
       <div class="profile-menu">
@@ -48,83 +76,86 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import axios from "axios";
-import { socket } from "../../utils/socket";
-import { useRouter } from "vue-router";
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import axios from 'axios'
+import { socket } from '../../utils/socket'
+import { useRouter } from 'vue-router'
 
-const emit = defineEmits(["showchat", "showcontacts", "todetail"]);
-const router = useRouter();
+const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
+const router = useRouter()
 
-const avatar = ref("");
-const activeTab = ref("chat");
-const showProfileModal = ref(false);
+const avatar = ref('')
+const activeTab = ref('chat')
+const showProfileModal = ref(false)
 
 function toAI() {
-  activeTab.value = "ai";
-  emit("todetail", "打开AI小助手");
+  activeTab.value = 'ai'
+  emit('todetail', '打开AI小助手')
 }
 
 function chat() {
-  activeTab.value = "chat";
-  emit("showchat", "打开聊天");
+  activeTab.value = 'chat'
+  emit('showchat', '打开聊天')
 }
 
 function contacts() {
-  activeTab.value = "contacts";
-  emit("showcontacts", "打开联系人");
+  activeTab.value = 'contacts'
+  emit('showcontacts', '打开联系人')
 }
 
 function tocsdn() {
-  activeTab.value = "moments";
-  router.push("/moments");
+  activeTab.value = 'moments'
+  router.push('/moments')
 }
 
 function togithub() {
-  hideProfile();
-  router.push("/favorites");
+  hideProfile()
+  router.push('/favorites')
 }
 
 function showProfile() {
-  activeTab.value = "profile";
-  showProfileModal.value = true;
+  activeTab.value = 'profile'
+  showProfileModal.value = true
 }
 
 function hideProfile() {
-  showProfileModal.value = false;
-  activeTab.value = "chat"; // 返回聊天页面
+  showProfileModal.value = false
+  activeTab.value = 'chat' // 返回聊天页面
 }
 
 function logout() {
-  localStorage.clear();
-  location.reload();
+  localStorage.clear()
+  location.reload()
 }
 
 onMounted(async () => {
   try {
-    const token = localStorage.getItem("token");
-    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/info`, {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-    });
-    avatar.value = res.data.ava;
+    const token = localStorage.getItem('token')
+    const res = await axios.get(
+      `${import.meta.env.VITE_BASE_URL}/api/user/info`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    avatar.value = res.data.ava
 
     // 监听头像更新事件
-    socket.on("avatar-updated", (data) => {
-      const currentUserId = JSON.parse(atob(token.split(".")[1])).uid;
+    socket.on('avatar-updated', (data) => {
+      const currentUserId = JSON.parse(atob(token.split('.')[1])).uid
       if (data.userId.toString() === currentUserId.toString()) {
-        avatar.value = data.newAvatarUrl;
+        avatar.value = data.newAvatarUrl
       }
-    });
+    })
   } catch (err) {
-    console.error("用户头像获取失败：", err);
+    console.error('用户头像获取失败：', err)
   }
-});
+})
 
 onBeforeUnmount(() => {
-  socket.off("avatar-updated");
-});
+  socket.off('avatar-updated')
+})
 </script>
 
 <style scoped lang="scss">
@@ -133,15 +164,17 @@ onBeforeUnmount(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70px;
-  background: #f8f9fa;
+  height: 75px;
+  background: #ffffff;
   display: flex;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
   z-index: 1000;
-  padding: 0 10px;
-  border-top: 1px solid #e9ecef;
+  padding: 10px 12px;
+  border-radius: 24px 24px 0 0;
+  margin: 0 8px;
+  backdrop-filter: blur(10px);
 
   .nav-item {
     display: flex;
@@ -160,23 +193,24 @@ onBeforeUnmount(() => {
     }
 
     &.active {
-      background: rgba(174, 117, 117, 0.15);
+      background: rgba(255, 127, 80, 0.15);
       transform: translateY(-2px);
-      
-      svg, .ai-icon {
-        color: rgb(174, 117, 117);
-        filter: drop-shadow(0 0 8px rgba(174, 117, 117, 0.6));
+
+      svg,
+      .ai-icon {
+        color: rgb(255, 127, 80);
+        filter: drop-shadow(0 0 8px rgba(255, 127, 80, 0.6));
       }
-      
+
       span {
-        color: rgb(174, 117, 117);
+        color: rgb(255, 127, 80);
         font-weight: 600;
       }
     }
 
     svg {
       font-size: 24px;
-      color: rgb(174, 117, 117);
+      color: rgb(255, 127, 80);
       margin-bottom: 4px;
       transition: all 0.3s ease;
     }
@@ -195,7 +229,7 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       overflow: hidden;
       margin-bottom: 4px;
-      border: 2px solid rgb(174, 117, 117);
+      border: 2px solid rgb(255, 127, 80);
       transition: all 0.3s ease;
 
       .avatar {
@@ -207,7 +241,7 @@ onBeforeUnmount(() => {
 
     span {
       font-size: 11px;
-      color: rgb(174, 117, 117);
+      color: rgb(255, 127, 80);
       font-weight: 500;
       transition: all 0.3s ease;
       text-align: center;
@@ -215,20 +249,21 @@ onBeforeUnmount(() => {
     }
 
     &:hover:not(.active) {
-      background: rgba(174, 117, 117, 0.1);
-      
-      svg, .ai-icon {
+      background: rgba(255, 127, 80, 0.1);
+
+      svg,
+      .ai-icon {
         transform: scale(1.1);
-        color: rgb(174, 117, 117);
+        color: rgb(255, 127, 80);
       }
-      
+
       .avatar-wrapper {
         transform: scale(1.1);
-        border-color: rgb(174, 117, 117);
+        border-color: rgb(255, 127, 80);
       }
-      
+
       span {
-        color: rgb(174, 117, 117);
+        color: rgb(255, 127, 80);
       }
     }
   }
@@ -272,7 +307,7 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       object-fit: cover;
       margin-bottom: 10px;
-      border: 3px solid #667eea;
+      border: 3px solid rgb(255, 127, 80);
     }
 
     h3 {
@@ -301,7 +336,7 @@ onBeforeUnmount(() => {
       }
 
       svg:first-child {
-        color: #667eea;
+        color: rgb(255, 127, 80);
         margin-right: 15px;
         font-size: 18px;
       }
@@ -344,25 +379,25 @@ onBeforeUnmount(() => {
   .bottom-navbar {
     height: 75px;
     padding: 0 5px;
-    
+
     .nav-item {
       padding: 6px 8px;
       min-width: 45px;
-      
+
       svg {
         font-size: 18px;
       }
-      
+
       .ai-icon {
         width: 18px;
         height: 18px;
       }
-      
+
       .avatar-wrapper {
         width: 22px;
         height: 22px;
       }
-      
+
       span {
         font-size: 10px;
       }
@@ -374,54 +409,54 @@ onBeforeUnmount(() => {
 @media (max-width: 480px) {
   .bottom-navbar {
     height: 70px;
-    
+
     .nav-item {
       padding: 5px 6px;
       min-width: 40px;
-      
+
       svg {
         font-size: 16px;
       }
-      
+
       .ai-icon {
         width: 16px;
         height: 16px;
       }
-      
+
       .avatar-wrapper {
         width: 20px;
         height: 20px;
       }
-      
+
       span {
         font-size: 9px;
       }
     }
   }
-  
+
   .profile-modal {
     padding: 15px;
-    
+
     .profile-header {
       .profile-avatar {
         width: 50px;
         height: 50px;
       }
-      
+
       h3 {
         font-size: 16px;
       }
     }
-    
+
     .profile-menu {
       .menu-item {
         padding: 12px 0;
-        
+
         svg:first-child {
           font-size: 16px;
           margin-right: 12px;
         }
-        
+
         span {
           font-size: 14px;
         }
@@ -438,7 +473,7 @@ onBeforeUnmount(() => {
       transform: scale(0.95);
     }
   }
-  
+
   .profile-modal .menu-item {
     &:active {
       background: #e9ecef;
@@ -450,16 +485,17 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) and (orientation: landscape) {
   .bottom-navbar {
     height: 60px;
-    
+
     .nav-item {
       span {
         display: none; // 横屏时隐藏文字，只显示图标
       }
-      
-      svg, .ai-icon {
+
+      svg,
+      .ai-icon {
         margin-bottom: 0;
       }
-      
+
       .avatar-wrapper {
         margin-bottom: 0;
       }
@@ -478,7 +514,7 @@ onBeforeUnmount(() => {
       }
     }
   }
-  
+
   .profile-modal {
     .profile-header .profile-avatar {
       image-rendering: -webkit-optimize-contrast;

@@ -3,7 +3,7 @@
     <div class="top">
       <div class="top_child">
         <input type="button" value="◁" @click="back" id="button" />
-        <span>Contacts</span>
+        <span>通讯录</span>
         <div class="friend_request">
           <button @click="show_request">+</button>
         </div>

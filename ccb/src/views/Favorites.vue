@@ -1,22 +1,28 @@
 <template>
-  <div class="box">
-    <div class="main">
-      <div class="header">
-        <div class="header-left">
-          <h4>收藏夹</h4>
-        </div>
-        <div class="header-right">
-          <button @click="goBack" title="返回">
-            ←
-          </button>
-        </div>
-      </div>
-      <div class="middle">
-        <div class="content">
-          <div class="development-notice">
-            <div class="icon">⭐</div>
-            <h3>功能开发中</h3>
-            <p>收藏夹功能正在紧张开发中，敬请期待...</p>
+  <div class="page-container">
+    <div class="sidebar-section">
+      <Sidebar
+        @showchat="handleshowchat"
+        @showcontacts="handleshowcontacts"
+        @todetail="showAI"
+      />
+    </div>
+    <div class="content-section">
+      <div class="box">
+        <div class="main">
+          <div class="header">
+            <div class="header-left">
+              <h4>收藏夹</h4>
+            </div>
+          </div>
+          <div class="middle">
+            <div class="content">
+              <div class="development-notice">
+                <div class="icon">⭐</div>
+                <h3>功能开发中</h3>
+                <p>收藏夹功能正在紧张开发中，敬请期待...</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -26,20 +32,46 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import Sidebar from '../components/Sidebar.vue'
 
 const router = useRouter()
 
-function goBack() {
-  router.go(-1)
+function handleshowchat() {
+  router.push('/')
+}
+
+function handleshowcontacts() {
+  router.push('/')
+}
+
+function showAI() {
+  router.push('/chat-ai')
 }
 </script>
 
 <style scoped lang="scss">
+.page-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background: #f9f9f9;
+}
+
+.sidebar-section {
+  flex: 0 0 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.content-section {
+  flex: 1;
+  overflow: hidden;
+}
+
 .box {
-  width: 96%;
-  height: 92%;
-  padding: 4% 2%;
-  padding-top: 2%;
+  width: 100%;
+  height: 100%;
+  padding: 2%;
 }
 
 .main {
@@ -55,7 +87,7 @@ function goBack() {
   .header {
     border-top-left-radius: 1rem;
     border-top-right-radius: 1rem;
-    flex: 1;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -76,36 +108,11 @@ function goBack() {
         color: #333;
       }
     }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      button {
-        height: 36px;
-        width: 36px;
-        border: none;
-        cursor: pointer;
-        font-size: 16px;
-        background-color: transparent;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-        -webkit-app-region: no-drag;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        &:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-      }
-    }
   }
 
   .middle {
     border-radius: 1rem;
-    flex: 8;
+    flex: 1;
     overflow-y: scroll;
     overflow-x: hidden;
     -webkit-app-region: no-drag;
@@ -170,6 +177,14 @@ function goBack() {
 }
 
 @media (max-width: 768px) {
+  .sidebar-section {
+    display: none;
+  }
+
+  .content-section {
+    flex: 1;
+  }
+
   .development-notice {
     padding: 2rem 1.5rem;
     margin: 1rem;

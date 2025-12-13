@@ -1,7 +1,5 @@
 <template>
   <div class="container">
-    <div class="return" @click="back">←</div>
-
     <!-- 适时出现的创建房间菜单 -->
     <div class="overlay" v-if="buildnew">
       <div class="menu">
@@ -49,17 +47,16 @@
     <div class="top">匿名聊天室</div>
     <div class="middle">
       <div class="room-list">
-        <!-- <div v-for="item in roomlists"></div> -->
         <div
           class="room-item"
           v-for="room in roomlists"
+          :key="room.RoomID"
           @click="enterRoom(room)"
         >
           <div class="room-name">{{ room.RoomName }}</div>
           <div class="room-id">
             <strong>{{ room.RoomID }}</strong>
           </div>
-          <!-- <div class="room-num">在线人数:{{room.num<1000?room.num:"999+"}}</div> -->
           <div class="room-num">在线人数:999+</div>
         </div>
       </div>
@@ -70,12 +67,9 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import axios from "axios";
-import { nextTick } from "vue";
-// import {socket,waitForSocketConnection} from "../../utils/socket"
 
-const router = useRouter();
+const emit = defineEmits(['enter-room'])
 
 const roomName = ref("");
 const roomID = ref("");
@@ -106,10 +100,13 @@ async function buildNewRoom() {
       );
 
       buildnew.value = false;
-      router.push({
-        path: "chatroom",
-        query: { id: roomID.value, name: roomName.value, uname: uname.value },
-      });
+      
+      // 发出事件而不是路由跳转
+      emit('enter-room', {
+        id: roomID.value,
+        name: roomName.value,
+        uname: uname.value
+      })
 
       roomName.value = "";
       roomID.value = "";
@@ -132,10 +129,12 @@ function enterRoom(room) {
 
 //其它成员进入房间
 async function makesure() {
-  router.push({
-    path: "chatroom",
-    query: { id: tem_id.value, name: tem_name.value, uname: uname.value },
-  });
+  // 发出事件而不是路由跳转
+  emit('enter-room', {
+    id: tem_id.value,
+    name: tem_name.value,
+    uname: uname.value
+  })
   isEnter.value = false;
 }
 
@@ -166,42 +165,18 @@ onMounted(async () => {
     console.error("房间列表获取失败:", err);
   }
 });
-
-function back() {
-  router.back();
-}
 </script>
 
 <style scoped lang="scss">
 .container {
   height: 100vh;
-  width: 100vw;
+  width: 100%;
   background-color: #1e1f24;
   display: flex;
   flex-direction: column;
   color: white;
   overflow: hidden;
   position: relative;
-}
-
-.return {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  /* right: 0; */
-  width: 35px;
-  background-color: rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  aspect-ratio: 1/1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.5s ease-in;
-  font-weight: bolder;
-}
-.return:hover {
-  transform: scale(1.05);
 }
 
 /* 开房菜单的样式 */
@@ -340,7 +315,7 @@ function back() {
 }
 .room-name {
   font-weight: bold;
-  background: linear-gradient(to right, #ff7e5f, #feb47b);
+  background: linear-gradient(to right, rgb(185, 62, 62), rgb(165, 42, 42));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

@@ -113,14 +113,22 @@ import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { socket, waitForSocketConnection } from "../../utils/socket";
 
+const props = defineProps({
+  roomInfo: {
+    type: Object,
+    default: null
+  }
+})
+
+const emit = defineEmits(['back'])
+
 const route = useRoute();
 const router = useRouter();
 
-const roomName = ref(route.query.name);
-const roomID = ref(route.query.id);
-// const roomNum = ref(route.query.num);
+const roomName = ref(props.roomInfo?.name || route.query.name);
+const roomID = ref(props.roomInfo?.id || route.query.id);
 const roomNum = ref(0);
-const uname = ref(route.query.uname);
+const uname = ref(props.roomInfo?.uname || route.query.uname);
 const msg = ref("");
 const messages = ref([]);
 const log = ref(null);
@@ -152,7 +160,11 @@ function selectEmoji(emoji) {
 }
 
 function back() {
-  router.back();
+  if (props.roomInfo) {
+    emit('back')
+  } else {
+    router.back();
+  }
 }
 
 function sendMsg() {

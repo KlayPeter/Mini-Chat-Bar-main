@@ -2,20 +2,35 @@
   <div class="box">
     <div class="main">
       <!-- 头部 -->
-      <div class="top">
-        <div class="title-section">
-          <h3>🤖 AI智能助手</h3>
+      <div class="header" @click="hideRoleMenu">
+        <div class="header-left">
+          <h4>AI智能助手</h4>
           <div class="role-selector">
-            <select v-model="selectedRole" @change="handleRoleChange" class="role-select">
-              <option v-for="role in roles" :key="role.key" :value="role.key">
-                {{ role.name }}
-              </option>
-            </select>
+            <button @click.stop="toggleRoleMenu" class="role-btn">
+              {{ getCurrentRoleName() }}
+              <span class="arrow">▼</span>
+            </button>
+            <div v-if="showRoleMenu" class="role-dropdown" @click.stop>
+              <div 
+                v-for="role in roles" 
+                :key="role.key" 
+                class="role-item"
+                :class="{ active: selectedRole === role.key }"
+                @click="selectRole(role.key)"
+              >
+                <span class="role-icon">{{ role.name.split(' ')[0] }}</span>
+                <span class="role-name">{{ role.name.split(' ').slice(1).join(' ') }}</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="header-actions">
-          <button @click="clearHistory" class="clear-btn" title="清空历史">
-            🗑️
+        <div class="header-right">
+          <button @click="clearHistory" class="delete-chat" title="清空历史">
+            <img
+              src="/images/icon/delete.png"
+              alt="清空"
+              style="width: 16px; height: 16px"
+            />
           </button>
           <button class="off" @click="offmessage">✖</button>
         </div>
@@ -24,24 +39,52 @@
       <!-- 消息列表 -->
       <div class="middle" ref="messageList">
         <ul>
-          <li class="message" v-for="(message, index) in messages" :key="index">
-            <div class="avatar" v-if="message.from === 'AI'">
-              <img :src="getRoleAvatar()" alt="AI头像" />
+          <li 
+            class="message" 
+            v-for="(message, index) in messages" 
+            :key="index"
+            :class="{ 'my-message': message.from === 'user' }"
+          >
+            <!-- 消息时间 -->
+            <div class="message-time-header">
+              {{ formatTime(message.time) }}
             </div>
-            <div class="text" :class="{ me: message.from === 'user' }">
-              <div class="content" v-html="formatMessage(message.content)"></div>
-              <div class="time">{{ formatTime(message.time) }}</div>
+
+            <!-- 消息内容行 - AI消息 -->
+            <div 
+              v-if="message.from === 'AI'"
+              class="message-content-row"
+            >
+              <div class="avatar">
+                <img :src="getRoleAvatar()" alt="AI头像" />
+              </div>
+              <div class="text">
+                <div class="content" v-html="formatMessage(message.content)"></div>
+              </div>
             </div>
-            <div class="avatar" v-if="message.from === 'user'">
-              <img :src="userAvatar || '/images/avatar/default-avatar.webp'" alt="用户头像" />
+
+            <!-- 消息内容行 - 用户消息 -->
+            <div 
+              v-else
+              class="message-content-row my-message-row"
+            >
+              <div class="text me">
+                <div class="content" v-html="formatMessage(message.content)"></div>
+              </div>
+              <div class="avatar">
+                <img :src="userAvatar || '/images/avatar/default-avatar.webp'" alt="用户头像" />
+              </div>
             </div>
           </li>
           <!-- 加载动画 -->
           <li class="message" v-if="isLoading">
-            <div class="avatar"><img :src="getRoleAvatar()" alt="AI头像" /></div>
-            <div class="text">
-              <div class="content loading-dots">
-                AI正在思考<span>.</span><span>.</span><span>.</span>
+            <div class="message-time-header">{{ formatTime(new Date().toISOString()) }}</div>
+            <div class="message-content-row">
+              <div class="avatar"><img :src="getRoleAvatar()" alt="AI头像" /></div>
+              <div class="text">
+                <div class="content loading-dots">
+                  AI正在思考<span>.</span><span>.</span><span>.</span>
+                </div>
               </div>
             </div>
           </li>
@@ -50,23 +93,23 @@
 
       <!-- 输入区域 -->
       <div class="bottom">
-        <div class="input-wrapper">
+        <div class="input-area">
           <textarea
             name="content"
             id="content"
             v-model="new_message"
-            @keydown.enter.exact.prevent="send"
+            @keyup.enter="send"
             :disabled="isLoading"
             :placeholder="getPlaceholder()"
           ></textarea>
-          <div class="send-actions">
+          <div class="toolbar">
             <button
               @click="send"
               :class="{ active: new_message.trim().length > 0 }"
               :disabled="isLoading || !new_message.trim()"
-              class="send-btn"
+              title="发送"
             >
-              {{ isLoading ? '发送中...' : '发送' }}
+              {{ isLoading ? '发送中...' : 'send' }}
             </button>
           </div>
         </div>
@@ -86,16 +129,17 @@ const new_message = ref("");
 const isLoading = ref(false);
 const selectedRole = ref("default");
 const userAvatar = ref("");
+const showRoleMenu = ref(false);
 
 // 角色列表
 const roles = ref([
-  { key: 'default', name: '🤖 AI助手' },
-  { key: 'assistant', name: '👔 专业助手' },
-  { key: 'teacher', name: '👨‍🏫 耐心老师' },
-  { key: 'friend', name: '🫂 贴心朋友' },
-  { key: 'programmer', name: '💻 程序员' },
-  { key: 'writer', name: '✍️ 专业作家' },
-  { key: 'psychologist', name: '🧠 心理咨询师' }
+  { key: 'default', name: ' AI助手' },
+  { key: 'assistant', name: '专业助手' },
+  { key: 'teacher', name: '耐心老师' },
+  { key: 'friend', name: '贴心朋友' },
+  { key: 'programmer', name: '程序员' },
+  { key: 'writer', name: '专业作家' },
+  { key: 'psychologist', name: '心理咨询师' }
 ]);
 
 // 获取角色头像
@@ -214,11 +258,13 @@ const send = async (e) => {
   }
 
   // 添加用户消息
-  messages.value.push({
+  const userMessage = {
     from: "user",
     content: content,
     time: new Date().toISOString()
-  });
+  };
+  console.log('发送用户消息:', userMessage);
+  messages.value.push(userMessage);
   
   new_message.value = "";
   scrollToBottom();
@@ -268,10 +314,32 @@ const send = async (e) => {
   }
 };
 
-// 切换角色
-const handleRoleChange = async () => {
+// 获取当前角色名称
+const getCurrentRoleName = () => {
+  const role = roles.value.find(r => r.key === selectedRole.value);
+  return role ? role.name : '🤖 AI助手';
+};
+
+// 切换角色菜单显示
+const toggleRoleMenu = () => {
+  showRoleMenu.value = !showRoleMenu.value;
+};
+
+// 隐藏角色菜单
+const hideRoleMenu = () => {
+  showRoleMenu.value = false;
+};
+
+// 选择角色
+const selectRole = async (roleKey) => {
+  if (roleKey === selectedRole.value) {
+    showRoleMenu.value = false;
+    return;
+  }
+  
   if (confirm('切换角色将清空当前对话历史，确定要继续吗？')) {
     try {
+      selectedRole.value = roleKey;
       const token = localStorage.getItem("token");
       await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/conversation/role`,
@@ -286,14 +354,14 @@ const handleRoleChange = async () => {
         time: new Date().toISOString()
       }];
       
+      showRoleMenu.value = false;
       scrollToBottom();
     } catch (err) {
       console.error("切换角色失败:", err);
       alert("切换角色失败，请重试");
     }
   } else {
-    // 恢复原角色
-    loadHistory();
+    showRoleMenu.value = false;
   }
 };
 
@@ -357,25 +425,21 @@ const offmessage = () => {
 
 <style scoped lang="scss">
 .box {
-  width: 96%;
-  height: 92%;
-  padding: 4% 2%;
-  padding-top: 2%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .main {
   width: 100%;
   height: 100%;
   border: none;
-  border-radius: 1rem;
-  background-color: rgba(128, 128, 128, 0.1);
-  box-shadow: 0 0 5px 2px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
+  background-color: #fff;
 
-  .top {
-    border-top-left-radius: 1rem;
-    border-top-right-radius: 1rem;
+  .header {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -384,15 +448,15 @@ const offmessage = () => {
     padding: 0 20px;
     background-color: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
-    min-height: 70px;
+    min-height: 60px;
 
-    .title-section {
+    .header-left {
       display: flex;
       align-items: center;
       gap: 1rem;
       flex: 1;
 
-      h3 {
+      h4 {
         margin: 0;
         font-size: 18px;
         font-weight: 600;
@@ -400,30 +464,81 @@ const offmessage = () => {
       }
 
       .role-selector {
-        .role-select {
+        position: relative;
+
+        .role-btn {
           padding: 6px 12px;
-          border: 1px solid #ddd;
-          border-radius: 6px;
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
           background: white;
           cursor: pointer;
           font-size: 14px;
           transition: all 0.3s;
           -webkit-app-region: no-drag;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #333;
+          font-weight: 500;
 
-          &:hover {
-            border-color: #4CAF50;
+          .arrow {
+            font-size: 10px;
+            transition: transform 0.3s;
           }
 
-          &:focus {
-            outline: none;
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+          &:hover {
+            border-color: rgb(165, 42, 42);
+            background: rgba(165, 42, 42, 0.05);
+          }
+        }
+
+        .role-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          padding: 8px;
+          min-width: 180px;
+          z-index: 1000;
+          animation: slideDown 0.2s ease;
+
+          .role-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+            font-size: 14px;
+
+            .role-icon {
+              font-size: 18px;
+            }
+
+            .role-name {
+              flex: 1;
+            }
+
+            &:hover {
+              background: rgba(165, 42, 42, 0.1);
+              color: #333;
+            }
+
+            &.active {
+              background: rgba(165, 42, 42, 0.1);
+              color: rgb(165, 42, 42);
+              font-weight: 600;
+            }
           }
         }
       }
     }
 
-    .header-actions {
+    .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -445,120 +560,127 @@ const offmessage = () => {
         &:hover {
           background-color: rgba(0, 0, 0, 0.05);
         }
-
-        &.clear-btn {
-          font-size: 18px;
-        }
       }
     }
   }
 
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .middle {
-    border-radius: 1rem;
     flex: 1;
-    overflow-y: scroll;
+    overflow-y: auto;
     overflow-x: hidden;
     -webkit-app-region: no-drag;
     padding: 20px;
+    background-color: #f5f5f5;
 
     ul {
       padding: 0;
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      list-style: none;
 
       .message {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
+        margin-bottom: 20px;
         list-style-type: none;
 
-        &:has(.me) {
-          flex-direction: row-reverse;
+        .message-time-header {
+          text-align: center;
+          font-size: 12px;
+          color: #b3b3b3;
+          margin-bottom: 15px;
         }
 
-        .avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          overflow: hidden;
-          flex-shrink: 0;
-
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-        }
-
-        .text {
-          max-width: 70%;
+        .message-content-row {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
+          gap: 10px;
+          align-items: flex-start;
 
-          &.me {
-            align-items: flex-end;
+          .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+
+            img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
+          }
+
+          .text {
+            max-width: 60%;
+            display: flex;
+            flex-direction: column;
 
             .content {
-              background-color: #4CAF50;
-              color: white;
-              border-radius: 18px 18px 4px 18px;
-            }
-          }
+              display: inline-block;
+              background-color: #fff;
+              color: #333;
+              padding: 10px 15px;
+              border-radius: 8px;
+              word-wrap: break-word;
+              word-break: break-word;
+              font-size: 15px;
+              line-height: 1.6;
+              box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+              position: relative;
 
-          .content {
-            display: inline-block;
-            background-color: #f0f0f0;
-            color: #333;
-            padding: 12px 16px;
-            border-radius: 18px 18px 18px 4px;
-            word-wrap: break-word;
-            word-break: break-word;
-            font-size: 15px;
-            line-height: 1.5;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+              :deep(code) {
+                background: rgba(0, 0, 0, 0.05);
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+              }
 
-            :deep(code) {
-              background: rgba(0, 0, 0, 0.1);
-              padding: 2px 6px;
-              border-radius: 3px;
-              font-family: 'Courier New', monospace;
-            }
+              :deep(pre) {
+                background: rgba(0, 0, 0, 0.03);
+                padding: 12px;
+                border-radius: 6px;
+                overflow-x: auto;
+                margin: 8px 0;
 
-            :deep(pre) {
-              background: rgba(0, 0, 0, 0.05);
-              padding: 12px;
-              border-radius: 6px;
-              overflow-x: auto;
-              margin: 8px 0;
+                code {
+                  background: none;
+                  padding: 0;
+                }
+              }
 
-              code {
-                background: none;
-                padding: 0;
+              :deep(strong) {
+                font-weight: 600;
+              }
+
+              &.loading-dots {
+                span {
+                  animation: blink 1.4s infinite;
+                  
+                  &:nth-child(1) { animation-delay: 0s; }
+                  &:nth-child(2) { animation-delay: 0.2s; }
+                  &:nth-child(3) { animation-delay: 0.4s; }
+                }
               }
             }
 
-            :deep(strong) {
-              font-weight: 600;
-            }
-
-            &.loading-dots {
-              span {
-                animation: blink 1.4s infinite;
-                
-                &:nth-child(1) { animation-delay: 0s; }
-                &:nth-child(2) { animation-delay: 0.2s; }
-                &:nth-child(3) { animation-delay: 0.4s; }
-              }
+            &.me .content {
+              background: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+              color: #fff;
+              box-shadow: 0 2px 4px rgba(165, 42, 42, 0.3);
             }
           }
 
-          .time {
-            font-size: 11px;
-            color: #999;
-            padding: 0 8px;
+          &.my-message-row {
+            justify-content: flex-end;
           }
         }
       }
@@ -567,33 +689,32 @@ const offmessage = () => {
 
   .bottom {
     flex: 0 0 auto;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-bottom-left-radius: 1rem;
-    border-bottom-right-radius: 1rem;
+    padding: 15px 20px;
+    background-color: #fff;
+    border-top: 1px solid #e9ecef;
     -webkit-app-region: no-drag;
 
-    .input-wrapper {
+    .input-area {
       display: flex;
-      gap: 12px;
-      align-items: flex-end;
+      flex-direction: column;
+      gap: 10px;
 
       textarea {
-        flex: 1;
+        width: 100%;
         padding: 12px;
         border: 1px solid #ddd;
-        border-radius: 12px;
+        border-radius: 8px;
         resize: none;
-        min-height: 50px;
+        min-height: 60px;
         max-height: 120px;
-        font-size: 15px;
+        font-size: 14px;
         font-family: inherit;
         line-height: 1.5;
-        transition: border-color 0.3s;
+        box-sizing: border-box;
 
         &:focus {
           outline: none;
-          border-color: #4CAF50;
+          border-color: rgb(165, 42, 42);
         }
 
         &:disabled {
@@ -602,35 +723,38 @@ const offmessage = () => {
         }
       }
 
-      .send-actions {
+      .toolbar {
         display: flex;
-        gap: 8px;
+        justify-content: flex-end;
+        gap: 10px;
 
-        .send-btn {
-          padding: 12px 24px;
-          background-color: #4CAF50;
-          color: white;
+        button {
+          padding: 8px 20px;
+          background-color: #e0e0e0;
+          color: #666;
           border: none;
-          border-radius: 12px;
+          border-radius: 6px;
           cursor: pointer;
-          font-size: 15px;
-          font-weight: 500;
+          font-size: 14px;
           transition: all 0.3s;
-          white-space: nowrap;
 
           &:hover:not(:disabled) {
-            background-color: #45a049;
-            transform: translateY(-1px);
+            background-color: #d0d0d0;
           }
 
           &:disabled {
-            background-color: #ccc;
+            background-color: #f0f0f0;
             cursor: not-allowed;
-            transform: none;
+            opacity: 0.5;
           }
 
           &.active {
-            background-color: #4CAF50;
+            background-color: rgb(165, 42, 42);
+            color: #fff;
+
+            &:hover {
+              background-color: #85dc59;
+            }
           }
         }
       }

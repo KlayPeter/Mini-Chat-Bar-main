@@ -1,97 +1,130 @@
 <template>
   <div class="sidebar">
     <div class="logo">
-      <img
-        src="/images/ai-logo.png"
-        alt="LOGO"
-        title="AI智能小助手"
-        @click="toAI"
-      />
+      <div class="logo-container" @click="toAI">
+        <span class="ai-text">AI</span>
+      </div>
     </div>
     <div class="toolbar">
       <ul>
-        <li><font-awesome-icon icon="comment" title="聊天" @click="chat" /></li>
-        <li>
+        <li :class="{ active: activeTab === 'chat' }">
+          <font-awesome-icon icon="comment" title="聊天" @click="chat" />
+        </li>
+        <li :class="{ active: activeTab === 'contacts' }">
           <font-awesome-icon icon="users" title="通讯录" @click="contacts" />
         </li>
-        <li>
+        <li :class="{ active: activeTab === 'moments' }">
           <font-awesome-icon
             :icon="['fas', 'eye']"
-            title="朋友圈"
+            title="聊天室"
             @click="tocsdn"
           />
         </li>
-        <li>
+        <li :class="{ active: activeTab === 'favorites' }">
           <font-awesome-icon icon="star" title="收藏夹" @click="togithub" />
         </li>
       </ul>
     </div>
     <div class="privacy">
-      <div class="avatar" @click="logout"><img :src="avatar || '/images/avatar/out.webp'" alt="" /></div>
+      <div class="avatar" @click="logout">
+        <img :src="avatar || '/images/avatar/out.webp'" alt="" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { onMounted, onBeforeUnmount } from "vue";
-import axios from "axios";
-import { socket } from "../../utils/socket";
-import { useRouter } from "vue-router";
-const emit = defineEmits(["showchat", "showcontacts", "todetail"]);
-const router = useRouter();
+import { ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
+import axios from 'axios'
+import { socket } from '../../utils/socket'
+import { useRouter, useRoute } from 'vue-router'
+const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
+const router = useRouter()
+const route = useRoute()
 
-const avatar = ref("");
+const avatar = ref('')
+const activeTab = ref('chat')
+
+// 根据当前路由设置activeTab
+function updateActiveTab() {
+  const path = route.path
+  if (path === '/moments') {
+    activeTab.value = 'moments'
+  } else if (path === '/favorites') {
+    activeTab.value = 'favorites'
+  } else if (path === '/' || path.includes('/chatdetail')) {
+    activeTab.value = 'chat'
+  } else if (path.includes('/chat-ai')) {
+    activeTab.value = 'chat'
+  }
+}
+
+// 监听路由变化
+watch(() => route.path, () => {
+  updateActiveTab()
+})
 
 function toAI() {
-  emit("todetail", "打开AI小助手");
+  emit('todetail', '打开AI小助手')
 }
 
 function chat() {
-  emit("showchat", "打开聊天");
+  activeTab.value = 'chat'
+  emit('showchat', '打开聊天')
 }
+
 function contacts() {
-  emit("showcontacts", "打开联系人");
+  activeTab.value = 'contacts'
+  emit('showcontacts', '打开联系人')
 }
 
 function tocsdn() {
-  router.push("/moments");
+  activeTab.value = 'moments'
+  router.push('/moments')
 }
 
 function togithub() {
-  router.push("/favorites");
+  activeTab.value = 'favorites'
+  router.push('/favorites')
 }
 
 function logout() {
-  localStorage.clear();
-  location.reload();
+  localStorage.clear()
+  location.reload()
 }
 onMounted(async () => {
+  // 初始化时设置activeTab
+  updateActiveTab()
+  
   try {
-    const token = localStorage.getItem("token");
-    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/info`, {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-    });
-    avatar.value = res.data.ava;
+    const token = localStorage.getItem('token')
+    const res = await axios.get(
+      `${import.meta.env.VITE_BASE_URL}/api/user/info`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    avatar.value = res.data.ava
 
     // 监听头像更新事件
-    socket.on("avatar-updated", (data) => {
+    socket.on('avatar-updated', (data) => {
       // 如果是当前用户的头像更新，则更新本地头像
-      const currentUserId = JSON.parse(atob(token.split(".")[1])).uid;
+      const currentUserId = JSON.parse(atob(token.split('.')[1])).uid
       if (data.userId.toString() === currentUserId.toString()) {
-        avatar.value = data.newAvatarUrl;
+        avatar.value = data.newAvatarUrl
       }
-    });
+    })
   } catch (err) {
-    console.error("用户头像获取失败：", err);
+    console.error('用户头像获取失败：', err)
   }
-});
+})
 
 onBeforeUnmount(() => {
-  socket.off("avatar-updated");
-});
+  socket.off('avatar-updated')
+})
 </script>
 
 <style scoped lang="scss">
@@ -99,95 +132,124 @@ onBeforeUnmount(() => {
   padding: 0;
   margin: 0;
 }
+
 .sidebar {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  border-radius: 24px;
+  // margin: 0 12px;
+  padding: 0px 2px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
+
 .logo {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
-  /* border-bottom: 1px solid red; */
   -webkit-app-region: no-drag;
-  border-radius: 50%;
-  margin-top: 10%;
+  margin-top: 10px;
+  margin-bottom: 40px;
 
-  img {
-    width: 70%;
-    border-radius: 50%;
-  }
-
-  img:hover {
-    border-radius: 50%;
-    box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.5);
+  .logo-container {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+    border-radius: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     cursor: pointer;
+    box-shadow: 0 4px 10px rgba(255, 126, 95, 0.3);
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 15px rgba(255, 126, 95, 0.4);
+    }
+
+    .ai-text {
+      color: white;
+      font-weight: 800;
+      font-size: 20px;
+      font-family: 'Arial', sans-serif;
+    }
   }
 }
 
 .toolbar {
-  flex: 1 1 40%;
-  -webkit-app-region: no-drag;
-  /* border: 1px solid blue; */
-}
-.privacy {
   flex: 1;
-  /* border: 1px solid green; */
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  /* border-bottom: 1px solid red; */
+  -webkit-app-region: no-drag;
 }
+
+.privacy {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 10px;
+}
+
 img {
   width: 100%;
   aspect-ratio: 1/1;
   object-fit: cover;
 }
+
 ul {
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  align-items: center;
 
   li {
-    width: 100%;
+    width: 48px;
+    height: 48px;
     list-style-type: none;
-    /* border: 1px solid brown; */
     display: flex;
-    flex: 1;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-  }
-}
-
-svg {
-  /* color: rgba(165, 42, 42, 0.485);
-         */
-  color: rgba(120, 25, 25, 0.6);
-  font-size: 25px;
-
-  &:hover {
-    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+    border-radius: 14px;
+    transition: all 0.3s ease;
     cursor: pointer;
+    color: #a0a0a0;
+
+    &.active {
+      background: rgba(165, 42, 42, 0.1);
+
+      svg {
+        color: rgb(165, 42, 42);
+      }
+    }
+
+    &:hover:not(.active) {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    svg {
+      font-size: 22px;
+      transition: all 0.3s ease;
+    }
   }
 }
 
 .avatar {
-  width: 60%;
-  border: 1px solid rgba(0, 0, 0, 0.5);
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   overflow: hidden;
-  margin-bottom: 10%;
-  aspect-ratio: 1/1;
   position: relative;
   -webkit-app-region: no-drag;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
 
   &:hover {
-    box-shadow: 0 0 5px 2px rgba(0, 0, 0, 0.5);
+    transform: scale(1.05);
+    border-color: rgb(165, 42, 42);
     cursor: pointer;
 
     &::after {
@@ -196,103 +258,31 @@ svg {
   }
 
   &::after {
-    content: "退出登录";
+    content: '退出';
     width: 100%;
     height: 100%;
     position: absolute;
     left: 0;
     top: 0;
-    background-color: gray;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
     white-space: nowrap;
-    font-size: small;
+    font-size: 10px;
     opacity: 0;
-    transition: opacity 0.5s ease;
+    transition: opacity 0.3s ease;
     pointer-events: none;
   }
 }
 
 /* 响应式设计 */
 
-/* 大屏幕设备 */
-@media (min-width: 1300px) {
-  .sidebar {
-    border-radius: 0;
-    padding: 1rem 0.5rem;
-  }
-
-  .logo {
-    img {
-      border-radius: 0;
-      width: 80%;
-    }
-  }
-  
-  svg {
-    font-size: 28px;
-  }
-}
-
-/* 平板设备 */
-@media (max-width: 1024px) and (min-width: 769px) {
-  .sidebar {
-    padding: 0.8rem 0.3rem;
-  }
-  
-  .logo {
-    margin-top: 8%;
-    
-    img {
-      width: 65%;
-    }
-  }
-  
-  svg {
-    font-size: 22px;
-  }
-  
-  .avatar {
-    width: 55%;
-    margin-bottom: 8%;
-  }
-}
-
 /* 移动设备 - 隐藏侧边栏 */
 @media (max-width: 768px) {
   .sidebar {
     display: none;
-  }
-}
-
-/* 小屏移动设备 */
-@media (max-width: 480px) {
-  .sidebar {
-    display: none;
-  }
-}
-
-/* 触摸设备优化 */
-@media (hover: none) and (pointer: coarse) {
-  .logo img:hover,
-  svg:hover,
-  .avatar:hover {
-    transform: scale(1.05);
-    transition: transform 0.2s ease;
-  }
-  
-  .avatar::after {
-    font-size: 0.8rem;
-  }
-}
-
-/* 高分辨率屏幕优化 */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .logo img,
-  .avatar img {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
   }
 }
 </style>

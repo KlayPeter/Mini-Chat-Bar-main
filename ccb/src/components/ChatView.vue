@@ -44,121 +44,176 @@
     </div>
     <!-- <div class="section3" v-if="show3"><Content @closemessage="handleclosemessage"/></div> -->
     <!-- 隐藏聊天内容的叉叉要到其它地方不上 -->
-    <router-view
-      class="section3"
-      v-if="showcontent"
-      @closemessage="hidecontent"
-    />
+    <div class="section3-wrapper">
+      <router-view
+        class="section3"
+        v-if="showcontent"
+        @closemessage="hidecontent"
+      />
+      <WelcomeDashboard v-else class="section3" />
+    </div>
   </div>
 </template>
 
 <script setup>
-import Sidebar from "./Sidebar.vue";
-import LastChats from "./LastChats.vue";
-import Contacts from "./Contacts.vue";
-import BottomNavbar from "./BottomNavbar.vue";
-import { onMounted, ref, watch } from "vue";
-import { nextTick } from "vue";
-import { useRouter } from "vue-router";
-import { useChatStore } from "../stores/useChatStore";
+import Sidebar from './Sidebar.vue'
+import LastChats from './LastChats.vue'
+import Contacts from './Contacts.vue'
+import BottomNavbar from './BottomNavbar.vue'
+import WelcomeDashboard from './WelcomeDashboard.vue'
+import { onMounted, ref, watch } from 'vue'
+import { nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { useChatStore } from '../stores/useChatStore'
 
-const theme = ref("beige");
-const container = ref(null);
-const router = useRouter();
-const chatStore = useChatStore();
+const theme = ref('beige')
+const container = ref(null)
+const router = useRouter()
+const chatStore = useChatStore()
 
-const showlastchats = ref(true);
-const showcontacts = ref(false);
-const showcontent = ref(false);
+const showlastchats = ref(true)
+const showcontacts = ref(false)
+const showcontent = ref(false)
 
-const isMobile = ref(false);
+const isMobile = ref(false)
 
 //这里处理contacts板块的显示和隐藏
 function handlehidechat(message) {
-  showlastchats.value = false;
+  showlastchats.value = false
 }
 function handleshowchat(message) {
-  
-  showlastchats.value = true;
-  showcontacts.value = false;
+  const currentPath = router.currentRoute.value.path
+  // 只有在非主页时才跳转
+  if (currentPath !== '/' && !currentPath.includes('/chatdetail') && !currentPath.includes('/chat-ai')) {
+    router.push('/').then(() => {
+      showlastchats.value = true
+      showcontacts.value = false
+      showcontent.value = false
+    })
+  } else {
+    showlastchats.value = true
+    showcontacts.value = false
+    showcontent.value = false
+  }
 }
 
 //这里处理contacts板块的显示和隐藏
 function handleshowcontacts(message) {
-  
-  showlastchats.value = false;
-  showcontacts.value = true;
+  const currentPath = router.currentRoute.value.path
+  // 只有在非主页时才跳转
+  if (currentPath !== '/' && !currentPath.includes('/chatdetail') && !currentPath.includes('/chat-ai')) {
+    router.push('/').then(() => {
+      showlastchats.value = false
+      showcontacts.value = true
+      showcontent.value = false
+    })
+  } else {
+    showlastchats.value = false
+    showcontacts.value = true
+    showcontent.value = false
+  }
 }
 
 function handlehidecontacts(message) {
-  
-  showcontacts.value = false;
+  showcontacts.value = false
 }
 
 function setcolor(data) {
-  theme.value = data.color;
-  container.value.setAttribute("data-theme", theme.value);
+  theme.value = data.color
+  container.value.setAttribute('data-theme', theme.value)
 }
 
 //显示聊天内容
 function showdetail(data) {
-  showcontent.value = true;
-  const uname = data.uname;
-  const img = data.img;
-  const userId = data.userId;
-  
+  showcontent.value = true
+  const uname = data.uname
+  const img = data.img
+  const userId = data.userId
+
   // 设置当前聊天用户
   if (userId) {
-    chatStore.switchChatUser(userId);
+    chatStore.switchChatUser(userId)
   }
-  
+
   router.push({
-    path: "/chatdetail",
+    path: '/chatdetail',
     query: { uname, img },
-  });
+  })
 }
 
 function showAI() {
-  showcontent.value = true;
+  showcontent.value = true
   router.push({
-    path: "/chat-ai",
-  });
+    path: '/chat-ai',
+  })
 }
 
 function hidecontent() {
   if (showcontent.value) {
-    showcontent.value = false;
+    showcontent.value = false
+    // Return to base route when closing content to show dashboard
+    router.push('/')
   }
 }
 
 function checkScreen() {
-  isMobile.value = window.innerWidth <= 768;
+  isMobile.value = window.innerWidth <= 768
+}
+
+// Check current route to set showcontent state
+function checkRoute() {
+  const path = router.currentRoute.value.path
+  if (path === '/' || path === '/chatbox') {
+    showcontent.value = false
+  } else if (path.includes('/chatdetail') || path.includes('/chat-ai')) {
+    showcontent.value = true
+  }
 }
 
 onMounted(() => {
-  checkScreen();
-  window.addEventListener("resize", checkScreen);
+  checkScreen()
+  checkRoute()
+  window.addEventListener('resize', checkScreen)
   nextTick(() => {
-    container.value.setAttribute("data-theme", theme.value);
-  });
-});
+    container.value.setAttribute('data-theme', theme.value)
+  })
+})
+
+// Watch route changes to update showcontent and sidebar state
+watch(
+  () => router.currentRoute.value.path,
+  (newPath) => {
+    if (newPath === '/' || newPath === '/chatbox') {
+      showcontent.value = false
+      // 如果没有显示任何侧边面板，默认显示聊天列表
+      if (!showlastchats.value && !showcontacts.value) {
+        showlastchats.value = true
+      }
+    } else if (
+      newPath.includes('/chatdetail') ||
+      newPath.includes('/chat-ai')
+    ) {
+      showcontent.value = true
+    }
+  }
+)
 </script>
 
 <style scoped lang="scss">
 /* 换肤的颜色库 */
-[data-theme="beige"] {
+[data-theme='beige'] {
   --bg-color: #f9f9f9;
   --text-color: #444444;
 }
 
 /* 晴空蓝白 */
-[data-theme="mist"] {
+[data-theme='mist'] {
   --bg-color: rgba(220, 225, 230, 1);
   --text-color: #2c3e50;
 }
 
 /* 杏仁橙色，或者说是杏黄色 */
-[data-theme="apricot"] {
+[data-theme='apricot'] {
   --bg-color: rgba(255, 235, 215, 1);
   --text-color: #5c4033;
 }
@@ -195,8 +250,17 @@ onMounted(() => {
   box-sizing: border-box;
   /* display: flex; */
 }
-.section3 {
+
+.section3-wrapper {
   flex: 1 1 62%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.section3 {
+  flex: 1;
+  height: 100%;
 }
 
 .mobile {
@@ -228,16 +292,16 @@ onMounted(() => {
     border-radius: 0.5rem;
     margin: 1vh 2vw;
   }
-  
+
   .section1 {
     flex: 0 0 10%;
   }
-  
+
   .section2 {
     flex: 0 0 35%;
   }
-  
-  .section3 {
+
+  .section3-wrapper {
     flex: 1 1 55%;
   }
 }
@@ -249,18 +313,18 @@ onMounted(() => {
     margin: 0;
     height: 100vh;
   }
-  
+
   .container:not(.mobile) .section1 {
     display: none;
   }
-  
+
   .container:not(.mobile) .section2 {
     flex: 1;
     border: none;
     border-radius: 0;
   }
-  
-  .container:not(.mobile) .section3 {
+
+  .container:not(.mobile) .section3-wrapper {
     position: fixed;
     top: 0;
     left: 0;
@@ -311,7 +375,7 @@ onMounted(() => {
   .container {
     font-size: 14px;
   }
-  
+
   .section2,
   .section3 {
     padding: 0;
@@ -323,7 +387,7 @@ onMounted(() => {
   .container {
     height: 100vh;
   }
-  
+
   .mobile .section2,
   .mobile .section3 {
     height: 100vh;
