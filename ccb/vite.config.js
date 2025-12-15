@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
     },
 
     build: {
-      outDir: 'dist-new',
+      outDir: 'dist',
       rollupOptions: {
         output: {
           manualChunks: undefined,
