@@ -1,113 +1,147 @@
 const Room = require("../models/Room")
+const GroupMessage = require("../models/GroupMessage")
 
-// 全局房间座位管理
-const roomSeats = new Map();
+// 全局房间用户管理
+const roomUsers = new Map(); // roomId -> Set of socket.id
 
 module.exports = function(socket, io) {
-  const avatars = ["🐔", "🐱", "🐮", "🐶", "🐹", "🐵", "🦊", "🐸"];
   
-  // 获取或创建房间座位
-  function getRoomSeats(roomId) {
-    if (!roomSeats.has(roomId)) {
-      roomSeats.set(roomId, Array.from({ length: 8 }, () => ({
-        username: null,
-        useravatar: "🪑",
-        userID: null,
-      })));
-    }
-    return roomSeats.get(roomId);
-  }
-
-  // 用户加入逻辑
-  function userEnter(username, roomId) {
-    const seats = getRoomSeats(roomId);
-    
-    // 检查用户是否已经在房间中
-    const existingIndex = seats.findIndex(seat => seat.username === username);
-    if (existingIndex !== -1) {
-      // 用户已在房间中，更新socket ID
-      seats[existingIndex].userID = socket.id;
-      console.log(`用户 [${username}] 重新连接房间 [${roomId}]，座位 [${existingIndex}]`);
-      io.to(roomId).emit("update", seats);
-      return;
-    }
-    
-    // 查找空座位
-    const index = seats.findIndex(seat => seat.username === null);
-    if (index !== -1) {
-      seats[index].username = username;
-      seats[index].useravatar = avatars[index];
-      seats[index].userID = socket.id;
-
-      console.log(`用户 [${username}] 加入房间 [${roomId}]，占用座位 [${index}]`);
-
-      io.to(roomId).emit("update", seats);
-    } else {
-      console.log("房间已满");
-      socket.emit("Full");
-    }
-  }
-
-  // 用户退出逻辑
-  function userExit(roomId) {
-    const seats = getRoomSeats(roomId);
-    const index = seats.findIndex(seat => seat.userID === socket.id);
-    if (index !== -1) {
-      const username = seats[index].username;
-      seats[index] = { username: null, useravatar: "🪑", userID: null };
-      console.log(`🚪 用户 [${username}] 离开房间 [${roomId}]，释放座位 [${index}]`);
-
-      io.to(roomId).emit("update", seats);
-    }
-  }
-
-  // 监听加入房间
-  socket.on("joinroom", ({ room, username }) => {
-    socket.data.room = room;
-    socket.data.username = username;
-
-    console.log(`用户 [${username}] 请求加入房间 [${room}]`);
-
-    // 先加入Socket.IO房间
-    socket.join(room);
-    
-    // 然后处理座位分配和广播
-    userEnter(username, room);
-
-    io.to(room).emit("notice", `用户 ${username} 进入房间`);
-  });
-
-  // 监听群聊消息
-  socket.on("group-message", (msg, uname) => {
-    console.log(`${uname}发来：${msg}`)
-    io.to(socket.data.room).emit("group-message", { msg, uname });
-  });
-
-  // 监听断开连接
-  socket.on("disconnect",async() => {
-    console.log("用户断开 ->", socket.id);
-    const roomID = socket.data.room;
-    if (roomID) {
-      userExit(roomID);
-      io.to(roomID).emit("notice", `用户 ${socket.data.username} 离开房间`);
+  // 加入群聊房间
+  socket.on("join-group", async ({ roomId, userId }) => {
+    try {
+      socket.userId = userId
+      socket.currentRoom = roomId
       
-      const room = io.sockets.adapter.rooms.get(roomID);
-      const roomSize = room ? room.size : 0;
-
-      console.log(`房间 [${roomID}] 当前人数: ${roomSize}`);
-
-      if (roomSize === 0) {
-          console.log(`房间 [${roomID}] 无人在线，准备删除数据库房间数据`);
-          // 清理房间座位数据
-          roomSeats.delete(roomID);
-          
-          try {
-              await Room.deleteOne({ roomID: roomID });  
-              console.log(`房间 [${roomID}] 已成功从数据库删除`);
-          } catch (err) {
-              console.error("删除房间失败：", err);
-          }
+      // 加入 Socket.IO 房间
+      socket.join(roomId)
+      
+      // 记录用户连接
+      if (!roomUsers.has(roomId)) {
+        roomUsers.set(roomId, new Set())
+      }
+      roomUsers.get(roomId).add(socket.id)
+      
+      console.log(`用户 [${userId}] 加入群聊 [${roomId}]`)
+      
+      // 通知其他成员
+      socket.to(roomId).emit("member-joined", {
+        userId: userId,
+        timestamp: new Date()
+      })
+      
+      // 返回当前在线成员数
+      const onlineCount = roomUsers.get(roomId).size
+      io.to(roomId).emit("online-count", { count: onlineCount })
+      
+    } catch (err) {
+      console.error("加入群聊失败:", err)
+      socket.emit("error", { message: "加入群聊失败" })
+    }
+  })
+  
+  // 离开群聊房间
+  socket.on("leave-group", ({ roomId, userId }) => {
+    socket.leave(roomId)
+    
+    if (roomUsers.has(roomId)) {
+      roomUsers.get(roomId).delete(socket.id)
+      if (roomUsers.get(roomId).size === 0) {
+        roomUsers.delete(roomId)
       }
     }
-  });
-};
+    
+    console.log(`用户 [${userId}] 离开群聊 [${roomId}]`)
+    
+    // 通知其他成员
+    socket.to(roomId).emit("member-left", {
+      userId: userId,
+      timestamp: new Date()
+    })
+    
+    // 更新在线人数
+    const onlineCount = roomUsers.has(roomId) ? roomUsers.get(roomId).size : 0
+    io.to(roomId).emit("online-count", { count: onlineCount })
+  })
+  
+  // 发送群消息
+  socket.on("group-message", async (data) => {
+    try {
+      const { roomId, message } = data
+      
+      console.log(`群消息 [${roomId}]:`, message)
+      
+      // 广播消息给房间内所有人（包括发送者）
+      io.to(roomId).emit("group-message", {
+        ...message,
+        timestamp: new Date()
+      })
+      
+    } catch (err) {
+      console.error("发送群消息失败:", err)
+      socket.emit("error", { message: "发送消息失败" })
+    }
+  })
+  
+  // 群消息已读
+  socket.on("group-message-read", ({ roomId, messageId, userId }) => {
+    socket.to(roomId).emit("group-message-read", {
+      messageId,
+      userId,
+      timestamp: new Date()
+    })
+  })
+  
+  // 有人正在输入
+  socket.on("group-typing", ({ roomId, userId, userName }) => {
+    socket.to(roomId).emit("group-typing", {
+      userId,
+      userName,
+      timestamp: new Date()
+    })
+  })
+  
+  // 停止输入
+  socket.on("group-stop-typing", ({ roomId, userId }) => {
+    socket.to(roomId).emit("group-stop-typing", {
+      userId,
+      timestamp: new Date()
+    })
+  })
+  
+  // 群消息撤回
+  socket.on("group-message-recall", async ({ roomId, messageId }) => {
+    try {
+      // 删除消息
+      await GroupMessage.deleteOne({ _id: messageId })
+      
+      // 通知所有成员
+      io.to(roomId).emit("group-message-recalled", {
+        messageId,
+        timestamp: new Date()
+      })
+      
+    } catch (err) {
+      console.error("撤回消息失败:", err)
+      socket.emit("error", { message: "撤回消息失败" })
+    }
+  })
+  
+  // 断开连接
+  socket.on("disconnect", () => {
+    console.log("用户断开连接 ->", socket.id)
+    
+    // 清理房间用户记录
+    const roomId = socket.currentRoom
+    if (roomId && roomUsers.has(roomId)) {
+      roomUsers.get(roomId).delete(socket.id)
+      
+      if (roomUsers.get(roomId).size === 0) {
+        roomUsers.delete(roomId)
+      } else {
+        // 更新在线人数
+        const onlineCount = roomUsers.get(roomId).size
+        io.to(roomId).emit("online-count", { count: onlineCount })
+      }
+    }
+  })
+}

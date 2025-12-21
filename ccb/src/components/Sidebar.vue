@@ -13,11 +13,11 @@
         <li :class="{ active: activeTab === 'contacts' }">
           <font-awesome-icon icon="users" title="通讯录" @click="contacts" />
         </li>
-        <li :class="{ active: activeTab === 'moments' }">
+        <li :class="{ active: activeTab === 'group' }">
           <font-awesome-icon
-            :icon="['fas', 'eye']"
-            title="聊天室"
-            @click="tocsdn"
+            :icon="['fas', 'users']"
+            title="群聊"
+            @click="toGroupChat"
           />
         </li>
         <li :class="{ active: activeTab === 'favorites' }">
@@ -49,13 +49,15 @@ const activeTab = ref('chat')
 // 根据当前路由设置activeTab
 function updateActiveTab() {
   const path = route.path
-  if (path === '/moments') {
+  if (path === '/group-chat') {
+    activeTab.value = 'group'
+  } else if (path === '/moments') {
     activeTab.value = 'moments'
   } else if (path === '/favorites') {
     activeTab.value = 'favorites'
-  } else if (path === '/' || path.includes('/chatdetail')) {
-    activeTab.value = 'chat'
-  } else if (path.includes('/chat-ai')) {
+  } else if (path === '/contacts') {
+    activeTab.value = 'contacts'
+  } else if (path === '/chats' || path === '/' || path.includes('/chatdetail') || path.includes('/chat-ai')) {
     activeTab.value = 'chat'
   }
 }
@@ -66,22 +68,28 @@ watch(() => route.path, () => {
 })
 
 function toAI() {
-  emit('todetail', '打开AI小助手')
+  activeTab.value = 'chat'
+  router.push('/chat-ai')
 }
 
 function chat() {
   activeTab.value = 'chat'
-  emit('showchat', '打开聊天')
+  router.push('/chats')
 }
 
 function contacts() {
   activeTab.value = 'contacts'
-  emit('showcontacts', '打开联系人')
+  router.push('/contacts')
 }
 
 function tocsdn() {
   activeTab.value = 'moments'
   router.push('/moments')
+}
+
+function toGroupChat() {
+  activeTab.value = 'group'
+  router.push('/group-chat')
 }
 
 function togithub() {
@@ -139,9 +147,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   background: #ffffff;
   border-radius: 24px;
-  // margin: 0 12px;
   padding: 0px 2px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .logo {
@@ -149,9 +160,9 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  -webkit-app-region: no-drag;
   margin-top: 10px;
   margin-bottom: 40px;
+  -webkit-app-region: no-drag;
 
   .logo-container {
     width: 48px;
@@ -164,6 +175,8 @@ onBeforeUnmount(() => {
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(255, 126, 95, 0.3);
     transition: all 0.3s ease;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
 
     &:hover {
       transform: scale(1.05);
@@ -190,6 +203,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   padding-bottom: 10px;
+  -webkit-app-region: no-drag;
 }
 
 img {
@@ -204,6 +218,7 @@ ul {
   flex-direction: column;
   gap: 20px;
   align-items: center;
+  -webkit-app-region: no-drag;
 
   li {
     width: 48px;
@@ -216,6 +231,8 @@ ul {
     transition: all 0.3s ease;
     cursor: pointer;
     color: #a0a0a0;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
 
     &.active {
       background: rgba(165, 42, 42, 0.1);
@@ -243,9 +260,11 @@ ul {
   border-radius: 50%;
   overflow: hidden;
   position: relative;
-  -webkit-app-region: no-drag;
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
 
   &:hover {
     transform: scale(1.05);

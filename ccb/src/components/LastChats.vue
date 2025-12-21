@@ -358,9 +358,7 @@ function addFriend() {
 // 新建群聊功能
 function createGroup() {
   showAddMenu.value = false
-  // TODO: 实现新建群聊功能
-  console.log('新建群聊功能')
-  alert('新建群聊功能开发中...')
+  router.push('/group-chat')
 }
 
 // 切换在线状态

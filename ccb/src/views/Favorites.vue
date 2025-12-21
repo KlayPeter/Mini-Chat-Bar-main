@@ -1,26 +1,28 @@
 <template>
-  <div class="page-container">
-    <div class="sidebar-section">
+  <div class="container">
+    <div class="section1">
       <Sidebar
         @showchat="handleshowchat"
         @showcontacts="handleshowcontacts"
         @todetail="showAI"
       />
     </div>
-    <div class="content-section">
-      <div class="box">
-        <div class="main">
-          <div class="header">
-            <div class="header-left">
-              <h4>收藏夹</h4>
+    <div class="section3-wrapper">
+      <div class="section3">
+        <div class="box">
+          <div class="main">
+            <div class="header">
+              <div class="header-left">
+                <h4>收藏夹</h4>
+              </div>
             </div>
-          </div>
-          <div class="middle">
-            <div class="content">
-              <div class="development-notice">
-                <div class="icon">⭐</div>
-                <h3>功能开发中</h3>
-                <p>收藏夹功能正在紧张开发中，敬请期待...</p>
+            <div class="middle">
+              <div class="content">
+                <div class="development-notice">
+                  <div class="icon">⭐</div>
+                  <h3>功能开发中</h3>
+                  <p>收藏夹功能正在紧张开发中，敬请期待...</p>
+                </div>
               </div>
             </div>
           </div>
@@ -50,28 +52,47 @@ function showAI() {
 </script>
 
 <style scoped lang="scss">
-.page-container {
-  display: flex;
-  height: 100vh;
-  width: 100%;
-  background: #f9f9f9;
-}
-
-.sidebar-section {
-  flex: 0 0 80px;
-  min-width: 80px;
-  max-width: 80px;
-}
-
-.content-section {
+.container {
+  border-radius: 1rem;
   flex: 1;
-  overflow: hidden;
+  display: flex;
+  box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.5);
+  -webkit-app-region: drag;
+  max-height: 100vh;
+  background: #f9f9f9;
+  transition: all 1.5s ease-in;
+}
+
+.section1,
+.section3 {
+  max-height: 100%;
+  border-radius: 1rem;
+  background-color: transparent;
+}
+
+.section1 {
+  flex: 0 0 8%;
+  position: relative;
+  z-index: 10;
+}
+
+.section3-wrapper {
+  flex: 1 1 92%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.section3 {
+  flex: 1;
+  height: 100%;
 }
 
 .box {
   width: 100%;
   height: 100%;
-  padding: 2%;
+  padding: 0.5rem;
+  padding-left: 0;
 }
 
 .main {
@@ -79,8 +100,8 @@ function showAI() {
   height: 100%;
   border: none;
   border-radius: 1rem;
-  background-color: rgba(128, 128, 128, 0.1);
-  box-shadow: 0 0 5px 2px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
 
@@ -91,11 +112,11 @@ function showAI() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 1px 1px 0px rgba(0, 0, 0, 0.1);
-    padding: 0 20px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-    min-height: 60px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding: 0 24px;
+    background-color: #ffffff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    min-height: 70px;
 
     .header-left {
       display: flex;
@@ -103,9 +124,9 @@ function showAI() {
 
       h4 {
         margin: 0;
-        font-size: 18px;
+        font-size: 19px;
         font-weight: 600;
-        color: #333;
+        color: #2c3e50;
       }
     }
   }
@@ -113,7 +134,7 @@ function showAI() {
   .middle {
     border-radius: 1rem;
     flex: 1;
-    overflow-y: scroll;
+    overflow-y: auto;
     overflow-x: hidden;
     -webkit-app-region: no-drag;
     display: flex;
@@ -176,13 +197,60 @@ function showAI() {
   }
 }
 
+/* 响应式布局 - 大屏幕 */
+@media (min-width: 1300px) {
+  .container {
+    margin: 5vh 10vw;
+    border-radius: 1rem;
+  }
+}
+
+/* 响应式布局 - 中等屏幕 */
+@media (max-width: 1299px) and (min-width: 1025px) {
+  .container {
+    margin: 2vh 5vw;
+    border-radius: 0.8rem;
+  }
+}
+
+/* 响应式布局 - 平板设备 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .container {
+    border-radius: 0.5rem;
+    margin: 1vh 2vw;
+  }
+
+  .section1 {
+    flex: 0 0 10%;
+  }
+
+  .section3-wrapper {
+    flex: 1 1 90%;
+  }
+}
+
+/* 响应式布局 - 移动设备 */
 @media (max-width: 768px) {
-  .sidebar-section {
+  .container {
+    border-radius: 0;
+    margin: 0;
+    height: 100vh;
+  }
+
+  .section1 {
     display: none;
   }
 
-  .content-section {
+  .section3-wrapper {
     flex: 1;
+  }
+
+  .box {
+    padding: 0;
+  }
+
+  .main {
+    border-radius: 0;
   }
 
   .development-notice {
@@ -200,6 +268,20 @@ function showAI() {
     p {
       font-size: 1rem;
     }
+  }
+}
+
+/* 小屏移动设备 */
+@media (max-width: 480px) {
+  .container {
+    font-size: 14px;
+  }
+}
+
+/* 横屏适配 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .container {
+    height: 100vh;
   }
 }
 </style>

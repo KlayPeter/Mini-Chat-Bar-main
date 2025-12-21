@@ -82,36 +82,12 @@ function handlehidechat(message) {
   showlastchats.value = false
 }
 function handleshowchat(message) {
-  const currentPath = router.currentRoute.value.path
-  // 只有在非主页时才跳转
-  if (currentPath !== '/' && !currentPath.includes('/chatdetail') && !currentPath.includes('/chat-ai')) {
-    router.push('/').then(() => {
-      showlastchats.value = true
-      showcontacts.value = false
-      showcontent.value = false
-    })
-  } else {
-    showlastchats.value = true
-    showcontacts.value = false
-    showcontent.value = false
-  }
+  router.push('/chats')
 }
 
 //这里处理contacts板块的显示和隐藏
 function handleshowcontacts(message) {
-  const currentPath = router.currentRoute.value.path
-  // 只有在非主页时才跳转
-  if (currentPath !== '/' && !currentPath.includes('/chatdetail') && !currentPath.includes('/chat-ai')) {
-    router.push('/').then(() => {
-      showlastchats.value = false
-      showcontacts.value = true
-      showcontent.value = false
-    })
-  } else {
-    showlastchats.value = false
-    showcontacts.value = true
-    showcontent.value = false
-  }
+  router.push('/contacts')
 }
 
 function handlehidecontacts(message) {
@@ -163,10 +139,21 @@ function checkScreen() {
 // Check current route to set showcontent state
 function checkRoute() {
   const path = router.currentRoute.value.path
-  if (path === '/' || path === '/chatbox') {
+  const meta = router.currentRoute.value.meta
+
+  // 根据路由 meta 设置显示状态
+  if (meta.showChats) {
+    showlastchats.value = true
+    showcontacts.value = false
+    showcontent.value = false
+  } else if (meta.showContacts) {
+    showlastchats.value = false
+    showcontacts.value = true
     showcontent.value = false
   } else if (path.includes('/chatdetail') || path.includes('/chat-ai')) {
     showcontent.value = true
+  } else if (path === '/' || path === '/chatbox') {
+    showcontent.value = false
   }
 }
 
@@ -183,17 +170,24 @@ onMounted(() => {
 watch(
   () => router.currentRoute.value.path,
   (newPath) => {
-    if (newPath === '/' || newPath === '/chatbox') {
+    const meta = router.currentRoute.value.meta
+
+    if (meta.showChats) {
+      showlastchats.value = true
+      showcontacts.value = false
       showcontent.value = false
-      // 如果没有显示任何侧边面板，默认显示聊天列表
-      if (!showlastchats.value && !showcontacts.value) {
+    } else if (meta.showContacts) {
+      showlastchats.value = false
+      showcontacts.value = true
+      showcontent.value = false
+    } else if (newPath.includes('/chatdetail') || newPath.includes('/chat-ai')) {
+      showcontent.value = true
+    } else if (newPath === '/' || newPath === '/chatbox') {
+      showcontent.value = false
+      // 返回首页时默认显示聊天列表
+      if (!showcontacts.value) {
         showlastchats.value = true
       }
-    } else if (
-      newPath.includes('/chatdetail') ||
-      newPath.includes('/chat-ai')
-    ) {
-      showcontent.value = true
     }
   }
 )
