@@ -85,7 +85,7 @@
                       class="image-preview-container"
                       @click="
                         previewImage(
-                          message.fileInfo.fileUrl,
+                          baseUrl + message.fileInfo.fileUrl,
                           message.fileInfo.fileName,
                           message.fileInfo.fileSize,
                           message.fileInfo.fileType
@@ -93,7 +93,7 @@
                       "
                     >
                       <img
-                        :src="message.fileInfo.fileUrl"
+                        :src="baseUrl + message.fileInfo.fileUrl"
                         :alt="message.fileInfo.fileName"
                         class="chat-image-preview"
                       />
@@ -126,7 +126,7 @@
                         class="video-preview-container"
                         @click="
                           previewVideo(
-                            message.fileInfo.fileUrl,
+                            baseUrl + message.fileInfo.fileUrl,
                             message.fileInfo.fileName,
                             message.fileInfo.fileSize,
                             message.fileInfo.fileType
@@ -135,7 +135,7 @@
                       >
                         <video
                           class="chat-video-preview"
-                          :src="message.fileInfo.fileUrl"
+                          :src="baseUrl + message.fileInfo.fileUrl"
                           preload="metadata"
                         ></video>
                         <div class="preview-overlay">
@@ -156,7 +156,7 @@
                         class="file-link-container"
                         @click="
                           previewFile(
-                            message.fileInfo.fileUrl,
+                            baseUrl + message.fileInfo.fileUrl,
                             message.fileInfo.fileName,
                             message.fileInfo.fileSize,
                             message.fileInfo.fileType

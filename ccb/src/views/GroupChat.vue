@@ -95,14 +95,13 @@
 
                   <!-- 图片消息 -->
                   <template v-if="message.messageType === 'image' && message.fileInfo">
-                    <div class="file-message">
-                      <div class="image-preview-container">
-                        <img
-                          :src="message.fileInfo.fileUrl"
-                          :alt="message.fileInfo.fileName"
-                          class="chat-image-preview"
-                        />
-                      </div>
+                    <div class="image-message">
+                      <img
+                        :src="baseUrl + message.fileInfo.fileUrl"
+                        :alt="message.fileInfo.fileName"
+                        class="chat-image-preview"
+                        @error="handleImageError"
+                      />
                     </div>
                   </template>
 
@@ -123,6 +122,7 @@
                             <div class="file-size">{{ formatFileSize(message.fileInfo.fileSize) }}</div>
                           </div>
                         </div>
+                        <a :href="baseUrl + message.fileInfo.fileUrl" target="_blank" class="file-download">下载</a>
                       </div>
                     </div>
                   </template>
@@ -585,6 +585,11 @@ function formatTime(time) {
   
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
 }
+
+function handleImageError(e) {
+  console.error('图片加载失败:', e.target.src)
+  e.target.src = '/images/icon/image-error.png'
+}
 </script>
 
 <style scoped lang="scss">
@@ -863,6 +868,12 @@ function formatTime(time) {
   width: 100%;
 }
 
+.image-message {
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+}
+
 .file-content {
   background-color: #f0f8ff;
   border: 1px solid #d0e7ff;
@@ -891,12 +902,12 @@ function formatTime(time) {
 }
 
 .chat-image-preview {
-  max-width: 150px;
-  max-height: 150px;
+  max-width: 300px;
+  max-height: 300px;
   border-radius: 8px;
   cursor: pointer;
   display: block;
-  margin-top: 5px;
+  object-fit: cover;
 }
 
 /* 文件预览容器样式 */

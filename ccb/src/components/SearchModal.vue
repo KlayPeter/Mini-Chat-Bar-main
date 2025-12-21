@@ -198,7 +198,8 @@ const performSearch = async () => {
     }
 
     const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:3000/chat/search?${params}`, {
+    const baseUrl = import.meta.env.VITE_BASE_URL
+    const response = await fetch(`${baseUrl}/chat/search?${params}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
