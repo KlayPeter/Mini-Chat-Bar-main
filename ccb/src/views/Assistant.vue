@@ -487,8 +487,8 @@ const offmessage = () => {
           }
 
           &:hover {
-            border-color: rgb(165, 42, 42);
-            background: rgba(165, 42, 42, 0.05);
+            border-color: var(--primary-color);
+            background: var(--hover-bg);
           }
         }
 
@@ -524,13 +524,13 @@ const offmessage = () => {
             }
 
             &:hover {
-              background: rgba(165, 42, 42, 0.1);
+              background: var(--active-bg);
               color: #333;
             }
 
             &.active {
-              background: rgba(165, 42, 42, 0.1);
-              color: rgb(165, 42, 42);
+              background: var(--active-bg);
+              color: var(--primary-color);
               font-weight: 600;
             }
           }
@@ -589,52 +589,67 @@ const offmessage = () => {
       list-style: none;
 
       .message {
-        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 10px;
+        padding-top: 1vh;
+        padding-left: 1vw;
         list-style-type: none;
 
         .message-time-header {
           text-align: center;
           font-size: 12px;
-          color: #b3b3b3;
-          margin-bottom: 15px;
+          color: #b2b2b2;
+          margin: 8px 0 10px;
+          padding: 2px 0;
         }
 
         .message-content-row {
           display: flex;
-          gap: 10px;
-          align-items: flex-start;
+          flex-direction: row;
+          align-items: flex-end;
+          gap: 8px;
+          padding: 0 10px;
 
           .avatar {
             width: 40px;
             height: 40px;
-            border-radius: 6px;
+            aspect-ratio: 1/1;
+            border-radius: 50%;
             overflow: hidden;
             flex-shrink: 0;
+            order: 1;
 
             img {
               width: 100%;
-              height: 100%;
+              aspect-ratio: 1/1;
               object-fit: cover;
             }
           }
 
           .text {
-            max-width: 60%;
+            height: 100%;
+            position: relative;
+            flex: 9;
             display: flex;
             flex-direction: column;
+            order: 2;
 
             .content {
               display: inline-block;
-              background-color: #fff;
-              color: #333;
-              padding: 10px 15px;
-              border-radius: 8px;
+              background-color: #ffffff;
+              color: #2c3e50;
+              padding: 0.75rem 1.2rem;
+              margin: 0 1vw 0.4rem;
+              border-radius: 18px 18px 18px 4px;
+              width: fit-content;
+              max-width: 70%;
               word-wrap: break-word;
               word-break: break-word;
-              font-size: 15px;
-              line-height: 1.6;
-              box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-              position: relative;
+              font-size: 16px;
+              line-height: 1.5;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+              border: 1px solid rgba(0, 0, 0, 0.04);
 
               :deep(code) {
                 background: rgba(0, 0, 0, 0.05);
@@ -664,7 +679,7 @@ const offmessage = () => {
               &.loading-dots {
                 span {
                   animation: blink 1.4s infinite;
-                  
+
                   &:nth-child(1) { animation-delay: 0s; }
                   &:nth-child(2) { animation-delay: 0.2s; }
                   &:nth-child(3) { animation-delay: 0.4s; }
@@ -672,15 +687,31 @@ const offmessage = () => {
               }
             }
 
-            &.me .content {
-              background: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
-              color: #fff;
-              box-shadow: 0 2px 4px rgba(165, 42, 42, 0.3);
+            &.me {
+              align-items: flex-end;
+
+              .content {
+                border-radius: 18px 18px 4px 18px;
+                margin-right: 10px;
+                background: var(--message-bg-user);
+                color: var(--message-text-user);
+                box-shadow: var(--shadow-primary);
+              }
             }
           }
 
           &.my-message-row {
             justify-content: flex-end;
+
+            .text {
+              order: 1;
+            }
+
+            .avatar {
+              order: 2;
+              margin-left: 0;
+              margin-right: 0;
+            }
           }
         }
       }
@@ -714,7 +745,7 @@ const offmessage = () => {
 
         &:focus {
           outline: none;
-          border-color: rgb(165, 42, 42);
+          border-color: var(--primary-color);
         }
 
         &:disabled {
@@ -749,11 +780,11 @@ const offmessage = () => {
           }
 
           &.active {
-            background-color: rgb(165, 42, 42);
+            background-color: var(--primary-color);
             color: #fff;
 
             &:hover {
-              background-color: #85dc59;
+              background-color: var(--primary-light);
             }
           }
         }

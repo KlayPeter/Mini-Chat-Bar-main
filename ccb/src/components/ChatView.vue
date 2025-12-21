@@ -11,11 +11,14 @@
       <div class="section2 mobile" v-if="showcontacts && !showcontent">
         <Contacts @hidecontacts="handlehidecontacts" @todetail="showdetail" />
       </div>
-      <router-view
-        class="section3"
-        v-if="showcontent"
-        @closemessage="hidecontent"
-      />
+      <Transition name="slide-fade" mode="out-in">
+        <router-view
+          v-if="showcontent"
+          class="section3"
+          :key="$route.path"
+          @closemessage="hidecontent"
+        />
+      </Transition>
     </div>
     <!-- 移动端底部导航栏 -->
     <BottomNavbar
@@ -45,12 +48,15 @@
     <!-- <div class="section3" v-if="show3"><Content @closemessage="handleclosemessage"/></div> -->
     <!-- 隐藏聊天内容的叉叉要到其它地方不上 -->
     <div class="section3-wrapper">
-      <router-view
-        class="section3"
-        v-if="showcontent"
-        @closemessage="hidecontent"
-      />
-      <WelcomeDashboard v-else class="section3" />
+      <Transition name="slide-fade" mode="out-in">
+        <router-view
+          v-if="showcontent"
+          class="section3"
+          :key="$route.path"
+          @closemessage="hidecontent"
+        />
+        <WelcomeDashboard v-else class="section3" key="welcome" />
+      </Transition>
     </div>
   </div>
 </template>
@@ -385,6 +391,36 @@ watch(
   .mobile .section2,
   .mobile .section3 {
     height: 100vh;
+  }
+}
+
+/* 页面切换过渡动画 */
+.slide-fade-enter-active {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.slide-fade-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+/* 移动端滑动动画更明显 */
+@media (max-width: 768px) {
+  .slide-fade-enter-from {
+    transform: translateX(100%);
+  }
+
+  .slide-fade-leave-to {
+    transform: translateX(-30%);
   }
 }
 </style>

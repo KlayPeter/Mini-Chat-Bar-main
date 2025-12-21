@@ -1,0 +1,283 @@
+/* ========================================
+   主题配色系统
+   ======================================== */
+
+/* 默认主题 - 经典红色 */
+:root,
+[data-theme='classic-red'] {
+  /* 主题色 */
+  --primary-color: rgb(165, 42, 42);
+  --primary-light: rgb(185, 62, 62);
+  --primary-dark: rgb(145, 32, 32);
+  --primary-gradient: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+
+  /* 辅助色 */
+  --secondary-color: #a0a0a0;
+  --accent-color: #07c160;
+
+  /* 背景色 */
+  --bg-primary: #f9f9f9;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #ffffff;
+  --bg-chat: #f5f5f5;
+
+  /* 文字颜色 */
+  --text-primary: #2c3e50;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-light: #b2b2b2;
+  --text-inverse: #ffffff;
+
+  /* 边框颜色 */
+  --border-color: rgba(0, 0, 0, 0.06);
+  --border-color-light: #e0e0e0;
+  --border-color-dark: #d0d0d0;
+
+  /* 阴影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --shadow-primary: 0 4px 12px rgba(165, 42, 42, 0.3);
+
+  /* 消息气泡 */
+  --message-bg-user: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+  --message-bg-other: #ffffff;
+  --message-text-user: #ffffff;
+  --message-text-other: #2c3e50;
+
+  /* 状态色 */
+  --success-color: #07c160;
+  --warning-color: #ff9800;
+  --error-color: #ff4d4f;
+  --info-color: #1890ff;
+
+  /* 激活/悬停状态 */
+  --hover-bg: rgba(165, 42, 42, 0.05);
+  --active-bg: rgba(165, 42, 42, 0.1);
+  --active-color: rgb(165, 42, 42);
+}
+
+/* 主题2 - 优雅蓝色 */
+[data-theme='elegant-blue'] {
+  --primary-color: #1890ff;
+  --primary-light: #40a9ff;
+  --primary-dark: #096dd9;
+  --primary-gradient: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+
+  --secondary-color: #8c8c8c;
+  --accent-color: #52c41a;
+
+  --bg-primary: #f0f5ff;
+  --bg-secondary: #e6f7ff;
+  --bg-tertiary: #ffffff;
+  --bg-chat: #f0f5ff;
+
+  --text-primary: #262626;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-light: #bfbfbf;
+  --text-inverse: #ffffff;
+
+  --border-color: rgba(24, 144, 255, 0.1);
+  --border-color-light: #d9d9d9;
+  --border-color-dark: #bfbfbf;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 4px 12px rgba(24, 144, 255, 0.3);
+
+  --message-bg-user: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+  --message-bg-other: #ffffff;
+  --message-text-user: #ffffff;
+  --message-text-other: #262626;
+
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --info-color: #1890ff;
+
+  --hover-bg: rgba(24, 144, 255, 0.05);
+  --active-bg: rgba(24, 144, 255, 0.1);
+  --active-color: #1890ff;
+}
+
+/* 主题3 - 清新绿色 */
+[data-theme='fresh-green'] {
+  --primary-color: #52c41a;
+  --primary-light: #73d13d;
+  --primary-dark: #389e0d;
+  --primary-gradient: linear-gradient(135deg, #73d13d 0%, #52c41a 100%);
+
+  --secondary-color: #8c8c8c;
+  --accent-color: #1890ff;
+
+  --bg-primary: #f6ffed;
+  --bg-secondary: #d9f7be;
+  --bg-tertiary: #ffffff;
+  --bg-chat: #f6ffed;
+
+  --text-primary: #262626;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-light: #bfbfbf;
+  --text-inverse: #ffffff;
+
+  --border-color: rgba(82, 196, 26, 0.1);
+  --border-color-light: #d9d9d9;
+  --border-color-dark: #bfbfbf;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 4px 12px rgba(82, 196, 26, 0.3);
+
+  --message-bg-user: linear-gradient(135deg, #73d13d 0%, #52c41a 100%);
+  --message-bg-other: #ffffff;
+  --message-text-user: #ffffff;
+  --message-text-other: #262626;
+
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --info-color: #1890ff;
+
+  --hover-bg: rgba(82, 196, 26, 0.05);
+  --active-bg: rgba(82, 196, 26, 0.1);
+  --active-color: #52c41a;
+}
+
+/* 主题4 - 深邃紫色 */
+[data-theme='deep-purple'] {
+  --primary-color: #722ed1;
+  --primary-light: #9254de;
+  --primary-dark: #531dab;
+  --primary-gradient: linear-gradient(135deg, #9254de 0%, #722ed1 100%);
+
+  --secondary-color: #8c8c8c;
+  --accent-color: #eb2f96;
+
+  --bg-primary: #f9f0ff;
+  --bg-secondary: #efdbff;
+  --bg-tertiary: #ffffff;
+  --bg-chat: #f9f0ff;
+
+  --text-primary: #262626;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-light: #bfbfbf;
+  --text-inverse: #ffffff;
+
+  --border-color: rgba(114, 46, 209, 0.1);
+  --border-color-light: #d9d9d9;
+  --border-color-dark: #bfbfbf;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 4px 12px rgba(114, 46, 209, 0.3);
+
+  --message-bg-user: linear-gradient(135deg, #9254de 0%, #722ed1 100%);
+  --message-bg-other: #ffffff;
+  --message-text-user: #ffffff;
+  --message-text-other: #262626;
+
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --info-color: #1890ff;
+
+  --hover-bg: rgba(114, 46, 209, 0.05);
+  --active-bg: rgba(114, 46, 209, 0.1);
+  --active-color: #722ed1;
+}
+
+/* 主题5 - 温暖橙色 */
+[data-theme='warm-orange'] {
+  --primary-color: #fa8c16;
+  --primary-light: #ffa940;
+  --primary-dark: #d46b08;
+  --primary-gradient: linear-gradient(135deg, #ffa940 0%, #fa8c16 100%);
+
+  --secondary-color: #8c8c8c;
+  --accent-color: #13c2c2;
+
+  --bg-primary: #fff7e6;
+  --bg-secondary: #ffe7ba;
+  --bg-tertiary: #ffffff;
+  --bg-chat: #fff7e6;
+
+  --text-primary: #262626;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-light: #bfbfbf;
+  --text-inverse: #ffffff;
+
+  --border-color: rgba(250, 140, 22, 0.1);
+  --border-color-light: #d9d9d9;
+  --border-color-dark: #bfbfbf;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 4px 12px rgba(250, 140, 22, 0.3);
+
+  --message-bg-user: linear-gradient(135deg, #ffa940 0%, #fa8c16 100%);
+  --message-bg-other: #ffffff;
+  --message-text-user: #ffffff;
+  --message-text-other: #262626;
+
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --info-color: #1890ff;
+
+  --hover-bg: rgba(250, 140, 22, 0.05);
+  --active-bg: rgba(250, 140, 22, 0.1);
+  --active-color: #fa8c16;
+}
+
+/* 主题6 - 深色模式 */
+[data-theme='dark'] {
+  --primary-color: #177ddc;
+  --primary-light: #3c9ae8;
+  --primary-dark: #0c5aa6;
+  --primary-gradient: linear-gradient(135deg, #3c9ae8 0%, #177ddc 100%);
+
+  --secondary-color: #8c8c8c;
+  --accent-color: #49aa19;
+
+  --bg-primary: #141414;
+  --bg-secondary: #1f1f1f;
+  --bg-tertiary: #2a2a2a;
+  --bg-chat: #1f1f1f;
+
+  --text-primary: #e8e8e8;
+  --text-secondary: #bfbfbf;
+  --text-tertiary: #8c8c8c;
+  --text-light: #595959;
+  --text-inverse: #262626;
+
+  --border-color: rgba(255, 255, 255, 0.12);
+  --border-color-light: #434343;
+  --border-color-dark: #303030;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.65);
+  --shadow-primary: 0 4px 12px rgba(23, 125, 220, 0.4);
+
+  --message-bg-user: linear-gradient(135deg, #3c9ae8 0%, #177ddc 100%);
+  --message-bg-other: #2a2a2a;
+  --message-text-user: #ffffff;
+  --message-text-other: #e8e8e8;
+
+  --success-color: #49aa19;
+  --warning-color: #d89614;
+  --error-color: #d32029;
+  --info-color: #177ddc;
+
+  --hover-bg: rgba(23, 125, 220, 0.08);
+  --active-bg: rgba(23, 125, 220, 0.15);
+  --active-color: #177ddc;
+}

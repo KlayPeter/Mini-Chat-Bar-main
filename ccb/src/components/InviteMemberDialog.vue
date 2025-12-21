@@ -58,6 +58,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import { useToast } from '../composables/useToast'
 
 const props = defineProps({
   group: {
@@ -69,6 +70,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'invited'])
 
 const baseUrl = import.meta.env.VITE_BASE_URL
+const toast = useToast()
 
 const friends = ref([])
 const selectedFriends = ref([])
@@ -121,11 +123,11 @@ async function handleInvite() {
       { memberIds: selectedFriends.value },
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    alert('邀请成功')
+    toast.success('邀请成功')
     emit('invited')
   } catch (err) {
     console.error('邀请失败:', err)
-    alert('邀请失败')
+    toast.error('邀请失败')
   }
 }
 

@@ -177,6 +177,7 @@ import axios from "axios";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { defineEmits } from "vue";
 import { useChatStore } from "../stores/useChatStore";
+import { useToast } from "../composables/useToast";
 
 const friends = ref([]);
 const friend_name = ref("");
@@ -199,6 +200,7 @@ const contextMenu = ref({
 });
 
 const chatStore = useChatStore();
+const toast = useToast();
 
 const emit = defineEmits(["hidecontacts", "changecolor", "todetail"]);
 function back() {
@@ -214,7 +216,8 @@ async function friend_request() {
   const token = localStorage.getItem("token");
   if (!friend_name.value) {
     friend_name.value = "";
-    return alert("请输入合法的用户名");
+    toast.warning("请输入合法的用户名");
+    return;
   } else {
     const name = friend_name.value;
     friend_name.value = "";
@@ -230,7 +233,7 @@ async function friend_request() {
       }
     );
 
-    alert(res.data.message);
+    toast.success(res.data.message);
     location.reload();
   }
 }
@@ -341,15 +344,15 @@ async function confirmAddFriend() {
       }
     );
 
-    alert(res.data.message);
+    toast.success(res.data.message);
     closeAddFriendDialog();
-    
+
     // 刷新好友列表
     await initFriends();
-    
+
   } catch (error) {
     console.error("添加好友失败:", error);
-    alert(error.response?.data?.message || "添加好友失败，请重试");
+    toast.error(error.response?.data?.message || "添加好友失败，请重试");
   } finally {
     isAddingFriend.value = false;
   }
@@ -459,15 +462,15 @@ async function deleteFriend() {
           },
         }
       );
-      
-      alert("删除好友成功！");
+
+      toast.success("删除好友成功！");
       hideContextMenu();
-      
+
       // 刷新好友列表
       await initFriends();
     } catch (error) {
       console.error("删除好友失败:", error);
-      alert(error.response?.data?.message || "删除好友失败，请重试");
+      toast.error(error.response?.data?.message || "删除好友失败，请重试");
     }
   }
   hideContextMenu();

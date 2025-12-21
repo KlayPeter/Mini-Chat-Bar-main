@@ -52,8 +52,10 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
+import { useToast } from '../composables/useToast'
 import CryptoJS from 'crypto-js'
 
+const toast = useToast()
 const video = ref(null)
 const canvas = ref(null)
 let ctx = null
@@ -118,7 +120,7 @@ function encryptPassword(text){
 //登录逻辑
 const login = async () => {
   if (!username.value || !password.value) {
-    alert('请输入用户名和密码')
+    toast.warning('请输入用户名和密码')
     return
   }
 
@@ -128,19 +130,19 @@ const login = async () => {
       password: password.value
     })
     console.log('登录响应:', res.data)
-    
+
     // 保存登录信息到localStorage
     localStorage.setItem('token', res.data.token)
     localStorage.setItem('userId', res.data.user.id)
     localStorage.setItem('username', res.data.user.name)
     localStorage.setItem('avatar', res.data.user.ava)
-    
+
     console.log('已保存userId到localStorage:', res.data.user.id)
-    
+
     router.push('/')
   } catch (err) {
     console.error('登录失败', err)
-    alert('登录失败，请稍后再试')
+    toast.error('登录失败，请稍后再试')
   }
 }
 
@@ -158,11 +160,11 @@ const toggleFlip = () => {
 // 注册逻辑（数据库出错了明天记得改）
 const register = async () => {
   if (!regUsername.value || !regPassword.value || !regConfirm.value) {
-    alert('请填写完整信息')
+    toast.warning('请填写完整信息')
     return
   }
   if (regPassword.value !== regConfirm.value) {
-    alert('两次密码不一致')
+    toast.error('两次密码不一致')
     return
   }
 
@@ -172,14 +174,14 @@ const register = async () => {
       uPassword: regPassword.value
     })
     const message = res.data.message
-    alert(message)
+    toast.success(message)
     toggleFlip()
   } catch (err) {
   if (err.response && err.response.status === 409) {
-    alert(err.response.data.message)
+    toast.error(err.response.data.message)
   } else {
     console.error('注册失败', err)
-    alert("注册失败，请稍后再试")
+    toast.error("注册失败，请稍后再试")
   }
 }
 }

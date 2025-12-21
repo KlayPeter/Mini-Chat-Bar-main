@@ -291,6 +291,9 @@
       ></div>
     </div>
 
+    <!-- 主题选择器 -->
+    <ThemeSelector :show="showThemeSelector" @close="showThemeSelector = false" />
+
     <!-- 右键菜单 -->
     <div
       v-if="contextMenu.show"
@@ -331,11 +334,17 @@ import { onMounted } from 'vue'
 import { useChatStore } from '../stores/useChatStore'
 import { socket } from '../../utils/socket'
 import { watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useToast } from '../composables/useToast'
+import ThemeSelector from './ThemeSelector.vue'
 
+const router = useRouter()
+const toast = useToast()
 const statu = ref('available')
 const issetting = ref(false)
 const isMobile = ref(false)
 const showAddMenu = ref(false)
+const showThemeSelector = ref(false)
 
 // 检测屏幕尺寸
 function checkScreen() {
@@ -352,7 +361,7 @@ function addFriend() {
   showAddMenu.value = false
   // TODO: 实现加好友功能
   console.log('加好友功能')
-  alert('加好友功能开发中...')
+  toast.info('加好友功能开发中...')
 }
 
 // 新建群聊功能
@@ -425,7 +434,7 @@ function back() {
 }
 
 function setcolor() {
-  issetting.value = true
+  showThemeSelector.value = true
 }
 
 function toBeige() {
@@ -740,10 +749,10 @@ async function clearAllChats() {
 
       // 清空本地聊天列表
       friends.value = []
-      alert('所有聊天记录已清空！')
+      toast.success('所有聊天记录已清空！')
     } catch (err) {
       console.error('清空聊天记录失败:', err)
-      alert('清空聊天记录失败，请重试！')
+      toast.error('清空聊天记录失败，请重试！')
     }
   }
   hideContextMenu()
@@ -769,10 +778,10 @@ async function deleteChatWith(friend) {
         friends.value.splice(index, 1)
       }
 
-      alert(`与${friend.name}的聊天记录已删除！`)
+      toast.success(`与${friend.name}的聊天记录已删除！`)
     } catch (err) {
       console.error('删除聊天记录失败:', err)
-      alert('删除聊天记录失败，请重试！')
+      toast.error('删除聊天记录失败，请重试！')
     }
   }
   hideContextMenu()
@@ -800,13 +809,13 @@ async function handleAvatarUpload(event) {
 
   // 验证文件类型
   if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件！')
+    toast.warning('请选择图片文件！')
     return
   }
 
   // 验证文件大小（限制为5MB）
   if (file.size > 5 * 1024 * 1024) {
-    alert('图片文件大小不能超过5MB！')
+    toast.warning('图片文件大小不能超过5MB！')
     return
   }
 
@@ -832,7 +841,7 @@ async function handleAvatarUpload(event) {
     // 更新用户头像
     const res = await axios.put(
       `${import.meta.env.VITE_BASE_URL}/api/user/avatar`,
-      { avatarUrl },
+      { avatar: avatarUrl },  // 后端需要的字段名是 avatar
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -862,7 +871,7 @@ async function handleAvatarUpload(event) {
       newAvatarUrl: avatarUrl,
     })
 
-    alert('头像上传成功！')
+    toast.success('头像上传成功！')
     hideAvatarSelector()
 
     // 清空文件输入
@@ -871,7 +880,7 @@ async function handleAvatarUpload(event) {
     }
   } catch (err) {
     console.error('头像上传失败:', err)
-    alert('头像上传失败，请重试！')
+    toast.error('头像上传失败，请重试！')
   }
 }
 
@@ -881,7 +890,7 @@ async function selectAvatar(avatarUrl) {
     const token = localStorage.getItem('token')
     const res = await axios.put(
       `${import.meta.env.VITE_BASE_URL}/api/user/avatar`,
-      { avatarUrl },
+      { avatar: avatarUrl },  // 后端需要的字段名是 avatar
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -911,11 +920,11 @@ async function selectAvatar(avatarUrl) {
       newAvatarUrl: avatarUrl,
     })
 
-    alert('头像更换成功！')
+    toast.success('头像更换成功！')
     hideAvatarSelector()
   } catch (err) {
     console.error('头像更换失败:', err)
-    alert('头像更换失败，请重试！')
+    toast.error('头像更换失败，请重试！')
   }
 }
 
@@ -1024,15 +1033,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-:root {
-  --primary-color: rgb(165, 42, 42);
-  --text-color-main: #2c3e50;
-  --text-color-secondary: #95a5a6;
-  --bg-light: #f8f9fa;
-  --border-radius-lg: 24px;
-  --border-radius-md: 16px;
-}
-
 .contacts {
   height: 100%;
   width: 100%;
@@ -1076,7 +1076,7 @@ onBeforeUnmount(() => {
     transition: color 0.2s;
 
     &:hover {
-      color: rgb(165, 42, 42);
+      color: var(--primary-color);
     }
   }
 
@@ -1117,11 +1117,11 @@ onBeforeUnmount(() => {
 
     svg {
       font-size: 16px;
-      color: rgb(165, 42, 42);
+      color: var(--primary-color);
     }
 
     &:hover {
-      background: rgba(165, 42, 42, 0.1);
+      background: var(--active-bg);
       color: #333;
     }
   }
@@ -1287,7 +1287,7 @@ onBeforeUnmount(() => {
     .view-all {
       font-size: 11px;
       font-weight: 600;
-      color: rgb(165, 42, 42);
+      color: var(--primary-color);
       cursor: pointer;
 
       &:hover {
@@ -1343,7 +1343,7 @@ onBeforeUnmount(() => {
           right: -2px;
           width: 10px;
           height: 10px;
-          background: rgb(165, 42, 42);
+          background: var(--primary-color);
           border-radius: 50%;
           border: 2px solid white;
         }
@@ -1478,6 +1478,15 @@ onBeforeUnmount(() => {
   z-index: 2000;
 }
 
+.avatar-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1999;
+}
+
 .theme-container,
 .avatar-selector-content {
   background: white;
@@ -1486,6 +1495,151 @@ onBeforeUnmount(() => {
   width: 90%;
   max-width: 400px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 2001;
+
+  h3 {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+  }
+}
+
+.upload-section {
+  margin-bottom: 20px;
+
+  .upload-btn {
+    width: 100%;
+    padding: 12px 20px;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-primary);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    img {
+      width: 20px;
+      height: 20px;
+      filter: brightness(0) invert(1);
+    }
+  }
+}
+
+.divider {
+  text-align: center;
+  margin: 20px 0;
+  color: #999;
+  font-size: 13px;
+  position: relative;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 30%;
+    height: 1px;
+    background: #e0e0e0;
+  }
+
+  &::before {
+    left: 0;
+  }
+
+  &::after {
+    right: 0;
+  }
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.avatar-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+  border: 2px solid transparent;
+
+  &:hover {
+    background: var(--hover-bg);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 6px;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  span {
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    line-height: 1.2;
+  }
+}
+
+.avatar-selector-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+
+  button {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+
+    &.cancel-btn {
+      background: #f0f0f0;
+      color: #666;
+
+      &:hover {
+        background: #e0e0e0;
+      }
+    }
+  }
 }
 
 .theme-header {

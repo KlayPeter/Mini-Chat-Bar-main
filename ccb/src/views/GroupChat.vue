@@ -236,8 +236,10 @@ import Sidebar from '../components/Sidebar.vue'
 import GroupList from '../components/GroupList.vue'
 import GroupDetail from '../components/GroupDetail.vue'
 import GroupAvatar from '../components/GroupAvatar.vue'
+import { useToast } from '../composables/useToast'
 
 const baseUrl = import.meta.env.VITE_BASE_URL
+const toast = useToast()
 
 const currentGroup = ref(null)
 const messages = ref([])
@@ -481,7 +483,7 @@ async function uploadFiles(textMessage = '') {
     await loadMessages()
   } catch (err) {
     console.error('文件上传失败:', err)
-    alert('文件上传失败: ' + (err.response?.data?.message || err.message))
+    toast.error('文件上传失败: ' + (err.response?.data?.message || err.message))
   }
 }
 
@@ -534,7 +536,7 @@ async function handleSendMessage(e) {
     }
   } catch (err) {
     console.error('发送消息失败:', err)
-    alert('发送消息失败')
+    toast.error('发送消息失败')
   }
 }
 
@@ -827,13 +829,9 @@ function formatTime(time) {
     .content {
       border-radius: 18px 18px 4px 18px;
       margin-right: 10px;
-      background: linear-gradient(
-        135deg,
-        rgb(185, 62, 62) 0%,
-        rgb(165, 42, 42) 100%
-      );
-      color: white;
-      box-shadow: 0 2px 8px rgba(165, 42, 42, 0.3);
+      background: var(--message-bg-user);
+      color: var(--message-text-user);
+      box-shadow: var(--shadow-primary);
     }
 
     .sender-name {

@@ -167,20 +167,20 @@ onBeforeUnmount(() => {
   .logo-container {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+    background: var(--primary-gradient);
     border-radius: 14px;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(255, 126, 95, 0.3);
+    box-shadow: var(--shadow-primary);
     transition: all 0.3s ease;
     -webkit-app-region: no-drag;
     pointer-events: auto;
 
     &:hover {
       transform: scale(1.05);
-      box-shadow: 0 6px 15px rgba(255, 126, 95, 0.4);
+      box-shadow: var(--shadow-md);
     }
 
     .ai-text {
@@ -235,10 +235,10 @@ ul {
     pointer-events: auto;
 
     &.active {
-      background: rgba(165, 42, 42, 0.1);
+      background: var(--active-bg);
 
       svg {
-        color: rgb(165, 42, 42);
+        color: var(--primary-color);
       }
     }
 
@@ -268,7 +268,7 @@ ul {
 
   &:hover {
     transform: scale(1.05);
-    border-color: rgb(165, 42, 42);
+    border-color: var(--primary-color);
     cursor: pointer;
 
     &::after {

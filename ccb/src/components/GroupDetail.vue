@@ -97,6 +97,7 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 import InviteMemberDialog from './InviteMemberDialog.vue'
+import { useToast } from '../composables/useToast'
 
 const props = defineProps({
   group: {
@@ -109,6 +110,7 @@ const emit = defineEmits(['close', 'update'])
 
 const baseUrl = import.meta.env.VITE_BASE_URL
 const currentUserId = ref(localStorage.getItem('userId') || '')
+const toast = useToast()
 
 const isEditing = ref(false)
 const editGroupName = ref('')
@@ -146,7 +148,7 @@ async function saveGroupName() {
     emit('update')
   } catch (err) {
     console.error('更新群名称失败:', err)
-    alert('更新失败')
+    toast.error('更新失败')
   }
 }
 
@@ -172,7 +174,7 @@ async function saveAnnouncement() {
     emit('update')
   } catch (err) {
     console.error('更新群公告失败:', err)
-    alert('更新失败')
+    toast.error('更新失败')
   }
 }
 
@@ -194,12 +196,12 @@ async function handleLeaveGroup() {
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    alert(isCreator.value ? '群聊已解散' : '已退出群聊')
+    toast.success(isCreator.value ? '群聊已解散' : '已退出群聊')
     emit('close')
     emit('update')
   } catch (err) {
     console.error('操作失败:', err)
-    alert('操作失败')
+    toast.error('操作失败')
   }
 }
 </script>

@@ -77,8 +77,10 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import GroupAvatar from './GroupAvatar.vue'
+import { useToast } from '../composables/useToast'
 
 const baseUrl = import.meta.env.VITE_BASE_URL
+const toast = useToast()
 
 const emit = defineEmits(['select-group'])
 
@@ -176,13 +178,13 @@ function toggleFriend(friendId) {
 // 创建群聊
 async function createGroup() {
   if (!newGroupName.value.trim()) {
-    alert('请输入群名称')
-    return
+    toast.warning('请输入群名称');
+    return;
   }
 
   try {
     const token = localStorage.getItem('token')
-    
+
     const res = await axios.post(
       `${baseUrl}/room/create`,
       {
@@ -195,24 +197,24 @@ async function createGroup() {
     )
 
     if (res.data.success) {
-      alert('群聊创建成功！')
+      toast.success('群聊创建成功！');
       showCreateDialog.value = false
       newGroupName.value = ''
       selectedFriends.value = []
-      
+
       // 重新加载群聊列表
       await loadGroups()
-      
+
       // 自动选择新创建的群聊
       if (res.data.room) {
         selectGroup(res.data.room)
       }
     } else {
-      alert('创建失败: ' + (res.data.message || '未知错误'))
+      toast.error('创建失败: ' + (res.data.message || '未知错误'));
     }
   } catch (err) {
     console.error('创建群聊失败:', err)
-    alert('创建群聊失败: ' + (err.response?.data?.message || err.message))
+    toast.error('创建群聊失败: ' + (err.response?.data?.message || err.message));
   }
 }
 

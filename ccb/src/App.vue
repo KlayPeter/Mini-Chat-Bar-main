@@ -4,9 +4,19 @@
 
 <script setup>
 import ChatView from './components/ChatView.vue'
+import { useThemeStore } from './stores/useThemeStore'
+import { onMounted } from 'vue'
+
+const themeStore = useThemeStore()
+
+onMounted(() => {
+  themeStore.initTheme()
+})
 </script>
 
 <style>
+@import './styles/themes.scss';
+
 /* 全局重置和基础样式 */
 * {
   box-sizing: border-box;

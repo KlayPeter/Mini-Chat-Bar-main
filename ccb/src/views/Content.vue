@@ -1913,13 +1913,9 @@ watch(showPicker, (newValue) => {
     .content {
       border-radius: 18px 18px 4px 18px;
       margin-right: 10px;
-      background: linear-gradient(
-        135deg,
-        rgb(185, 62, 62) 0%,
-        rgb(165, 42, 42) 100%
-      );
-      color: white;
-      box-shadow: 0 2px 8px rgba(165, 42, 42, 0.3);
+      background: var(--message-bg-user);
+      color: var(--message-text-user);
+      box-shadow: var(--shadow-primary);
     }
   }
 

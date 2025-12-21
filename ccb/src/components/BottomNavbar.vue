@@ -193,24 +193,24 @@ onBeforeUnmount(() => {
     }
 
     &.active {
-      background: rgba(255, 127, 80, 0.15);
+      background: var(--active-bg);
       transform: translateY(-2px);
 
       svg,
       .ai-icon {
-        color: rgb(255, 127, 80);
-        filter: drop-shadow(0 0 8px rgba(255, 127, 80, 0.6));
+        color: var(--primary-color);
+        filter: drop-shadow(0 0 8px var(--primary-color));
       }
 
       span {
-        color: rgb(255, 127, 80);
+        color: var(--primary-color);
         font-weight: 600;
       }
     }
 
     svg {
       font-size: 24px;
-      color: rgb(255, 127, 80);
+      color: #a0a0a0;
       margin-bottom: 4px;
       transition: all 0.3s ease;
     }
@@ -229,7 +229,7 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       overflow: hidden;
       margin-bottom: 4px;
-      border: 2px solid rgb(255, 127, 80);
+      border: 2px solid transparent;
       transition: all 0.3s ease;
 
       .avatar {
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
 
     span {
       font-size: 11px;
-      color: rgb(255, 127, 80);
+      color: #a0a0a0;
       font-weight: 500;
       transition: all 0.3s ease;
       text-align: center;
@@ -249,22 +249,26 @@ onBeforeUnmount(() => {
     }
 
     &:hover:not(.active) {
-      background: rgba(255, 127, 80, 0.1);
+      background: var(--hover-bg);
 
       svg,
       .ai-icon {
         transform: scale(1.1);
-        color: rgb(255, 127, 80);
+        color: var(--primary-color);
       }
 
       .avatar-wrapper {
         transform: scale(1.1);
-        border-color: rgb(255, 127, 80);
+        border-color: var(--primary-color);
       }
 
       span {
-        color: rgb(255, 127, 80);
+        color: var(--primary-color);
       }
+    }
+
+    &.active .avatar-wrapper {
+      border-color: var(--primary-color);
     }
   }
 }
@@ -307,7 +311,7 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       object-fit: cover;
       margin-bottom: 10px;
-      border: 3px solid rgb(255, 127, 80);
+      border: 3px solid var(--primary-color);
     }
 
     h3 {
@@ -336,7 +340,7 @@ onBeforeUnmount(() => {
       }
 
       svg:first-child {
-        color: rgb(255, 127, 80);
+        color: var(--primary-color);
         margin-right: 15px;
         font-size: 18px;
       }
