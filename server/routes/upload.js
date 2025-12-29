@@ -45,7 +45,7 @@ const fileFilter = (req, file, cb) => {
         // 视频
         'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm',
         // 音频
-        'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
+        'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac', 'audio/webm', 'audio/mpeg',
         // 压缩文件
         'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
         // 文本文件

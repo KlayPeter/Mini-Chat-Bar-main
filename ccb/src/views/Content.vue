@@ -190,6 +190,27 @@
                     </div>
                   </div>
                 </template>
+                <!-- 语音消息 -->
+                <template
+                  v-else-if="message.messageType === 'voice' && message.fileInfo"
+                >
+                  <div class="voice-message">
+                    <div
+                      v-if="message.isForwarded || message.forwardedFrom"
+                      class="forwarded-info"
+                    >
+                      转自: {{ message.forwardedFrom }}
+                    </div>
+                    <div class="voice-content">
+                      <button class="voice-play-btn" @click="playVoice(message.fileInfo)">
+                        🎤
+                      </button>
+                      <div class="voice-duration">
+                        {{ formatTime(message.fileInfo.duration || 0) }}
+                      </div>
+                    </div>
+                  </div>
+                </template>
                 <!-- 只有普通文本消息才显示在content容器内 -->
                 <div v-else class="content">
                   {{ message.content }}
@@ -281,6 +302,31 @@
                 alt="文件夹"
                 style="width: 16px; height: 16px"
               />
+            </button>
+            <!-- 录音按钮 -->
+            <button
+              v-if="!isRecording"
+              class="voice-button"
+              @click="handleStartRecording"
+              title="录音"
+            >
+              🎤
+            </button>
+            <button
+              v-else
+              class="voice-recording"
+              @click="handleStopRecording"
+              title="点击发送"
+            >
+              ⏹ {{ formatTime(recordingTime) }}
+            </button>
+            <button
+              v-if="isRecording"
+              class="voice-cancel"
+              @click="handleCancelRecording"
+              title="取消录音"
+            >
+              ❌
             </button>
             <button
               class="search-button"
@@ -533,6 +579,8 @@ import { onBeforeUnmount } from 'vue'
 import EmojiPicker from 'vue3-emoji-picker'
 import 'vue3-emoji-picker/css'
 import SearchModal from '../components/SearchModal.vue'
+import { useAudioRecorder } from '../composables/useAudioRecorder'
+import { useToast } from '../composables/useToast'
 
 const messages = ref([])
 const messageList = ref(null)
@@ -594,6 +642,18 @@ const previewDialog = ref({
 const searchModal = ref({
   show: false,
 })
+
+// 语音录制相关
+const toast = useToast()
+const {
+  isRecording,
+  recordingTime,
+  audioBlob,
+  startRecording,
+  stopRecording,
+  cancelRecording,
+  formatTime,
+} = useAudioRecorder()
 
 onMounted(() => {
   console.log('Content组件挂载，当前聊天用户:', chatstore.currentChatUser)
@@ -944,6 +1004,130 @@ async function uploadFiles(textMessage = '') {
     console.error('文件上传失败:', err)
     console.error('错误详情:', err.response?.data || err.message)
     alert(`文件上传失败: ${err.response?.data?.message || err.message}`)
+  }
+}
+
+// 开始录音
+async function handleStartRecording() {
+  const success = await startRecording()
+  if (success) {
+    toast.success('开始录音...')
+  }
+}
+
+// 停止录音并发送
+async function handleStopRecording() {
+  stopRecording()
+  
+  // 等待 audioBlob 更新
+  await nextTick()
+  
+  if (audioBlob.value && recordingTime.value > 0) {
+    await uploadVoiceMessage()
+  } else {
+    toast.warning('录音时间太短')
+  }
+}
+
+// 取消录音
+function handleCancelRecording() {
+  cancelRecording()
+  toast.info('已取消录音')
+}
+
+// 上传语音消息
+async function uploadVoiceMessage() {
+  if (!audioBlob.value) {
+    toast.error('没有录音数据')
+    return
+  }
+
+  const token = localStorage.getItem('token')
+  const duration = recordingTime.value
+
+  try {
+    // 将 webm 格式转换为文件
+    const audioFile = new File(
+      [audioBlob.value],
+      `voice-${Date.now()}.webm`,
+      { type: 'audio/webm' }
+    )
+
+    const formData = new FormData()
+    formData.append('file', audioFile)
+
+    // 上传语音文件
+    const res = await axios.post(`${baseUrl}/api/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const fileInfo = {
+      fileName: res.data.fileName,
+      fileUrl: res.data.fileUrl,
+      fileSize: res.data.fileSize,
+      fileType: res.data.fileType,
+      duration: duration, // 语音时长（秒）
+    }
+
+    const messageContent = `发送了一条语音消息 ${formatTime(duration)}`
+
+    // 发送语音消息到后端
+    await axios.post(
+      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+      {
+        content: messageContent,
+        messageType: 'voice',
+        fileInfo: fileInfo,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    // 添加消息到本地列表
+    const newMessage = {
+      from: localStorage.getItem('userId') || 'me',
+      to: chatstore.currentChatUser,
+      content: messageContent,
+      messageType: 'voice',
+      fileInfo: fileInfo,
+      time: new Date().toISOString(),
+    }
+    messages.value.push(newMessage)
+
+    // 通过Socket.IO发送实时消息
+    socket.emit('private-file-message', {
+      to: chatstore.currentChatUser,
+      fileUrl: fileInfo.fileUrl,
+      fileName: fileInfo.fileName,
+      fileType: fileInfo.fileType,
+      messageType: 'voice',
+      duration: duration,
+    })
+
+    socket.emit('private-message', {
+      to: chatstore.currentChatUser,
+      from: localStorage.getItem('userId'),
+    })
+
+    // 清理录音数据
+    cancelRecording()
+    toast.success('语音发送成功')
+
+    nextTick(() => {
+      const el = messageList.value
+      if (el) {
+        el.scrollTop = el.scrollHeight
+      }
+    })
+  } catch (err) {
+    console.error('语音上传失败:', err)
+    toast.error(`语音上传失败: ${err.response?.data?.message || err.message}`)
   }
 }
 
@@ -1363,6 +1547,21 @@ function cancelForward() {
   forwardDialog.value.show = false
   forwardDialog.value.selectedFriends = []
   forwardDialog.value.messagesToForward = []
+}
+
+// 播放语音消息
+function playVoice(fileInfo) {
+  const audioUrl = baseUrl + fileInfo.fileUrl
+  const audio = new Audio(audioUrl)
+  
+  audio.play().catch(err => {
+    console.error('播放语音失败:', err)
+    toast.error('播放语音失败')
+  })
+  
+  audio.onended = () => {
+    console.log('语音播放完成')
+  }
 }
 
 // 预览图片
@@ -2492,6 +2691,90 @@ watch(showPicker, (newValue) => {
 
   &:hover {
     background-color: #e0e0e0 !important;
+  }
+}
+
+/* 语音消息样式 */
+.voice-message {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+}
+
+.voice-content {
+  background-color: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  border-radius: 20px;
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+.voice-play-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.voice-duration {
+  font-size: 14px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+/* 录音按钮样式 */
+.voice-button {
+  background-color: #4caf50 !important;
+  color: white !important;
+  border: none !important;
+  font-size: 18px;
+
+  &:hover {
+    background-color: #45a049 !important;
+  }
+}
+
+.voice-recording {
+  background-color: #f44336 !important;
+  color: white !important;
+  border: none !important;
+  animation: pulse 1.5s infinite;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.voice-cancel {
+  background-color: #ff9800 !important;
+  color: white !important;
+  border: none !important;
+  font-size: 14px;
+
+  &:hover {
+    background-color: #fb8c00 !important;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
   }
 }
 
