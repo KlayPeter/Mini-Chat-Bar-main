@@ -399,3 +399,60 @@ exports.deleteGroupMessage = async (req, res) => {
     res.status(500).json({ message: '删除群消息失败' })
   }
 }
+
+// 搜索用户所有群的历史消息
+exports.searchAllMessages = async (req, res) => {
+  try {
+    console.log('=== 搜索历史消息 API 被调用 ===')
+    console.log('用户ID:', req.user.userId)
+    
+    const userId = req.user.userId
+
+    // 获取用户所有群聊
+    const userGroups = await Room.find({
+      'Members.userID': userId
+    })
+    
+    console.log('用户群聊数量:', userGroups.length)
+
+    if (userGroups.length === 0) {
+      console.log('用户没有加入任何群聊')
+      return res.json({
+        success: true,
+        messages: []
+      })
+    }
+
+    // 获取所有群的 roomId
+    const roomIds = userGroups.map(g => g.RoomID)
+    console.log('群聊IDs:', roomIds)
+
+    // 查询这些群的所有消息（限制数量）
+    const messages = await GroupMessage.find({
+      roomId: { $in: roomIds },
+      messageType: 'text' // 只搜索文本消息
+    })
+      .sort({ time: -1 })
+      .limit(500) // 限制最多返回500条
+    
+    console.log('查询到的消息数量:', messages.length)
+
+    // 为每条消息添加群名称
+    const messagesWithGroupName = messages.map(msg => {
+      const group = userGroups.find(g => g.RoomID === msg.roomId)
+      return {
+        ...msg.toObject(),
+        groupName: group ? group.RoomName : '未知群聊'
+      }
+    })
+
+    console.log('返回消息数量:', messagesWithGroupName.length)
+    res.json({
+      success: true,
+      messages: messagesWithGroupName
+    })
+  } catch (err) {
+    console.error('搜索历史消息失败:', err)
+    res.status(500).json({ message: '搜索历史消息失败', error: err.message })
+  }
+}

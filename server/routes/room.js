@@ -9,6 +9,12 @@ router.post("/create", auth, GroupController.createGroup)
 // 获取用户的所有群聊
 router.get("/list", auth, GroupController.getUserGroups)
 
+// 搜索所有群的历史消息 - 必须在 /:roomId 之前
+router.get("/search/messages", auth, (req, res, next) => {
+  console.log('=== /room/search/messages 路由被访问 ===')
+  next()
+}, GroupController.searchAllMessages)
+
 // 获取群聊详情
 router.get("/:roomId", auth, GroupController.getGroupDetail)
 

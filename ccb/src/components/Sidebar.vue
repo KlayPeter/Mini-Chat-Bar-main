@@ -101,10 +101,8 @@ function logout() {
   localStorage.clear()
   location.reload()
 }
-onMounted(async () => {
-  // 初始化时设置activeTab
-  updateActiveTab()
-  
+// 获取用户头像
+async function fetchUserAvatar() {
   try {
     const token = localStorage.getItem('token')
     const res = await axios.get(
@@ -116,18 +114,27 @@ onMounted(async () => {
       }
     )
     avatar.value = res.data.ava
-
-    // 监听头像更新事件
-    socket.on('avatar-updated', (data) => {
-      // 如果是当前用户的头像更新，则更新本地头像
-      const currentUserId = JSON.parse(atob(token.split('.')[1])).uid
-      if (data.userId.toString() === currentUserId.toString()) {
-        avatar.value = data.newAvatarUrl
-      }
-    })
   } catch (err) {
     console.error('用户头像获取失败：', err)
   }
+}
+
+onMounted(async () => {
+  // 初始化时设置activeTab
+  updateActiveTab()
+  
+  // 获取用户头像
+  await fetchUserAvatar()
+
+  // 监听头像更新事件
+  socket.on('avatar-updated', async (data) => {
+    // 如果是当前用户的头像更新，重新获取头像
+    const token = localStorage.getItem('token')
+    const currentUserId = JSON.parse(atob(token.split('.')[1])).uid
+    if (data.userId.toString() === currentUserId.toString()) {
+      await fetchUserAvatar()
+    }
+  })
 })
 
 onBeforeUnmount(() => {

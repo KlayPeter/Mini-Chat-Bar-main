@@ -1003,7 +1003,7 @@ async function uploadFiles(textMessage = '') {
   } catch (err) {
     console.error('文件上传失败:', err)
     console.error('错误详情:', err.response?.data || err.message)
-    alert(`文件上传失败: ${err.response?.data?.message || err.message}`)
+    toast.error(`文件上传失败: ${err.response?.data?.message || err.message}`)
   }
 }
 
@@ -1199,7 +1199,7 @@ async function send(e) {
     } catch (err) {
       console.error('发送失败：', err)
       console.error('错误详情:', err.response?.data || err.message)
-      alert(`消息发送失败: ${err.response?.data?.message || err.message}`)
+      toast.error(`消息发送失败: ${err.response?.data?.message || err.message}`)
     }
   } else {
     console.warn('输入内容不能为空！')
@@ -1274,10 +1274,10 @@ async function deleteCurrentChat() {
 
       // 清空当前消息列表
       messages.value = []
-      alert(`与${uname.value}的聊天记录已删除！`)
+      toast.success(`与${uname.value}的聊天记录已删除！`)
     } catch (err) {
       console.error('删除聊天记录失败:', err)
-      alert('删除聊天记录失败，请重试！')
+      toast.error('删除聊天记录失败，请重试！')
     }
   }
 }
@@ -1301,7 +1301,7 @@ function hideMessageContextMenu() {
 // 下载文件
 async function downloadFile(fileInfo) {
   if (!fileInfo || !fileInfo.fileUrl) {
-    alert('文件信息不完整，无法下载')
+    toast.warning('文件信息不完整，无法下载')
     return
   }
 
@@ -1330,7 +1330,7 @@ async function downloadFile(fileInfo) {
     window.URL.revokeObjectURL(url)
   } catch (error) {
     console.error('下载文件失败:', error)
-    alert('下载文件失败，请重试！')
+    toast.error('下载文件失败，请重试！')
   }
 
   hideMessageContextMenu()
@@ -1381,10 +1381,10 @@ async function deleteSingleMessage(index) {
 
       // 从本地删除
       messages.value.splice(index, 1)
-      alert('消息已删除')
+      toast.success('消息已删除')
     } catch (err) {
       console.error('删除消息失败:', err)
-      alert('删除消息失败，请重试！')
+      toast.error('删除消息失败，请重试！')
     }
   }
   hideMessageContextMenu()
@@ -1419,11 +1419,11 @@ async function deleteSelectedMessages() {
         chatWith: route.params.id,
       })
 
-      alert(`已删除 ${selectedMessages.value.length} 条消息`)
+      toast.success(`已删除 ${selectedMessages.value.length} 条消息`)
       exitSelectionMode()
     } catch (err) {
       console.error('删除消息失败:', err)
-      alert('删除消息失败，请重试！')
+      toast.error('删除消息失败，请重试！')
     }
   }
 }
@@ -1759,7 +1759,7 @@ function getFileIcon(fileType) {
   }
 
   // .docx和.doc文件用doc.png
-  if (lowerType.includes('doc') || lowerType.includes('docx')) {
+  if (lowerType.includes('doc') || lowerType.includes('docx') || lowerType.includes('word') || lowerType.includes('document')) {
     return '/images/icon/doc.png'
   }
 
@@ -1767,13 +1767,14 @@ function getFileIcon(fileType) {
   if (
     lowerType.includes('xls') ||
     lowerType.includes('xlsx') ||
-    lowerType.includes('excel')
+    lowerType.includes('excel') ||
+    lowerType.includes('spreadsheet')
   ) {
     return '/images/icon/excel.png'
   }
 
   // ppt和pptx文件用ppt.png
-  if (lowerType.includes('ppt') || lowerType.includes('pptx')) {
+  if (lowerType.includes('ppt') || lowerType.includes('pptx') || lowerType.includes('presentation')) {
     return '/images/icon/ppt.png'
   }
 
@@ -1785,6 +1786,31 @@ function getFileIcon(fileType) {
   // html文件用html.png
   if (lowerType.includes('html') || lowerType.includes('htm')) {
     return '/images/icon/html.png'
+  }
+
+  // PDF文件用doc.png（因为没有pdf.png）
+  if (lowerType.includes('pdf')) {
+    return '/images/icon/doc.png'
+  }
+
+  // 压缩文件用folder.png
+  if (lowerType.includes('zip') || lowerType.includes('rar') || lowerType.includes('7z') || lowerType.includes('tar') || lowerType.includes('gz')) {
+    return '/images/icon/folder.png'
+  }
+
+  // 视频文件用camera.png
+  if (lowerType.includes('video') || lowerType.includes('.mp4') || lowerType.includes('.avi') || lowerType.includes('.mov') || lowerType.includes('.wmv') || lowerType.includes('.flv')) {
+    return '/images/icon/camera.png'
+  }
+
+  // 音频文件用camera.png
+  if (lowerType.includes('audio') || lowerType.includes('.mp3') || lowerType.includes('.wav') || lowerType.includes('.flac') || lowerType.includes('.aac')) {
+    return '/images/icon/camera.png'
+  }
+
+  // 图片文件用camera.png
+  if (lowerType.includes('image') || lowerType.includes('.jpg') || lowerType.includes('.jpeg') || lowerType.includes('.png') || lowerType.includes('.gif') || lowerType.includes('.webp') || lowerType.includes('.bmp') || lowerType.includes('.svg')) {
+    return '/images/icon/camera.png'
   }
 
   // 其他文件用other.png
@@ -2312,11 +2338,12 @@ watch(showPicker, (newValue) => {
       align-items: center;
       gap: 8px;
       padding: 4px;
-      background-color: rgba(255, 255, 255, 0.9);
+      background-color: var(--bg-tertiary, rgba(255, 255, 255, 0.9));
       border-radius: 20px;
-      border: 1px solid #e9ecef;
+      border: 1px solid var(--border-color, #e9ecef);
       backdrop-filter: blur(4px);
       -webkit-app-region: no-drag;
+      z-index: 10;
 
       button {
         height: 32px;
@@ -2331,14 +2358,15 @@ watch(showPicker, (newValue) => {
         align-items: center;
         justify-content: center;
         background-color: transparent;
+        flex-shrink: 0;
 
         &:hover {
-          background-color: #f8f9fa;
+          background-color: var(--hover-bg, #f8f9fa);
           transform: scale(1.1);
         }
 
         &:first-of-type {
-          color: #666;
+          color: var(--text-secondary, #666);
 
           &:hover {
             background-color: #fff3cd;
@@ -2346,20 +2374,24 @@ watch(showPicker, (newValue) => {
         }
 
         &.file-button {
-          color: #666;
+          color: var(--text-secondary, #666);
 
           &:hover {
             background-color: #e3f2fd;
           }
         }
 
+        &.search-button {
+          color: var(--text-secondary, #666);
+
+          &:hover {
+            background-color: #e8f5e9;
+          }
+        }
+
         &:last-of-type {
           display: none;
-          background: linear-gradient(
-            135deg,
-            rgb(255, 127, 80) 0%,
-            rgb(255, 140, 100) 100%
-          );
+          background: var(--primary-gradient, linear-gradient(135deg, rgb(255, 127, 80) 0%, rgb(255, 140, 100) 100%));
           color: white;
           font-size: 0.85rem;
           font-weight: 600;
@@ -2367,16 +2399,11 @@ watch(showPicker, (newValue) => {
           min-width: 65px;
           border-radius: 16px;
           padding: 0 14px;
-          box-shadow: 0 2px 8px rgba(255, 127, 80, 0.3);
+          box-shadow: var(--shadow-primary, 0 2px 8px rgba(255, 127, 80, 0.3));
 
           &:hover {
-            background: linear-gradient(
-              135deg,
-              rgb(255, 140, 100) 0%,
-              rgb(255, 160, 120) 100%
-            );
             transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(255, 127, 80, 0.4);
+            box-shadow: var(--shadow-md, 0 4px 12px rgba(255, 127, 80, 0.4));
           }
         }
 
@@ -3501,6 +3528,17 @@ watch(showPicker, (newValue) => {
 
 /* 移动设备 */
 @media (max-width: 768px) {
+  .box {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .main {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .container {
     height: 100vh;
     border-radius: 0;
@@ -3529,6 +3567,7 @@ watch(showPicker, (newValue) => {
     padding: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
 
     ul {
       padding: 0.5rem;
@@ -3590,24 +3629,43 @@ watch(showPicker, (newValue) => {
   .bottom {
     flex: 0 0 auto;
     margin: 0;
+    margin-bottom: 65px; /* 为底部导航栏留出空间 */
     border-radius: 0;
     border: none;
     border-top: 1px solid #e0e0e0;
-    min-height: 120px;
-    max-height: 200px;
+    min-height: 160px;
+    max-height: 240px;
+    width: 100%;
+    background: var(--bg-primary, #ffffff);
+    position: relative;
+    display: flex;
+    flex-direction: column;
 
     .input-area {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+      padding: 10px 0;
+
       .file-preview-inline {
         padding: 6px 10px;
         gap: 4px;
+        margin: 0 10px 8px;
+        max-height: 80px;
+        overflow-y: auto;
       }
 
       textarea {
-        width: 90%;
-        margin: 0 5%;
-        padding: 10px;
+        width: calc(100% - 24px);
+        margin: 0 12px;
+        padding: 12px;
         font-size: 16px; /* 防止iOS缩放 */
-        min-height: 50px;
+        min-height: 60px;
+        max-height: 100px;
+        resize: none;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
 
         &::placeholder {
           font-size: 15px;
@@ -3615,14 +3673,53 @@ watch(showPicker, (newValue) => {
       }
 
       .toolbar {
-        bottom: 6px;
-        right: 8px;
-        gap: 6px;
+        position: relative;
+        bottom: auto;
+        right: auto;
+        margin: 10px 12px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: var(--bg-primary, rgba(255, 255, 255, 0.95));
+        border-radius: 12px;
+        flex-wrap: wrap;
 
         button {
-          height: 28px;
-          width: 28px;
-          font-size: 0.8rem;
+          height: 38px;
+          width: 38px;
+          font-size: 1.1rem;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          &:last-of-type {
+            min-width: 70px;
+            width: auto;
+            padding: 0 16px;
+            font-size: 0.9rem;
+            margin-left: auto;
+          }
+
+          &.voice-recording {
+            width: auto;
+            min-width: 100px;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+          }
+
+          &.voice-cancel {
+            width: 38px;
+            min-width: 38px;
+          }
+
+          &.voice-button {
+            font-size: 1.2rem;
+          }
         }
       }
     }
@@ -3696,6 +3793,17 @@ watch(showPicker, (newValue) => {
 
 /* 小屏移动设备 */
 @media (max-width: 480px) {
+  .box {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .main {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .container {
     font-size: 14px;
   }
@@ -3741,25 +3849,53 @@ watch(showPicker, (newValue) => {
   }
 
   .bottom {
-    min-height: 100px;
+    margin-bottom: 60px; /* 为小屏底部导航栏留出空间 */
+    min-height: 150px;
+    max-height: 220px;
 
     .input-area {
+      padding: 8px 0;
+
       textarea {
-        width: 88%;
-        margin: 0 6%;
-        padding: 8px;
+        width: calc(100% - 20px);
+        margin: 0 10px;
+        padding: 10px;
         font-size: 16px;
-        min-height: 40px;
+        min-height: 50px;
+        max-height: 90px;
       }
 
       .toolbar {
-        bottom: 4px;
-        right: 6px;
+        margin: 8px 10px 0;
+        gap: 6px;
+        padding: 6px;
 
         button {
-          height: 24px;
-          width: 24px;
-          font-size: 0.7rem;
+          height: 34px;
+          width: 34px;
+          font-size: 0.95rem;
+
+          &:last-of-type {
+            min-width: 60px;
+            padding: 0 14px;
+            font-size: 0.85rem;
+          }
+
+          &.voice-recording {
+            width: auto;
+            min-width: 90px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+          }
+
+          &.voice-cancel {
+            width: 34px;
+            min-width: 34px;
+          }
+
+          &.voice-button {
+            font-size: 1.1rem;
+          }
         }
       }
     }
@@ -3811,12 +3947,43 @@ watch(showPicker, (newValue) => {
   }
 
   .bottom {
-    min-height: 80px;
-    max-height: 120px;
+    margin-bottom: 60px; /* 横屏时底部导航栏高度为60px */
+    min-height: 110px;
+    max-height: 160px;
 
     .input-area {
+      padding: 6px 0;
+
       textarea {
-        min-height: 35px;
+        min-height: 40px;
+        max-height: 70px;
+      }
+
+      .toolbar {
+        margin: 6px 10px 0;
+        padding: 5px;
+
+        button {
+          height: 32px;
+          width: 32px;
+          font-size: 0.9rem;
+
+          &:last-of-type {
+            min-width: 60px;
+            padding: 0 12px;
+            font-size: 0.8rem;
+          }
+
+          &.voice-recording {
+            min-width: 80px;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+          }
+
+          &.voice-cancel {
+            width: 32px;
+          }
+        }
       }
     }
   }

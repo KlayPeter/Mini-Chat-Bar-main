@@ -16,17 +16,21 @@
       <font-awesome-icon icon="users" />
       <span>通讯录</span>
     </div>
-    <div class="nav-item" @click="toAI" :class="{ active: activeTab === 'ai' }">
-      <img src="/images/ai-logo.png" alt="AI" class="ai-icon" />
-      <span>AI助手</span>
+    <div 
+      class="nav-item" 
+      @click="toGroupChat" 
+      :class="{ active: activeTab === 'group' }"
+    >
+      <font-awesome-icon :icon="['fas', 'users']" />
+      <span>群聊</span>
     </div>
     <div
       class="nav-item"
-      @click="tocsdn"
-      :class="{ active: activeTab === 'moments' }"
+      @click="togithub"
+      :class="{ active: activeTab === 'favorites' }"
     >
-      <font-awesome-icon :icon="['fas', 'eye']" />
-      <span>朋友圈</span>
+      <font-awesome-icon icon="star" />
+      <span>收藏夹</span>
     </div>
     <div
       class="nav-item"
@@ -60,11 +64,6 @@
         <h3>个人中心</h3>
       </div>
       <div class="profile-menu">
-        <div class="menu-item" @click="togithub">
-          <font-awesome-icon icon="star" />
-          <span>收藏夹</span>
-          <font-awesome-icon icon="chevron-right" class="arrow" />
-        </div>
         <div class="menu-item" @click="logout">
           <font-awesome-icon icon="sign-out-alt" />
           <span>退出登录</span>
@@ -76,40 +75,56 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
 const router = useRouter()
+const route = useRoute()
 
 const avatar = ref('')
 const activeTab = ref('chat')
 const showProfileModal = ref(false)
 
-function toAI() {
-  activeTab.value = 'ai'
-  emit('todetail', '打开AI小助手')
+// 根据当前路由设置activeTab
+function updateActiveTab() {
+  const path = route.path
+  if (path === '/group-chat') {
+    activeTab.value = 'group'
+  } else if (path === '/favorites') {
+    activeTab.value = 'favorites'
+  } else if (path === '/contacts') {
+    activeTab.value = 'contacts'
+  } else if (path === '/chats' || path === '/' || path.includes('/chatdetail') || path.includes('/chat-ai')) {
+    activeTab.value = 'chat'
+  }
 }
+
+// 监听路由变化
+watch(() => route.path, () => {
+  updateActiveTab()
+})
 
 function chat() {
   activeTab.value = 'chat'
-  emit('showchat', '打开聊天')
+  router.push('/chats')
 }
 
 function contacts() {
   activeTab.value = 'contacts'
-  emit('showcontacts', '打开联系人')
+  router.push('/contacts')
 }
 
-function tocsdn() {
-  activeTab.value = 'moments'
-  router.push('/moments')
+function toGroupChat() {
+  activeTab.value = 'group'
+  router.push('/group-chat')
 }
 
 function togithub() {
   hideProfile()
+  activeTab.value = 'favorites'
   router.push('/favorites')
 }
 
@@ -120,7 +135,8 @@ function showProfile() {
 
 function hideProfile() {
   showProfileModal.value = false
-  activeTab.value = 'chat' // 返回聊天页面
+  // 返回之前的页面，不改变activeTab
+  updateActiveTab()
 }
 
 function logout() {
@@ -129,6 +145,9 @@ function logout() {
 }
 
 onMounted(async () => {
+  // 初始化时设置activeTab
+  updateActiveTab()
+  
   try {
     const token = localStorage.getItem('token')
     const res = await axios.get(
@@ -143,9 +162,11 @@ onMounted(async () => {
 
     // 监听头像更新事件
     socket.on('avatar-updated', (data) => {
-      const currentUserId = JSON.parse(atob(token.split('.')[1])).uid
+      // 如果是当前用户的头像更新，则更新本地头像
+      const currentUserId = localStorage.getItem('userId')
       if (data.userId.toString() === currentUserId.toString()) {
         avatar.value = data.newAvatarUrl
+        console.log('底部导航栏头像已更新:', data.newAvatarUrl)
       }
     })
   } catch (err) {
@@ -165,16 +186,17 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   height: 75px;
-  background: #ffffff;
+  background: var(--bg-tertiary, #ffffff);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md, 0 -4px 20px rgba(0, 0, 0, 0.08));
   z-index: 1000;
   padding: 10px 12px;
   border-radius: 24px 24px 0 0;
   margin: 0 8px;
   backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
 
   .nav-item {
     display: flex;
@@ -193,24 +215,24 @@ onBeforeUnmount(() => {
     }
 
     &.active {
-      background: var(--active-bg);
+      background: linear-gradient(135deg, rgba(255, 127, 80, 0.1) 0%, rgba(255, 140, 100, 0.15) 100%);
       transform: translateY(-2px);
 
       svg,
       .ai-icon {
-        color: var(--primary-color);
-        filter: drop-shadow(0 0 8px var(--primary-color));
+        color: rgb(255, 127, 80);
+        filter: drop-shadow(0 0 8px rgba(255, 127, 80, 0.3));
       }
 
       span {
-        color: var(--primary-color);
+        color: rgb(255, 127, 80);
         font-weight: 600;
       }
     }
 
     svg {
       font-size: 24px;
-      color: #a0a0a0;
+      color: var(--text-secondary, #a0a0a0);
       margin-bottom: 4px;
       transition: all 0.3s ease;
     }
@@ -221,6 +243,7 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       margin-bottom: 4px;
       transition: all 0.3s ease;
+      filter: none;
     }
 
     .avatar-wrapper {
@@ -241,7 +264,7 @@ onBeforeUnmount(() => {
 
     span {
       font-size: 11px;
-      color: #a0a0a0;
+      color: var(--text-secondary, #a0a0a0);
       font-weight: 500;
       transition: all 0.3s ease;
       text-align: center;
@@ -249,26 +272,26 @@ onBeforeUnmount(() => {
     }
 
     &:hover:not(.active) {
-      background: var(--hover-bg);
+      background: rgba(255, 127, 80, 0.05);
 
       svg,
       .ai-icon {
         transform: scale(1.1);
-        color: var(--primary-color);
+        color: rgb(255, 127, 80);
       }
 
       .avatar-wrapper {
         transform: scale(1.1);
-        border-color: var(--primary-color);
+        border-color: rgb(255, 127, 80);
       }
 
       span {
-        color: var(--primary-color);
+        color: rgb(255, 127, 80);
       }
     }
 
     &.active .avatar-wrapper {
-      border-color: var(--primary-color);
+      border-color: rgb(255, 127, 80);
     }
   }
 }
@@ -289,20 +312,20 @@ onBeforeUnmount(() => {
 }
 
 .profile-modal {
-  background: #fff;
+  background: var(--bg-tertiary, #fff);
   border-radius: 20px 20px 0 0;
   width: 100%;
   max-width: 400px;
   padding: 20px;
   animation: slideUp 0.3s ease;
-  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg, 0 -5px 20px rgba(0, 0, 0, 0.2));
 
   .profile-header {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding-bottom: 20px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color-light, #eee);
     margin-bottom: 20px;
 
     .profile-avatar {
@@ -315,7 +338,7 @@ onBeforeUnmount(() => {
     }
 
     h3 {
-      color: #333;
+      color: var(--text-primary, #333);
       font-size: 18px;
       font-weight: 600;
     }
@@ -326,7 +349,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       padding: 15px 0;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-color, #f0f0f0);
       cursor: pointer;
       transition: all 0.3s ease;
 
@@ -335,7 +358,7 @@ onBeforeUnmount(() => {
       }
 
       &:hover {
-        background: #f8f9fa;
+        background: var(--hover-bg, #f8f9fa);
         padding-left: 10px;
       }
 
@@ -347,13 +370,13 @@ onBeforeUnmount(() => {
 
       span {
         flex: 1;
-        color: #333;
+        color: var(--text-primary, #333);
         font-size: 16px;
         font-weight: 500;
       }
 
       .arrow {
-        color: #ccc;
+        color: var(--text-tertiary, #ccc);
         font-size: 14px;
       }
     }
@@ -381,29 +404,40 @@ onBeforeUnmount(() => {
 /* 移动设备优化 */
 @media (max-width: 768px) {
   .bottom-navbar {
-    height: 75px;
-    padding: 0 5px;
+    height: 65px;
+    padding: 8px;
+    margin: 0;
+    border-radius: 0;
+    background: var(--bg-primary, #ffffff);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 
     .nav-item {
-      padding: 6px 8px;
-      min-width: 45px;
+      padding: 6px 10px;
+      min-width: 48px;
 
       svg {
-        font-size: 18px;
+        font-size: 22px;
+        margin-bottom: 3px;
       }
 
       .ai-icon {
-        width: 18px;
-        height: 18px;
+        width: 22px;
+        height: 22px;
+        margin-bottom: 3px;
       }
 
       .avatar-wrapper {
-        width: 22px;
-        height: 22px;
+        width: 26px;
+        height: 26px;
+        margin-bottom: 3px;
       }
 
       span {
-        font-size: 10px;
+        font-size: 11px;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, rgba(255, 127, 80, 0.12) 0%, rgba(255, 140, 100, 0.18) 100%);
       }
     }
   }
@@ -412,28 +446,32 @@ onBeforeUnmount(() => {
 /* 小屏移动设备 */
 @media (max-width: 480px) {
   .bottom-navbar {
-    height: 70px;
+    height: 60px;
+    padding: 6px;
 
     .nav-item {
-      padding: 5px 6px;
-      min-width: 40px;
+      padding: 4px 8px;
+      min-width: 45px;
 
       svg {
-        font-size: 16px;
+        font-size: 20px;
+        margin-bottom: 2px;
       }
 
       .ai-icon {
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
+        margin-bottom: 2px;
       }
 
       .avatar-wrapper {
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
+        margin-bottom: 2px;
       }
 
       span {
-        font-size: 9px;
+        font-size: 10px;
       }
     }
   }

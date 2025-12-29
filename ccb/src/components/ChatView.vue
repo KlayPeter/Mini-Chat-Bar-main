@@ -330,9 +330,10 @@ watch(
     left: 0;
     width: 100%;
     height: 100vh;
-    z-index: 1000;
+    z-index: 100; /* 降低 z-index，低于底部导航栏 */
     background: white;
     border-radius: 0;
+    pointer-events: auto;
   }
 }
 
@@ -366,7 +367,7 @@ watch(
   left: 0;
   width: 100%;
   height: 100vh;
-  z-index: 1000;
+  z-index: 100; /* 降低 z-index，低于底部导航栏 */
   background: white;
 }
 
