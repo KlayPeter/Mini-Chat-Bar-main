@@ -68,19 +68,28 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to,from,next)=>{
-  const isLoggedIn = localStorage.getItem('token')
-  
-  // 如果访问需要认证的页面但没有token,跳转到登录页
-  if(to.meta.requiresAuth && !isLoggedIn){
-    console.log('未登录,跳转到登录页')
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const userId = localStorage.getItem('userId')
+
+  // 检查当前路由及其父路由是否需要认证
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+
+  // 如果访问需要认证的页面但没有有效的登录信息,跳转到登录页
+  if (requiresAuth && (!token || !userId)) {
+    console.log('未登录或登录信息不完整,跳转到登录页')
+    // 清除可能存在的不完整数据
+    localStorage.removeItem('token')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('username')
+    localStorage.removeItem('avatar')
     next("/login")
   }
   // 如果已登录但访问登录页,跳转到首页
-  else if(to.path === '/login' && isLoggedIn){
+  else if (to.path === '/login' && token && userId) {
     next("/")
   }
-  else{
+  else {
     next()
   }
 })
