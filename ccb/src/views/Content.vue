@@ -1825,7 +1825,7 @@ watch(showPicker, (newValue) => {
   .message-content-row {
     display: flex;
     flex-direction: row;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 8px;
     padding: 0 10px;
 
