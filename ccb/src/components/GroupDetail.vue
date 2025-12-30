@@ -22,7 +22,7 @@
             />
             <h2 v-else>{{ group.RoomName }}</h2>
             <button v-if="isAdmin" @click="startEdit" class="edit-btn">
-              <i>✏️</i>
+              <i><EditPencil class="edit-icon" /></i>
             </button>
           </div>
           <p class="group-id">群ID: {{ group.RoomID }}</p>
@@ -33,7 +33,7 @@
           <div class="section-header">
             <h4>群成员 ({{ group.Members.length }})</h4>
             <button v-if="isMember" @click="showInviteDialog = true" class="add-btn">
-              <i>👥➕</i>
+              <i><UserPlus class="add-user-icon" /></i>
             </button>
           </div>
           <div class="member-list">
@@ -95,6 +95,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { EditPencil, UserPlus } from '@iconoir/vue'
 import axios from 'axios'
 import InviteMemberDialog from './InviteMemberDialog.vue'
 import { useToast } from '../composables/useToast'
@@ -337,16 +338,29 @@ onMounted(() => {
     margin-bottom: 15px;
 
     .add-btn {
-      background: #07c160;
-      color: white;
+      background: none;
       border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
+      padding: 8px;
+      border-radius: 50%;
+      transition: background-color 0.2s;
 
       &:hover {
-        background: #06ad56;
+        background-color: rgba(0, 0, 0, 0.05);
+      }
+
+      i {
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .edit-icon,
+        .add-user-icon {
+          width: 16px;
+          height: 16px;
+          stroke-width: 1.5;
+        }
       }
     }
   }

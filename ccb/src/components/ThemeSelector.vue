@@ -3,7 +3,9 @@
     <div class="theme-selector-content" @click.stop>
       <div class="header">
         <h2>选择主题配色</h2>
-        <button class="close-btn" @click="closeSelector">✕</button>
+        <button class="close-btn" @click="closeSelector">
+          <Xmark class="close-icon" />
+        </button>
       </div>
 
       <div class="themes-grid">
@@ -58,6 +60,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Xmark } from '@iconoir/vue'
 import { useThemeStore } from '../stores/useThemeStore'
 
 const props = defineProps({
@@ -159,6 +162,12 @@ const closeSelector = () => {
     font-size: 20px;
     color: #666;
     transition: all 0.3s ease;
+
+    .close-icon {
+      width: 18px;
+      height: 18px;
+      stroke-width: 1.5;
+    }
 
     &:hover {
       background: #e0e0e0;

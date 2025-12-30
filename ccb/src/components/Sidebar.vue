@@ -8,16 +8,24 @@
     <div class="toolbar">
       <ul>
         <li :class="{ active: activeTab === 'chat' }">
-          <i title="聊天" @click="chat">💬</i>
+          <i title="聊天" @click="chat">
+            <ChatBubble class="icon" />
+          </i>
         </li>
         <li :class="{ active: activeTab === 'contacts' }">
-          <i title="通讯录" @click="contacts">👥</i>
+          <i title="通讯录" @click="contacts">
+            <User class="icon" />
+          </i>
         </li>
         <li :class="{ active: activeTab === 'group' }">
-          <i title="群聊" @click="toGroupChat">👥</i>
+          <i title="群聊" @click="toGroupChat">
+            <Group class="icon" />
+          </i>
         </li>
         <li :class="{ active: activeTab === 'favorites' }">
-          <i title="收藏夹" @click="togithub">⭐</i>
+          <i title="收藏夹" @click="togithub">
+            <Star class="icon" />
+          </i>
         </li>
       </ul>
     </div>
@@ -35,6 +43,7 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
+import { ChatBubble, User, Group, Star } from '@iconoir/vue'
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
 const router = useRouter()
 const route = useRoute()
@@ -236,6 +245,25 @@ ul {
     color: #a0a0a0;
     -webkit-app-region: no-drag;
     pointer-events: auto;
+
+    i {
+      font-style: normal;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: no-drag;
+      pointer-events: auto;
+
+      .icon {
+        width: 24px;
+        height: 24px;
+        stroke-width: 1.5;
+      }
+    }
 
     &.active {
       background: var(--active-bg);

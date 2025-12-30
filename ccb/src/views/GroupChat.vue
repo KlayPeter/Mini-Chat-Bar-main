@@ -12,7 +12,7 @@
 
         <!-- 搜索按钮 -->
         <button class="search-fab" @click="showSearchModal = true" title="搜索群聊和历史消息">
-          <i>🔍</i>
+          <i><Search class="search-icon" /></i>
           <span>搜索</span>
         </button>
       </div>
@@ -21,7 +21,7 @@
       <div class="section3-wrapper" :class="{ active: showChatArea }">
       <div v-if="!currentGroup" class="section3">
         <div class="welcome-state">
-          <i class="icon">💬</i>
+          <i class="icon"><ChatBubble class="welcome-icon" /></i>
           <p>选择一个群聊开始对话</p>
         </div>
       </div>
@@ -117,6 +117,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { Search, ChatBubble } from '@iconoir/vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import Sidebar from '../components/Sidebar.vue'
@@ -720,35 +721,40 @@ function formatTime(time) {
   box-sizing: border-box;
   position: relative;
   display: flex;
-  flex-direction: column;
-  height: 100%;
 }
 
 /* 搜索按钮 */
 .search-fab {
-  position: absolute;
-  bottom: 80px; /* 移动端时避开底部导航栏 */
-  right: 15px;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
   color: white;
   border: none;
-  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
   transition: all 0.3s ease;
-  z-index: 10;
-  white-space: nowrap;
+  z-index: 1000;
 
   i {
-    font-size: 14px;
+    font-size: 20px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .search-icon {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.5;
+    }
   }
 
   &:hover {

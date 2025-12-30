@@ -7,13 +7,13 @@
   >
     <!-- 多选模式 -->
     <div v-if="!selectionMode" class="context-menu-item" @click="$emit('enter-selection-mode')">
-      <i>☑️</i>
+      <i><Check class="menu-icon" /></i>
       <span>多选</span>
     </div>
 
     <!-- 转发消息 -->
     <div class="context-menu-item" @click="$emit('forward-message', message)">
-      <i>📤</i>
+      <i><Send class="menu-icon" /></i>
       <span>转发</span>
     </div>
 
@@ -23,7 +23,7 @@
       class="context-menu-item"
       @click="$emit('download-file', message.fileInfo)"
     >
-      <i>💾</i>
+      <i><Download class="menu-icon" /></i>
       <span>下载</span>
     </div>
 
@@ -33,7 +33,7 @@
       class="context-menu-item"
       @click="copyText"
     >
-      <i>📋</i>
+      <i><Copy class="menu-icon" /></i>
       <span>复制</span>
     </div>
 
@@ -43,13 +43,13 @@
       class="context-menu-item"
       @click="$emit('recall-message', messageIndex)"
     >
-      <i>↩️</i>
+      <i><Undo class="menu-icon" /></i>
       <span>撤回</span>
     </div>
 
     <!-- 删除消息 -->
     <div class="context-menu-item delete" @click="$emit('delete-message', messageIndex)">
-      <i>🗑️</i>
+      <i><Trash class="menu-icon" /></i>
       <span>删除</span>
     </div>
 
@@ -59,7 +59,7 @@
       class="context-menu-item"
       @click="$emit('quote-reply', message)"
     >
-      <i>💬</i>
+      <i><ChatBubble class="menu-icon" /></i>
       <span>引用</span>
     </div>
 
@@ -71,6 +71,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Check, Send, Download, Copy, Undo, Trash, ChatBubble } from '@iconoir/vue'
 
 const props = defineProps({
   show: {
@@ -207,6 +208,15 @@ async function copyText() {
       width: 20px;
       text-align: center;
       font-style: normal;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .menu-icon {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.5;
+      }
     }
 
     span {

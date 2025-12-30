@@ -3,7 +3,9 @@
     <!-- 多选工具栏 -->
     <div v-if="selectionMode" class="selection-toolbar">
       <div class="selection-info">
-        <button class="cancel-btn" @click="exitSelectionMode">✕</button>
+        <button class="cancel-btn" @click="exitSelectionMode">
+          <Xmark class="cancel-icon" />
+        </button>
         <span class="selection-count">已选择 {{ selectedMessages.length }} 条消息</span>
       </div>
       <div class="selection-actions">
@@ -40,13 +42,13 @@
     
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
-      <i class="spin">⟳</i>
+      <i class="spin"><Refresh class="loading-icon" /></i>
       <p>加载中...</p>
     </div>
 
     <!-- 空消息状态 -->
     <div v-else-if="messages.length === 0" class="empty-messages">
-      <i>💬</i>
+      <i><ChatBubble class="empty-icon" /></i>
       <p>{{ emptyMessage }}</p>
     </div>
 
@@ -99,6 +101,7 @@
 <script setup>
 import { ref, onMounted, onUpdated, nextTick, watch } from 'vue'
 import ChatMessage from './ChatMessage.vue'
+import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
 import MessageContextMenu from './MessageContextMenu.vue'
 
 const props = defineProps({
@@ -397,20 +400,29 @@ defineExpose({
       gap: 12px;
 
       .cancel-btn {
-        background: rgba(255, 255, 255, 0.2);
+        background: none;
         border: none;
-        color: white;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
+        font-size: 18px;
+        color: #666;
         cursor: pointer;
-        font-size: 14px;
-        font-weight: bold;
-        transition: all 0.2s;
+        padding: 4px;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+
+        .cancel-icon {
+          width: 16px;
+          height: 16px;
+          stroke-width: 1.5;
+        }
 
         &:hover {
-          background: rgba(255, 255, 255, 0.3);
-          transform: scale(1.1);
+          background: rgba(0, 0, 0, 0.1);
+          color: #333;
         }
       }
 
@@ -478,6 +490,16 @@ defineExpose({
     i {
       font-size: 48px;
       margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .loading-icon,
+      .empty-icon {
+        width: 48px;
+        height: 48px;
+        stroke-width: 1.5;
+      }
     }
 
     p {

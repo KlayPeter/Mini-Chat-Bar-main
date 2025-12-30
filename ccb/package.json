@@ -20,6 +20,7 @@
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/vue-fontawesome": "^3.0.8",
+    "@iconoir/vue": "^7.11.0",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "crypto-js": "^4.2.0",

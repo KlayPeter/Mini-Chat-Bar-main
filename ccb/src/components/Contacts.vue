@@ -48,6 +48,12 @@
               <div class="avatar-small">
                 <div :class="{ tips: friend.isNewmsg }"></div>
                 <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
+                <!-- 在线状态指示器 -->
+                <span 
+                  class="online-status-dot" 
+                  :class="{ online: isUserOnline(friend.id) }"
+                  :title="isUserOnline(friend.id) ? '在线' : '离线'"
+                ></span>
               </div>
             </div>
             <div class="detail">
@@ -58,7 +64,7 @@
         
         <!-- 空状态提示 -->
         <div v-else class="empty-state">
-          <div class="empty-icon">👥</div>
+          <div class="empty-icon"><Group class="empty-community-icon" /></div>
           <p class="empty-text">暂无好友</p>
           <p class="empty-subtext">点击右上角"+"按钮添加好友</p>
         </div>
@@ -177,7 +183,12 @@ import axios from "axios";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { defineEmits } from "vue";
 import { useChatStore } from "../stores/useChatStore";
+import { useOnlineStatus } from "../composables/useOnlineStatus";
 import { useToast } from "../composables/useToast";
+import { Group } from '@iconoir/vue';
+
+const { isUserOnline } = useOnlineStatus()
+const toast = useToast()
 
 const friends = ref([]);
 const friend_name = ref("");
@@ -200,7 +211,6 @@ const contextMenu = ref({
 });
 
 const chatStore = useChatStore();
-const toast = useToast();
 
 const emit = defineEmits(["hidecontacts", "changecolor", "todetail"]);
 function back() {
@@ -720,12 +730,32 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
   /* border: 1px solid black; */
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+  
+  /* 在线状态指示器 */
+  .online-status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #d0d0d0; /* 离线：灰色 */
+    border: 2px solid white;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+    
+    &.online {
+      background-color: #52c41a; /* 在线：绿色 */
+      box-shadow: 0 0 6px rgba(82, 196, 26, 0.5);
+    }
   }
 }
 
@@ -1256,14 +1286,23 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 60px 20px;
   text-align: center;
   color: #999;
-  
+
   .empty-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .empty-community-icon {
+      width: 48px;
+      height: 48px;
+      stroke-width: 1.5;
+    }
   }
   
   .empty-text {

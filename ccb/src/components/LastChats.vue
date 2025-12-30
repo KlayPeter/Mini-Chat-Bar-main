@@ -5,7 +5,9 @@
       <div class="theme-container">
         <div class="theme-header">
           <h2>🎨 选择主题配色</h2>
-          <button class="close-btn" @click="issetting = false">✕</button>
+          <button class="close-btn" @click="issetting = false">
+            <Xmark class="close-icon" />
+          </button>
         </div>
         <div class="theme-options">
           <div class="theme-card" @click="toBeige">
@@ -95,7 +97,10 @@
             :key="avatarKey"
             alt="avatar"
           />
-          <div class="status-indicator-ring" :class="statu"></div>
+          <div 
+            class="status-indicator-ring" 
+            :class="{ online: userid && isUserOnline(userid) }"
+          ></div>
         </div>
         <div class="settings-icon" @click="setcolor">
           <font-awesome-icon :icon="['fas', 'gear']" />
@@ -104,13 +109,13 @@
 
       <div class="user-info">
         <div class="username">{{ username ? username : '游客' }}</div>
-        <div class="user-status" @click="toggleStatus">
+        <div class="user-status">
           <span
             class="status-dot"
-            :class="statu === 'occupied' ? 'busy' : 'online'"
+            :class="{ online: userid && isUserOnline(userid) }"
           ></span>
           <span class="status-text">{{
-            statu === 'available' ? '在线' : '忙碌'
+            userid && isUserOnline(userid) ? '在线' : '离线'
           }}</span>
         </div>
       </div>
@@ -313,7 +318,7 @@
         class="context-menu-item"
         @click="deleteChatWith(contextMenu.friend)"
       >
-        ❌ 删除与{{ contextMenu.friend?.name }}的聊天记录
+        <Trash class="context-icon" /> 删除与{{ contextMenu.friend?.name }}的聊天记录
       </div>
     </div>
 
@@ -336,15 +341,19 @@ import { socket } from '../../utils/socket'
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
+import { Xmark, Trash } from '@iconoir/vue'
 import ThemeSelector from './ThemeSelector.vue'
+import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const router = useRouter()
 const toast = useToast()
-const statu = ref('available')
 const issetting = ref(false)
 const isMobile = ref(false)
 const showAddMenu = ref(false)
 const showThemeSelector = ref(false)
+
+// 在线状态管理
+const { isUserOnline, onlineUsers } = useOnlineStatus()
 
 // 检测屏幕尺寸
 function checkScreen() {
@@ -370,10 +379,6 @@ function createGroup() {
   router.push('/group-chat')
 }
 
-// 切换在线状态
-function toggleStatus() {
-  statu.value = statu.value === 'available' ? 'occupied' : 'available'
-}
 const friends = ref([])
 const From = ref('')
 
@@ -1065,6 +1070,31 @@ onBeforeUnmount(() => {
     position: relative;
   }
 
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .close-icon {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.5;
+    }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: #333;
+    }
+  }
+
   .add-btn {
     background: transparent;
     border: none;
@@ -1170,11 +1200,11 @@ onBeforeUnmount(() => {
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: #2ecc71; /* Online green */
+        background: #95a5a6; /* Offline gray */
         border: 3px solid white;
 
-        &.occupied {
-          background: #e74c3c; /* Busy red */
+        &.online {
+          background: #2ecc71; /* Online green */
         }
       }
     }
@@ -1212,23 +1242,22 @@ onBeforeUnmount(() => {
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
-      color: #2ecc71;
-      cursor: pointer;
+      color: #95a5a6;
 
       .status-dot {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background-color: #2ecc71;
+        background-color: #95a5a6;
         margin-right: 6px;
 
-        &.busy {
-          background-color: #e74c3c;
+        &.online {
+          background-color: #2ecc71;
         }
       }
 
       .status-text {
-        color: #2ecc71;
+        color: #95a5a6;
       }
     }
   }

@@ -5,12 +5,21 @@
 <script setup>
 import ChatView from './components/ChatView.vue'
 import { useThemeStore } from './stores/useThemeStore'
-import { onMounted } from 'vue'
+import { useOnlineStatus } from './composables/useOnlineStatus'
+import { onMounted, onUnmounted } from 'vue'
 
 const themeStore = useThemeStore()
+const { initOnlineStatus, cleanup } = useOnlineStatus()
 
 onMounted(() => {
   themeStore.initTheme()
+  // 初始化在线状态
+  initOnlineStatus()
+})
+
+onUnmounted(() => {
+  // 清理在线状态
+  cleanup()
 })
 </script>
 

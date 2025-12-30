@@ -23,7 +23,9 @@
           <div class="file-name">{{ file.name }}</div>
           <div class="file-size">{{ formatFileSize(file.size) }}</div>
         </div>
-        <button class="remove-file-btn" @click="removeFile(index)">❌</button>
+        <button class="remove-file-btn" @click="removeFile(index)">
+          <Cancel class="icon" />
+        </button>
       </div>
       <div v-if="selectedFiles.length > 1" class="file-count">
         共选择了 {{ selectedFiles.length }} 个文件
@@ -56,7 +58,7 @@
           title="表情"
           :class="{ active: showEmojiPicker }"
         >
-          😀
+          <Emoji class="icon" />
         </button>
 
         <!-- 文件选择按钮 -->
@@ -75,7 +77,7 @@
           title="文件"
           :disabled="disabled"
         >
-          📁
+          <Folder class="icon" />
         </button>
 
         <!-- 录音按钮 -->
@@ -87,7 +89,7 @@
             title="录音"
             :disabled="disabled"
           >
-            🎤
+            <Microphone class="icon" />
           </button>
           <button
             v-else
@@ -95,7 +97,8 @@
             @click="stopRecording"
             title="点击发送"
           >
-            ⏹ {{ formatRecordingTime(recordingTime) }}
+            <Pause class="icon" />
+            {{ formatRecordingTime(recordingTime) }}
           </button>
           <button
             v-if="isRecording"
@@ -103,7 +106,7 @@
             @click="cancelRecording"
             title="取消录音"
           >
-            ❌
+            <Xmark class="icon" />
           </button>
         </template>
 
@@ -114,7 +117,7 @@
           @click="$emit('search')"
           title="搜索历史记录"
         >
-          🔍
+          <Search class="icon" />
         </button>
 
         <!-- 发送按钮 -->
@@ -147,7 +150,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
+import { Emoji, Folder, Microphone, Pause, Xmark, Search } from '@iconoir/vue'
 
 const props = defineProps({
   // 基础配置
@@ -696,6 +700,12 @@ defineExpose({
         &.active {
           background: #007bff;
           color: white;
+        }
+
+        .icon {
+          width: 16px;
+          height: 16px;
+          stroke-width: 1.5;
         }
 
         &.voice-recording {

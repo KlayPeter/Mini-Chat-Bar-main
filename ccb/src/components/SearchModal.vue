@@ -107,14 +107,14 @@
 
         <!-- 无结果提示 -->
         <div v-else-if="hasSearched && !isLoading" class="no-results">
-          <div class="no-results-icon">🔍</div>
+          <div class="no-results-icon"><Search class="search-result-icon" /></div>
           <p>未找到相关消息</p>
           <p class="no-results-tip">尝试使用不同的关键词或检查拼写</p>
         </div>
 
         <!-- 初始状态 -->
         <div v-else class="search-placeholder">
-          <div class="placeholder-icon">💬</div>
+          <div class="placeholder-icon"><ChatBubble class="placeholder-chat-icon" /></div>
           <p>输入关键词开始搜索</p>
           <p class="placeholder-tip">支持搜索消息内容、用户名、文件名</p>
         </div>
@@ -126,6 +126,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useChatStore } from '../stores/useChatStore'
+import { Search, ChatBubble } from '@iconoir/vue'
 
 const props = defineProps({
   isVisible: {
@@ -615,6 +616,16 @@ watch(searchScope, () => {
 .placeholder-icon {
   font-size: 48px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .search-result-icon,
+  .placeholder-chat-icon {
+    width: 48px;
+    height: 48px;
+    stroke-width: 1.5;
+  }
 }
 
 .no-results p,

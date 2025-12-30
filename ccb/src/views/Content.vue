@@ -3,7 +3,15 @@
     <div class="main">
       <div class="header">
         <div class="header-left">
-          <h4>{{ uname }}</h4>
+          <h4>
+            {{ uname }}
+            <span 
+              class="online-status-indicator" 
+              :class="{ online: isUserOnline(chatstore.currentChatUser) }"
+            >
+              {{ isUserOnline(chatstore.currentChatUser) ? '在线' : '离线' }}
+            </span>
+          </h4>
         </div>
         <div class="header-right">
           <button
@@ -73,6 +81,7 @@ import { onBeforeUnmount } from 'vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
+import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const messages = ref([])
 const messageListRef = ref(null)
@@ -86,6 +95,9 @@ const currentUserId = ref(localStorage.getItem('userId') || '') // 当前登录�
 const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
+
+// 在线状态管理
+const { isUserOnline } = useOnlineStatus()
 
 // 新增事件处理函数
 function handleSendMessage(messageData) {
@@ -621,6 +633,23 @@ onBeforeUnmount(() => {
         font-size: 19px;
         font-weight: 600;
         color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+    
+    .online-status-indicator {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background-color: #e0e0e0;
+      color: #666;
+      font-weight: 500;
+      
+      &.online {
+        background-color: #e8f5e9;
+        color: #4caf50;
       }
     }
 

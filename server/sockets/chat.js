@@ -1,5 +1,6 @@
 // 改为支持一个用户多个连接的数据结构
 const users = new Map() // userId -> Set of socket.id
+const onlineUsers = new Set() // 在线用户ID集合
 
 module.exports = function(socket, io) {
   socket.on("login", (userId) => {
@@ -11,6 +12,37 @@ module.exports = function(socket, io) {
       users.set(userId, new Set())
     }
     users.get(userId).add(socket.id)
+    
+    // 标记用户在线
+    const wasOffline = !onlineUsers.has(userId)
+    onlineUsers.add(userId)
+    
+    // 如果用户之前离线，现在上线，通知所有人
+    if (wasOffline) {
+      console.log(`用户 ${userId} 上线`)
+      io.emit('user-online-notification', userId)
+    }
+    
+    // 发送当前在线用户列表给新登录的用户
+    socket.emit('online-users-update', Array.from(onlineUsers))
+  })
+  
+  // 用户主动上线
+  socket.on('user-online', (userId) => {
+    if (userId && !onlineUsers.has(userId)) {
+      onlineUsers.add(userId)
+      console.log(`用户 ${userId} 上线`)
+      io.emit('user-online-notification', userId)
+    }
+  })
+  
+  // 用户主动离线
+  socket.on('user-offline', (userId) => {
+    if (userId && onlineUsers.has(userId)) {
+      onlineUsers.delete(userId)
+      console.log(`用户 ${userId} 离线`)
+      io.emit('user-offline-notification', userId)
+    }
   })
 
   socket.on("private-message", ({to, from}) => {
@@ -116,9 +148,16 @@ module.exports = function(socket, io) {
     for (const [userId, socketIds] of users) {
       if (socketIds.has(socket.id)) {
         socketIds.delete(socket.id)
-        // 如果该用户没有其他连接了，删除整个用户记录
+        // 如果该用户没有其他连接了，删除整个用户记录并标记离线
         if (socketIds.size === 0) {
           users.delete(userId)
+          
+          // 标记用户离线
+          if (onlineUsers.has(userId)) {
+            onlineUsers.delete(userId)
+            console.log(`用户 ${userId} 离线（所有连接断开）`)
+            io.emit('user-offline-notification', userId)
+          }
         }
         break
       }

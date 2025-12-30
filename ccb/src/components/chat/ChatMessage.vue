@@ -58,7 +58,7 @@
                   @error="handleImageError"
                 />
                 <div class="preview-overlay">
-                  <span class="preview-icon">🔍</span>
+                  <Search class="preview-icon" />
                 </div>
               </div>
             </div>
@@ -81,7 +81,10 @@
                   ></video>
                   <div class="preview-overlay"></div>
                   <div class="file-info">
-                    <span class="file-name">🎬 {{ message.fileInfo.fileName }}</span>
+                    <span class="file-name">
+                      <Camera class="file-type-icon" />
+                      {{ message.fileInfo.fileName }}
+                    </span>
                     <span class="file-size">{{ formatFileSize(message.fileInfo.fileSize) }}</span>
                   </div>
                 </div>
@@ -115,7 +118,7 @@
             <div class="voice-message">
               <div class="voice-content">
                 <button class="voice-play-btn" @click="$emit('play-voice', message.fileInfo)">
-                  🎤
+                  <Microphone class="voice-icon" />
                 </button>
                 <div class="voice-duration">
                   {{ formatRecordingTime(message.fileInfo.duration || 0) }}
@@ -141,6 +144,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Search, Camera, Microphone } from '@iconoir/vue'
 
 const props = defineProps({
   message: {
@@ -511,7 +515,9 @@ function handleImageError(event) {
 
     .preview-icon {
       color: white;
-      font-size: 24px;
+      width: 28px;
+      height: 28px;
+      stroke-width: 1.5;
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     }
   }
@@ -645,6 +651,19 @@ function handleImageError(event) {
       justify-content: center;
       cursor: pointer;
       font-size: 16px;
+
+      .voice-icon {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.5;
+      }
+    }
+
+    .file-type-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 1.5;
+      margin-right: 4px;
     }
 
     .voice-duration {

@@ -19,7 +19,7 @@
             <div class="middle">
               <div class="content">
                 <div class="development-notice">
-                  <div class="icon">⭐</div>
+                  <div class="icon"><Star class="star-icon" /></div>
                   <h3>功能开发中</h3>
                   <p>收藏夹功能正在紧张开发中，敬请期待...</p>
                 </div>
@@ -35,6 +35,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
+import { Star } from '@iconoir/vue'
 
 const router = useRouter()
 
@@ -167,6 +168,15 @@ function showAI() {
     margin-bottom: 1rem;
     animation: pulse 2s infinite;
     color: #f39c12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .star-icon {
+      width: 64px;
+      height: 64px;
+      stroke-width: 1.5;
+    }
   }
 
   h3 {
