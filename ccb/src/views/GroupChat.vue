@@ -51,282 +51,45 @@
         </div>
 
         <!-- 消息列表 -->
-        <div class="message-list" ref="messageListRef">
-          <div v-if="isLoadingMessages" class="loading-state">
-            <i class="spin">⟳</i>
-            <p>加载中...</p>
-          </div>
-
-          <div v-else-if="messages.length === 0" class="empty-messages">
-            <i>💬</i>
-            <p>暂无消息，发送第一条消息吧~</p>
-          </div>
-
-          <div
-            v-else
-            v-for="message in messages"
-            :key="message._id"
-            :data-message-id="message._id"
-            class="message"
-            :class="{ 'my-message': String(message.from) === String(currentUserId) }"
-          >
-            <!-- 系统消息 -->
-            <div v-if="message.messageType === 'system'" class="system-message">
-              {{ message.content }}
-            </div>
-
-            <!-- 普通消息 -->
-            <template v-else>
-              <!-- 消息时间 - 独立居中显示在最上方 -->
-              <div class="message-time-header">
-                {{ formatTime(message.time) }}
-              </div>
-
-              <!-- 消息内容行 -->
-              <div
-                class="message-content-row"
-                :class="{
-                  'my-message-row': String(message.from) === String(currentUserId),
-                }"
-              >
-                <!-- 对方消息：头像在左边 -->
-                <div
-                  class="avatar"
-                  v-if="String(message.from) !== String(currentUserId)"
-                >
-                  <img :src="message.fromAvatar || '/images/avatar/default-avatar.webp'" alt="头像" />
-                </div>
-
-                <div
-                  class="text"
-                  :class="{ me: String(message.from) === String(currentUserId) }"
-                >
-                  <!-- 群聊显示发送者名称 -->
-                  <div v-if="String(message.from) !== String(currentUserId)" class="sender-name">
-                    {{ message.fromName }}
-                  </div>
-
-                  <!-- 图片消息 -->
-                  <template v-if="message.messageType === 'image' && message.fileInfo">
-                    <div class="file-message">
-                      <div
-                        class="image-preview-container"
-                        @click="previewImage(message.fileInfo)"
-                      >
-                        <img
-                          :src="baseUrl + message.fileInfo.fileUrl"
-                          :alt="message.fileInfo.fileName"
-                          class="chat-image-preview"
-                          @error="handleImageError"
-                        />
-                        <div class="preview-overlay">
-                          <span class="preview-icon">
-                            <img
-                              src="/images/icon/search.png"
-                              alt="预览"
-                              style="width: 32px; height: 32px"
-                            />
-                          </span>
-                        </div>
-                      </div>
-                      <div class="file-info">{{ message.fileInfo.fileName }}</div>
-                    </div>
-                  </template>
-
-                  <!-- 文件消息 -->
-                  <template v-else-if="message.messageType === 'file' && message.fileInfo">
-                    <div class="file-message">
-                      <div class="file-content">
-                        <!-- 视频文件预览 -->
-                        <div
-                          v-if="isVideoFile(message.fileInfo.fileType)"
-                          class="video-preview-container"
-                          @click="previewVideo(message.fileInfo)"
-                        >
-                          <video
-                            class="chat-video-preview"
-                            :src="baseUrl + message.fileInfo.fileUrl"
-                            preload="metadata"
-                          ></video>
-                          <div class="preview-overlay"></div>
-                          <div class="file-info">
-                            <span class="file-name">🎬 {{ message.fileInfo.fileName }}</span>
-                            <span class="file-size">{{ formatFileSize(message.fileInfo.fileSize) }}</span>
-                          </div>
-                        </div>
-                        <!-- 其他文件类型 -->
-                        <div
-                          v-else
-                          class="file-link-container"
-                          @click="previewFile(message.fileInfo)"
-                        >
-                          <div class="file-icon-container">
-                            <img
-                              :src="getFileIcon(message.fileInfo.fileType)"
-                              alt="文件图标"
-                              class="file-icon-img"
-                            />
-                            <div class="preview-overlay">
-                              <span class="preview-icon">
-                                <img
-                                  src="/images/icon/eye.png"
-                                  alt="查看"
-                                  style="width: 16px; height: 16px"
-                                />
-                              </span>
-                            </div>
-                          </div>
-                          <div class="file-details">
-                            <div class="file-name">{{ message.fileInfo.fileName }}</div>
-                            <div class="file-size">{{ formatFileSize(message.fileInfo.fileSize) }}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-
-                  <!-- 语音消息 -->
-                  <template v-else-if="message.messageType === 'voice' && message.fileInfo">
-                    <div class="voice-message">
-                      <div class="voice-content">
-                        <button class="voice-play-btn" @click="playVoice(message.fileInfo)">
-                          🎤
-                        </button>
-                        <div class="voice-duration">
-                          {{ formatRecordingTime(message.fileInfo.duration || 0) }}
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-
-                  <!-- 文本消息 -->
-                  <div v-else class="content">
-                    {{ message.content }}
-                  </div>
-                </div>
-
-                <!-- 自己消息：头像在右边 -->
-                <div
-                  class="avatar"
-                  v-if="String(message.from) === String(currentUserId)"
-                >
-                  <img :src="myAvatar || '/images/avatar/default-avatar.webp'" alt="头像" />
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
+        <ChatMessageList
+          ref="messageListRef"
+          :messages="messages"
+          :loading="isLoadingMessages"
+          :currentUserId="currentUserId"
+          :myAvatar="myAvatar"
+          :baseUrl="baseUrl"
+          messageType="group"
+          :showAvatar="true"
+          :showSenderName="true"
+          :autoScroll="true"
+          :highlightedMessageId="highlightedMessageId"
+          @preview-image="previewImage"
+          @preview-video="previewVideo"
+          @preview-file="previewFile"
+          @play-voice="playVoice"
+          @forward-message="handleForwardMessage"
+          @forward-messages="handleForwardMessages"
+          @download-file="handleDownloadFile"
+          @delete-message="handleDeleteMessage"
+          @delete-messages="handleDeleteMessages"
+        />
 
         <!-- 输入区域 -->
-        <div class="bottom">
-          <div class="input-area">
-            <!-- 文件选择状态显示（在输入框内部） -->
-            <div v-if="selectedFiles.length > 0" class="file-preview-inline">
-              <div
-                v-for="(file, index) in selectedFiles"
-                :key="index"
-                class="file-item"
-              >
-                <div class="file-icon-container">
-                  <!-- 图片文件显示缩略图 -->
-                  <img
-                    v-if="file.type.startsWith('image/')"
-                    :src="selectedFilePreviewUrls[index]"
-                    alt="图片预览"
-                    class="file-icon-img image-thumbnail"
-                  />
-                  <!-- 非图片文件显示文件图标 -->
-                  <img
-                    v-else
-                    :src="getFileIcon(file.type)"
-                    alt="文件图标"
-                    class="file-icon-img"
-                  />
-                </div>
-                <div class="file-details">
-                  <div class="file-name">{{ file.name }}</div>
-                  <div class="file-size">{{ formatFileSize(file.size) }}</div>
-                </div>
-                <button class="cancel-file" @click="removeFile(index)">❌</button>
-              </div>
-              <div v-if="selectedFiles.length > 1" class="file-count">
-                共选择了 {{ selectedFiles.length }} 个文件
-              </div>
-            </div>
-
-            <!-- 文本输入框 -->
-            <textarea
-              v-model="messageInput"
-              @keyup.enter="handleSendMessage"
-              :placeholder="selectedFiles.length > 0 ? '添加文字消息（可选）' : '输入消息...'"
-              :class="{ 'with-file': selectedFiles.length > 0 }"
-            ></textarea>
-
-            <!-- 工具栏 -->
-            <div class="toolbar">
-              <button @click="showEmojiPicker = !showEmojiPicker" title="表情">😀</button>
-              <input
-                type="file"
-                ref="fileInputRef"
-                style="display: none"
-                @change="handleFileChange"
-                multiple
-              />
-              <button class="file-button" @click="triggerFileInput" title="文件">
-                <img
-                  src="/images/icon/folder.png"
-                  alt="文件夹"
-                  style="width: 16px; height: 16px"
-                />
-              </button>
-              <!-- 录音按钮 -->
-              <button
-                v-if="!isRecording"
-                class="voice-button"
-                @click="handleStartRecording"
-                title="录音"
-              >
-                🎤
-              </button>
-              <button
-                v-else
-                class="voice-recording"
-                @click="handleStopRecording"
-                title="点击发送"
-              >
-                ⏹ {{ formatRecordingTime(recordingTime) }}
-              </button>
-              <button
-                v-if="isRecording"
-                class="voice-cancel"
-                @click="handleCancelRecording"
-                title="取消录音"
-              >
-                ❌
-              </button>
-              <button
-                class="search-button"
-                @click="showSearchModal = true"
-                title="搜索历史记录"
-              >
-                <img
-                  src="/images/icon/search.png"
-                  alt="搜索"
-                  style="width: 16px; height: 16px"
-                />
-              </button>
-              <button
-                @click="handleSendMessage"
-                :class="{
-                  active: messageInput.trim().length > 0 || selectedFiles.length > 0,
-                }"
-                title="发送"
-              >
-                send
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChatInput
+          ref="chatInputRef"
+          placeholder="输入消息..."
+          :showSearchButton="true"
+          :isRecording="isRecording"
+          :recordingTime="recordingTime"
+          @send-message="handleSendMessage"
+          @send-file="handleSendFile"
+          @start-recording="handleStartRecording"
+          @stop-recording="handleStopRecording"
+          @cancel-recording="handleCancelRecording"
+          @search="showSearchModal = true"
+          @typing-start="handleTypingStart"
+          @typing-stop="handleTypingStop"
+        />
       </div>
     </div>
 
@@ -362,6 +125,8 @@ import GroupDetail from '../components/GroupDetail.vue'
 import GroupAvatar from '../components/GroupAvatar.vue'
 import BottomNavbar from '../components/BottomNavbar.vue'
 import GroupSearchModal from '../components/GroupSearchModal.vue'
+import ChatMessageList from '../components/chat/ChatMessageList.vue'
+import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
 import { useAudioRecorder } from '../composables/useAudioRecorder'
 
@@ -381,19 +146,16 @@ const {
 
 const currentGroup = ref(null)
 const messages = ref([])
-const messageInput = ref('')
 const currentUserId = ref('')
 const myAvatar = ref('')
 const showGroupDetail = ref(false)
-const showEmojiPicker = ref(false)
 const showSearchModal = ref(false)
 const messageListRef = ref(null)
 const groupListRef = ref(null)
+const chatInputRef = ref(null)
 const isLoadingMessages = ref(false)
-const fileInputRef = ref(null)
-const selectedFiles = ref([])
-const selectedFilePreviewUrls = ref([])
 const showChatArea = ref(false) // 移动端控制聊天区域显示
+const highlightedMessageId = ref('')
 
 let socket = null
 
@@ -449,7 +211,7 @@ function initSocket() {
   socket.on('group-message', (data) => {
     if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
       messages.value.push(data.message)
-      scrollToBottom()
+      // 消息列表组件会自动滚动到底部
     }
   })
 
@@ -480,11 +242,7 @@ async function handleSelectGroup(group) {
   // 加载消息
   await loadMessages()
 
-  // 确保滚动到底部
-  await nextTick()
-  setTimeout(() => {
-    scrollToBottom()
-  }, 150)
+  // ChatMessageList组件会自动滚动到底部
 
   if (socket) {
     socket.emit('join-group', {
@@ -535,27 +293,18 @@ async function loadGroupsData() {
   return []
 }
 
-// 滚动到指定消息
+// 滚动相关功能现在由ChatMessageList组件处理
+
+// 滚动到指定消息（通过组件暴露的方法）
 function scrollToMessage(messageId) {
-  if (!messageListRef.value) return
-  
-  // 使用 data-message-id 属性查找消息元素
-  const targetElement = messageListRef.value.querySelector(`[data-message-id="${messageId}"]`)
-  
-  if (targetElement) {
-    // 滚动到目标消息
-    targetElement.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    })
+  if (messageListRef.value) {
+    messageListRef.value.scrollToMessage(messageId)
+    highlightedMessageId.value = messageId
     
-    // 高亮显示目标消息
-    targetElement.classList.add('highlight-message')
-    
-    // 3秒后移除高亮
+    // 2秒后取消高亮
     setTimeout(() => {
-      targetElement.classList.remove('highlight-message')
-    }, 3000)
+      highlightedMessageId.value = ''
+    }, 2000)
   } else {
     console.warn('未找到目标消息:', messageId)
   }
@@ -573,11 +322,7 @@ async function loadMessages() {
     )
     if (res.data.success) {
       messages.value = res.data.messages
-      // 等待DOM更新后滚动到底部
-      await nextTick()
-      setTimeout(() => {
-        scrollToBottom()
-      }, 100)
+      // ChatMessageList组件会自动滚动到底部
     }
   } catch (err) {
     console.error('加载消息失败:', err)
@@ -586,132 +331,7 @@ async function loadMessages() {
   }
 }
 
-function triggerFileInput() {
-  fileInputRef.value.click()
-}
-
-function handleFileChange(event) {
-  const files = Array.from(event.target.files)
-  if (files.length > 0) {
-    selectedFilePreviewUrls.value.forEach((url) => {
-      if (url) URL.revokeObjectURL(url)
-    })
-
-    selectedFiles.value = files
-    selectedFilePreviewUrls.value = []
-
-    files.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        selectedFilePreviewUrls.value.push(URL.createObjectURL(file))
-      } else {
-        selectedFilePreviewUrls.value.push('')
-      }
-    })
-  }
-}
-
-function removeFile(index) {
-  if (selectedFilePreviewUrls.value[index]) {
-    URL.revokeObjectURL(selectedFilePreviewUrls.value[index])
-  }
-
-  selectedFiles.value.splice(index, 1)
-  selectedFilePreviewUrls.value.splice(index, 1)
-
-  if (selectedFiles.value.length === 0 && fileInputRef.value) {
-    fileInputRef.value.value = ''
-  }
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-function getFileIcon(fileType) {
-  const lowerType = fileType.toLowerCase()
-
-  // .md文件用md.png
-  if (lowerType.includes('.md') || lowerType.includes('markdown')) {
-    return '/images/icon/md.png'
-  }
-
-  // .docx和.doc文件用doc.png
-  if (lowerType.includes('doc') || lowerType.includes('docx') || lowerType.includes('word') || lowerType.includes('document')) {
-    return '/images/icon/doc.png'
-  }
-
-  // excel文件用excel.png
-  if (
-    lowerType.includes('xls') ||
-    lowerType.includes('xlsx') ||
-    lowerType.includes('excel') ||
-    lowerType.includes('spreadsheet')
-  ) {
-    return '/images/icon/excel.png'
-  }
-
-  // ppt和pptx文件用ppt.png
-  if (lowerType.includes('ppt') || lowerType.includes('pptx') || lowerType.includes('presentation')) {
-    return '/images/icon/ppt.png'
-  }
-
-  // txt文件用txt.png
-  if (lowerType.includes('txt') || lowerType.includes('text')) {
-    return '/images/icon/txt.png'
-  }
-
-  // html文件用html.png
-  if (lowerType.includes('html') || lowerType.includes('htm')) {
-    return '/images/icon/html.png'
-  }
-
-  // PDF文件用doc.png（因为没有pdf.png）
-  if (lowerType.includes('pdf')) {
-    return '/images/icon/doc.png'
-  }
-
-  // 压缩文件用folder.png
-  if (lowerType.includes('zip') || lowerType.includes('rar') || lowerType.includes('7z') || lowerType.includes('tar') || lowerType.includes('gz')) {
-    return '/images/icon/folder.png'
-  }
-
-  // 视频文件用camera.png
-  if (lowerType.includes('video') || lowerType.includes('.mp4') || lowerType.includes('.avi') || lowerType.includes('.mov') || lowerType.includes('.wmv') || lowerType.includes('.flv')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 音频文件用camera.png
-  if (lowerType.includes('audio') || lowerType.includes('.mp3') || lowerType.includes('.wav') || lowerType.includes('.flac') || lowerType.includes('.aac')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 图片文件用camera.png
-  if (lowerType.includes('image') || lowerType.includes('.jpg') || lowerType.includes('.jpeg') || lowerType.includes('.png') || lowerType.includes('.gif') || lowerType.includes('.webp') || lowerType.includes('.bmp') || lowerType.includes('.svg')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 其他文件用other.png
-  return '/images/icon/other.png'
-}
-
-function isVideoFile(fileType) {
-  if (!fileType) return false
-  const lowerType = fileType.toLowerCase()
-  return (
-    lowerType.includes('video/') ||
-    lowerType.includes('.mp4') ||
-    lowerType.includes('.avi') ||
-    lowerType.includes('.mov') ||
-    lowerType.includes('.wmv') ||
-    lowerType.includes('.flv') ||
-    lowerType.includes('.mkv') ||
-    lowerType.includes('.webm')
-  )
-}
+// 文件预览和处理函数（这些现在由新组件处理，但保留用于消息显示）
 
 function previewImage(fileInfo) {
   window.open(baseUrl + fileInfo.fileUrl, '_blank')
@@ -725,13 +345,144 @@ function previewFile(fileInfo) {
   window.open(baseUrl + fileInfo.fileUrl, '_blank')
 }
 
-async function uploadFiles(textMessage = '') {
-  if (selectedFiles.value.length === 0) return
+function playVoice(fileInfo) {
+  // 播放语音消息
+  const audio = new Audio(baseUrl + fileInfo.fileUrl)
+  audio.play().catch(err => {
+    console.error('播放语音失败:', err)
+    toast.error('播放语音失败')
+  })
+}
+
+// 新组件需要的事件处理方法
+function handleForwardMessage(message) {
+  console.log('转发单条消息:', message)
+  toast.info('请选择转发目标聊天')
+  // TODO: 实现转发对话框选择逻辑
+}
+
+// 批量转发消息 - 模仿微信逻辑
+function handleForwardMessages(messages) {
+  if (!messages || messages.length === 0) return
+  
+  console.log('批量转发消息:', messages)
+  
+  // 检查转发消息数量限制（微信通常限制30条）
+  if (messages.length > 30) {
+    toast.error('一次最多转发30条消息')
+    return
+  }
+  
+  // 过滤出可转发的消息类型
+  const forwardableMessages = messages.filter(msg => {
+    // 排除系统消息等不可转发类型
+    return msg.messageType !== 'system' && msg.content
+  })
+  
+  if (forwardableMessages.length === 0) {
+    toast.error('选中的消息无法转发')
+    return
+  }
+  
+  // 显示转发预览和目标选择
+  showForwardDialog(forwardableMessages)
+}
+
+// 批量删除消息
+function handleDeleteMessages(messages) {
+  if (!messages || messages.length === 0) return
+  
+  if (confirm(`确定要删除这 ${messages.length} 条消息吗？`)) {
+    console.log('批量删除消息:', messages)
+    toast.success(`已删除 ${messages.length} 条消息`)
+    // TODO: 实现实际的删除逻辑
+  }
+}
+
+// 显示转发对话框（微信风格）
+function showForwardDialog(messages) {
+  // 简化版本：直接显示提示，实际项目中应该打开对话框
+  const messageCount = messages.length
+  const hasImages = messages.some(msg => msg.messageType === 'image')
+  const hasFiles = messages.some(msg => msg.messageType === 'file')
+  
+  let summary = `${messageCount}条消息`
+  if (hasImages && hasFiles) {
+    summary += '（包含图片和文件）'
+  } else if (hasImages) {
+    summary += '（包含图片）'  
+  } else if (hasFiles) {
+    summary += '（包含文件）'
+  }
+  
+  toast.info(`准备转发${summary}`)
+  console.log('转发预览:', { messages, summary })
+}
+
+function handleDownloadFile(fileInfo) {
+  // 下载文件
+  const link = document.createElement('a')
+  link.href = baseUrl + fileInfo.fileUrl
+  link.download = fileInfo.fileName || 'download'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function handleDeleteMessage(messageIndex) {
+  // 删除消息
+  if (confirm('确定要删除这条消息吗？')) {
+    messages.value.splice(messageIndex, 1)
+    toast.success('消息已删除')
+  }
+}
+
+function handleSendMessage(messageData) {
+  // messageData可能是事件对象或消息数据对象，需要判断类型
+  if (typeof messageData === 'object' && messageData.content) {
+    if (messageData.content && messageData.content.trim()) {
+      sendMessage(messageData.content)
+    }
+  } else if (typeof messageData === 'string') {
+    // 如果直接传入字符串
+    sendMessage(messageData)
+  }
+}
+
+async function handleSendFile(messageData) {
+  // 处理文件发送
+  if (messageData.files && messageData.files.length > 0) {
+    await uploadFiles(messageData.files, messageData.content || '')
+  }
+}
+
+function handleTypingStart() {
+  // 开始输入状态
+  if (socket && currentGroup.value) {
+    socket.emit('typing-start', {
+      roomId: currentGroup.value.RoomID,
+      userId: currentUserId.value
+    })
+  }
+}
+
+function handleTypingStop() {
+  // 停止输入状态
+  if (socket && currentGroup.value) {
+    socket.emit('typing-stop', {
+      roomId: currentGroup.value.RoomID,
+      userId: currentUserId.value
+    })
+  }
+}
+
+async function uploadFiles(files, textMessage = '') {
+  if (!files || files.length === 0) return
 
   const token = localStorage.getItem('token')
 
   try {
-    for (const file of selectedFiles.value) {
+    for (const file of files) {
       const formData = new FormData()
       formData.append('file', file)
 
@@ -778,15 +529,7 @@ async function uploadFiles(textMessage = '') {
       }
     }
 
-    selectedFilePreviewUrls.value.forEach((url) => {
-      if (url) URL.revokeObjectURL(url)
-    })
-
-    selectedFiles.value = []
-    selectedFilePreviewUrls.value = []
-    if (fileInputRef.value) {
-      fileInputRef.value.value = ''
-    }
+    // 文件上传完成后刷新消息列表
 
     await loadMessages()
   } catch (err) {
@@ -795,28 +538,67 @@ async function uploadFiles(textMessage = '') {
   }
 }
 
-async function handleSendMessage(e) {
-  if (e && e.shiftKey) {
-    return
+// 录音相关处理函数
+function handleStartRecording() {
+  startRecording()
+}
+
+function handleStopRecording() {
+  stopRecording()
+  // 发送语音消息
+  if (audioBlob.value) {
+    sendVoiceMessage()
   }
-  
-  if (e) {
-    e.preventDefault()
+}
+
+function handleCancelRecording() {
+  cancelRecording()
+}
+
+async function sendVoiceMessage() {
+  if (!audioBlob.value || !currentGroup.value) return
+
+  const token = localStorage.getItem('token')
+  const formData = new FormData()
+  formData.append('file', audioBlob.value, 'voice.wav')
+
+  try {
+    // 先上传语音文件
+    const uploadRes = await axios.post(`${baseUrl}/api/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (uploadRes.data.success) {
+      // 发送语音消息
+      const messageRes = await axios.post(
+        `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
+        {
+          content: '',
+          messageType: 'voice',
+          fileInfo: uploadRes.data.file
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      if (messageRes.data.success) {
+        await loadMessages()
+        toast.success('语音发送成功')
+      }
+    }
+  } catch (err) {
+    console.error('语音发送失败:', err)
+    toast.error('语音发送失败: ' + (err.response?.data?.message || err.message))
   }
+}
 
-  const hasFiles = selectedFiles.value.length > 0
-  const hasText = messageInput.value.trim().length > 0
-
-  if (!hasFiles && !hasText) return
-
-  if (hasFiles) {
-    await uploadFiles(messageInput.value)
-    messageInput.value = ''
-    return
-  }
-
-  const content = messageInput.value.trim()
-  if (!content) return
+// 发送文本消息
+async function sendMessage(content) {
+  if (!content.trim() || !currentGroup.value) return
 
   try {
     const token = localStorage.getItem('token')
@@ -838,8 +620,6 @@ async function handleSendMessage(e) {
           message: res.data.message
         })
       }
-
-      messageInput.value = ''
       await loadMessages()
     }
   } catch (err) {
@@ -848,24 +628,13 @@ async function handleSendMessage(e) {
   }
 }
 
-
-
 function handleGroupUpdate() {
   if (groupListRef.value) {
     groupListRef.value.loadGroups()
   }
 }
 
-function scrollToBottom() {
-  if (messageListRef.value) {
-    // 使用 requestAnimationFrame 确保在浏览器下一次重绘前执行
-    requestAnimationFrame(() => {
-      if (messageListRef.value) {
-        messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-      }
-    })
-  }
-}
+// 滚动功能由ChatMessageList组件处理
 
 function formatTime(time) {
   const date = new Date(time)
@@ -896,106 +665,10 @@ function formatTime(time) {
     return `${date.getMonth() + 1}-${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
   }
   
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-function handleImageError(e) {
-  console.error('图片加载失败:', e.target.src)
-  e.target.src = '/images/icon/image-error.png'
-}
-
-// 语音录制处理函数
-async function handleStartRecording() {
-  try {
-    await startRecording()
-  } catch (err) {
-    console.error('开始录音失败:', err)
-    toast.error('无法访问麦克风，请检查权限设置')
-  }
-}
-
-async function handleStopRecording() {
-  try {
-    await stopRecording()
-    
-    if (audioBlob.value) {
-      // 上传语音文件
-      await uploadVoiceMessage(audioBlob.value)
-    }
-  } catch (err) {
-    console.error('停止录音失败:', err)
-    toast.error('录音失败')
-  }
-}
-
-function handleCancelRecording() {
-  cancelRecording()
-  toast.info('已取消录音')
-}
-
-async function uploadVoiceMessage(blob) {
-  try {
-    const token = localStorage.getItem('token')
-    const formData = new FormData()
-    
-    // 创建文件对象
-    const audioFile = new File([blob], `voice_${Date.now()}.webm`, {
-      type: 'audio/webm'
-    })
-    formData.append('file', audioFile)
-
-    // 上传文件
-    const uploadRes = await axios.post(`${baseUrl}/api/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const fileInfo = {
-      fileName: uploadRes.data.fileName,
-      fileUrl: uploadRes.data.fileUrl,
-      fileSize: uploadRes.data.fileSize,
-      fileType: uploadRes.data.fileType,
-      duration: recordingTime.value,
-    }
-
-    // 发送语音消息
-    const res = await axios.post(
-      `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
-      {
-        content: '发送了一条语音消息',
-        messageType: 'voice',
-        fileInfo: fileInfo,
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    )
-
-    if (res.data.success && socket) {
-      socket.emit('group-message', {
-        roomId: currentGroup.value.RoomID,
-        message: res.data.message
-      })
-    }
-
-    await loadMessages()
-    toast.success('语音发送成功')
-  } catch (err) {
-    console.error('语音上传失败:', err)
-    toast.error('语音发送失败')
-  }
-}
-
-// 播放语音
-function playVoice(fileInfo) {
-  const audio = new Audio(baseUrl + fileInfo.fileUrl)
-  audio.play().catch(err => {
-    console.error('播放语音失败:', err)
-    toast.error('播放失败')
-  })
-}
+// 图片错误处理由ChatMessage组件处理
 </script>
 
 <style scoped lang="scss">
@@ -1222,869 +895,15 @@ function playVoice(fileInfo) {
   }
 }
 
-.message-list {
-  flex: 10;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0;
-  background: transparent;
-  border-radius: 1rem;
-  -webkit-app-region: no-drag;
+/* 消息样式现在由ChatMessageList组件处理 */
 
-  .loading-state,
-  .empty-messages {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: #999;
+/* 消息相关CSS已清理完成 */
 
-    i {
-      font-size: 48px;
-      margin-bottom: 15px;
-    }
+/* 文件和图片预览样式现在由ChatMessage组件处理 */
 
-    p {
-      font-size: 14px;
-    }
-  }
+/* 视频预览样式现在由ChatMessage组件处理 */
 
-  .empty-messages {
-    padding: 60px 20px;
-    font-size: 16px;
-
-    i {
-      font-size: 48px;
-      margin-bottom: 16px;
-      color: #ccc;
-    }
-  }
-
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-}
-
-/* 消息容器基础样式 */
-.message {
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 10px;
-  transition: background-color 0.3s ease;
-  flex: 0 0 10%;
-  padding-top: 1vh;
-  padding-left: 1vw;
-  list-style-type: none;
-
-  /* 高亮消息样式 */
-  &.highlight-message {
-    background-color: rgba(255, 235, 59, 0.3);
-    border-radius: 8px;
-    padding: 12px;
-    margin: 4px 0;
-    animation: highlight-pulse 0.6s ease-in-out;
-  }
-
-  /* 消息时间头部 - 居中显示 */
-  .message-time-header {
-    text-align: center;
-    font-size: 12px;
-    color: #b2b2b2;
-    margin: 8px 0 10px;
-    padding: 2px 0;
-  }
-
-  /* 消息内容行 - 头像+消息横向排列 */
-  .message-content-row {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 0 10px;
-
-    /* 对方的消息：头像在左 */
-    .avatar {
-      order: 1;
-      margin-right: 0;
-    }
-
-    .text {
-      order: 2;
-    }
-
-    /* 自己发送的消息：消息+头像 */
-    &.my-message-row {
-      justify-content: flex-end;
-
-      .text {
-        order: 1;
-      }
-
-      .avatar {
-        order: 2;
-        margin-left: 0;
-        margin-right: 0;
-      }
-    }
-  }
-
-  .avatar {
-    width: 40px;
-    height: 40px;
-    aspect-ratio: 1/1;
-    border-radius: 50%;
-    overflow: hidden;
-
-    img {
-      width: 100%;
-      aspect-ratio: 1/1;
-      object-fit: cover;
-    }
-  }
-
-  .system-message {
-    text-align: center;
-    color: #999;
-    font-size: 12px;
-    padding: 5px 0;
-  }
-}
-
-.text {
-  height: 100%;
-  position: relative;
-  flex: 9;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-
-  .sender-name {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 4px;
-    padding-left: 1vw;
-  }
-
-  &.me {
-    align-items: flex-end;
-    .file-message {
-      align-items: flex-end;
-    }
-
-    .content {
-      border-radius: 18px 18px 4px 18px;
-      margin-right: 10px;
-      background: var(--message-bg-user);
-      color: var(--message-text-user);
-      box-shadow: var(--shadow-primary);
-    }
-
-    .sender-name {
-      display: none;
-    }
-  }
-
-  .content {
-    display: inline-block;
-    background-color: #ffffff;
-    color: #2c3e50;
-    padding: 0.75rem 1.2rem;
-    margin: 0 1vw 0.4rem;
-    border-radius: 18px 18px 18px 4px;
-    width: fit-content;
-    max-width: 70%;
-    word-wrap: break-word;
-    word-break: break-word;
-    font-size: 16px;
-    line-height: 1.5;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-  }
-}
-
-.file-message {
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  max-width: 300px;
-}
-
-.image-message {
-  padding: 0;
-  margin: 0;
-  display: inline-block;
-}
-
-.file-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* 图片预览容器样式 */
-.image-preview-container {
-  position: relative;
-  max-width: 300px;
-  max-height: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-
-    .preview-overlay {
-      opacity: 1;
-    }
-  }
-
-  .preview-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-
-    .preview-icon {
-      color: white;
-      font-size: 32px;
-    }
-  }
-}
-
-.chat-image-preview {
-  max-width: 300px;
-  max-height: 300px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: block;
-  object-fit: cover;
-}
-
-/* 视频预览容器样式 */
-.video-preview-container {
-  position: relative;
-  max-width: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  }
-
-  .chat-video-preview {
-    width: 100%;
-    max-height: 200px;
-    border-radius: 8px;
-    display: block;
-    object-fit: cover;
-  }
-
-  .file-info {
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    font-size: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .file-name {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .file-size {
-      margin-left: 8px;
-      color: #ccc;
-    }
-  }
-}
-
-/* 文件预览容器样式 */
-.file-link-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  max-width: 300px;
-  background: white;
-
-  &:hover {
-    background-color: #f5f5f5;
-    border-color: #007bff;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-    .preview-overlay {
-      opacity: 1;
-    }
-  }
-
-  .file-icon-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    flex-shrink: 0;
-
-    .file-icon-img {
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-    }
-
-    .preview-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-
-      .preview-icon {
-        color: white;
-      }
-    }
-  }
-
-  .file-details {
-    flex: 1;
-    min-width: 0;
-
-    .file-name {
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 4px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 14px;
-    }
-
-    .file-size {
-      font-size: 12px;
-      color: #666;
-    }
-  }
-}
-
-.file-info {
-  font-size: 12px;
-  color: #666;
-  padding: 4px 8px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 自己发送的文件消息右对齐 */
-.text.me {
-  .file-message {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-  }
-
-  .file-content {
-    margin-right: 10px;
-  }
-
-  .image-preview-container {
-    margin-right: 10px;
-  }
-}
-
-.input-area {
-  border-top: 1px solid #e0e0e0;
-  background: white;
-  flex-shrink: 0;
-
-  .file-preview-inline {
-    padding: 10px 15px;
-    border-bottom: 1px solid #f0f0f0;
-    max-height: 150px;
-    overflow-y: auto;
-
-    .file-item {
-      display: flex;
-      align-items: center;
-      padding: 8px;
-      background: #f5f5f5;
-      border-radius: 4px;
-      margin-bottom: 8px;
-
-      .file-icon-container {
-        width: 40px;
-        height: 40px;
-        flex-shrink: 0;
-        margin-right: 10px;
-
-        .file-icon-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          border-radius: 4px;
-
-          &.image-thumbnail {
-            object-fit: cover;
-          }
-        }
-      }
-
-      .file-details {
-        flex: 1;
-        min-width: 0;
-
-        .file-name {
-          font-size: 13px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .file-size {
-          font-size: 11px;
-          color: #999;
-        }
-      }
-
-      .cancel-file {
-        background: none;
-        border: none;
-        font-size: 18px;
-        color: #999;
-        cursor: pointer;
-        padding: 0 5px;
-
-        &:hover {
-          color: #f56c6c;
-        }
-      }
-    }
-  }
-
-  .input-toolbar {
-    padding: 10px 15px;
-    display: flex;
-    gap: 10px;
-
-    button {
-      background: none;
-      border: none;
-      font-size: 20px;
-      color: #666;
-      cursor: pointer;
-
-      &:hover {
-        color: #333;
-      }
-    }
-  }
-
-  .input-box {
-    padding: 0 15px;
-
-    textarea {
-      width: 100%;
-      border: none;
-      resize: none;
-      font-size: 14px;
-      font-family: inherit;
-      outline: none;
-    }
-  }
-
-  .input-actions {
-    padding: 10px 15px;
-    display: flex;
-    justify-content: flex-end;
-
-    .send-btn {
-      padding: 8px 30px;
-      background: #07c160;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-
-      &:hover:not(:disabled) {
-        background: #06ad56;
-      }
-
-      &:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-      }
-    }
-  }
-}
-
-/* 底部输入区域样式 - 统一Content.vue样式 */
-.bottom {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border-radius: 20px;
-  flex: 2;
-  width: 94%;
-  margin: 2% 3% 2.5% 3%;
-  background-color: var(--bg-tertiary, #ffffff);
-  max-height: 25vh;
-  min-height: 180px;
-  position: relative;
-  -webkit-app-region: no-drag;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
-
-  .input-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-
-    .file-preview-inline {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 12px;
-      margin: 8px 12px 0;
-      background-color: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      max-height: 120px;
-      overflow-y: auto;
-
-      .file-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px;
-        background-color: #ffffff;
-        border-radius: 6px;
-        border: 1px solid #dee2e6;
-      }
-
-      .file-count {
-        text-align: center;
-        font-size: 0.75rem;
-        color: #6c757d;
-        padding: 4px;
-        background-color: #e9ecef;
-        border-radius: 4px;
-        margin-top: 4px;
-      }
-
-      .file-icon-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        background-color: #ffffff;
-        border-radius: 6px;
-        flex-shrink: 0;
-
-        .file-icon-img {
-          width: 40px;
-          height: 40px;
-          object-fit: contain;
-
-          &.image-thumbnail {
-            object-fit: cover;
-          }
-        }
-      }
-
-      .file-details {
-        flex: 1;
-        min-width: 0;
-
-        .file-name {
-          font-weight: 500;
-          color: #495057;
-          margin-bottom: 2px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 0.8rem;
-        }
-
-        .file-size {
-          font-size: 0.7rem;
-          color: #6c757d;
-        }
-      }
-
-      .cancel-file {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-
-        &:hover {
-          background-color: #e9ecef;
-        }
-      }
-    }
-
-    textarea {
-      flex: 1;
-      width: 92%;
-      margin: 0 12px;
-      padding: 12px;
-      border: none;
-      outline: none;
-      resize: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: normal;
-      background-color: transparent;
-      line-height: 1.5;
-      font-family: inherit;
-      min-height: 60px;
-
-      &.with-file {
-        margin-top: 8px;
-      }
-
-      &::placeholder {
-        color: #999;
-        font-size: 0.95rem;
-      }
-
-      &:focus {
-        background-color: #fafafa;
-      }
-    }
-
-    .toolbar {
-      position: absolute;
-      bottom: 8px;
-      right: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px;
-      background-color: var(--bg-tertiary, rgba(255, 255, 255, 0.9));
-      border-radius: 20px;
-      border: 1px solid var(--border-color, #e9ecef);
-      backdrop-filter: blur(4px);
-      -webkit-app-region: no-drag;
-      z-index: 10;
-
-      button {
-        height: 32px;
-        width: 32px;
-        padding: 0;
-        border-radius: 50%;
-        border: none;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: transparent;
-        flex-shrink: 0;
-
-        &:hover {
-          background-color: var(--hover-bg, #f8f9fa);
-          transform: scale(1.1);
-        }
-
-        &:first-of-type {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #fff3cd;
-          }
-        }
-
-        &.file-button {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #e3f2fd;
-          }
-
-          img {
-            vertical-align: middle;
-          }
-        }
-
-        &.voice-button {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #e8f5e9;
-          }
-        }
-
-        &.voice-recording {
-          background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
-          color: white;
-          width: auto;
-          min-width: 70px;
-          border-radius: 16px;
-          padding: 0 12px;
-          font-size: 0.75rem;
-          animation: pulse 1.5s infinite;
-
-          &:hover {
-            transform: scale(1.05);
-          }
-        }
-
-        &.voice-cancel {
-          color: #f56c6c;
-
-          &:hover {
-            background-color: #fee;
-          }
-        }
-
-        &.search-button {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #e8f5e9;
-          }
-
-          img {
-            vertical-align: middle;
-          }
-        }
-
-        &:last-of-type {
-          display: none;
-          background: var(--primary-gradient, linear-gradient(135deg, rgb(255, 127, 80) 0%, rgb(255, 140, 100) 100%));
-          color: white;
-          font-size: 0.85rem;
-          font-weight: 600;
-          width: auto;
-          min-width: 65px;
-          border-radius: 16px;
-          padding: 0 14px;
-          box-shadow: var(--shadow-primary, 0 2px 8px rgba(255, 127, 80, 0.3));
-
-          &:hover {
-            transform: scale(1.05);
-            box-shadow: var(--shadow-md, 0 4px 12px rgba(255, 127, 80, 0.4));
-          }
-        }
-
-        &.active {
-          display: flex;
-        }
-      }
-    }
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-/* 语音消息样式 */
-.voice-message {
-  padding: 0;
-  margin: 0;
-  display: inline-block;
-
-  .voice-content {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 15px;
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border-radius: 20px;
-    min-width: 100px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: scale(1.05);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .voice-play-btn {
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .voice-duration {
-      font-size: 14px;
-      color: #666;
-      font-weight: 500;
-    }
-  }
-}
-
-.text.me {
-  .voice-message {
-    .voice-content {
-      background: linear-gradient(135deg, rgb(255, 127, 80) 0%, rgb(255, 140, 100) 100%);
-      
-      .voice-duration {
-        color: white;
-      }
-    }
-  }
-}
+/* 所有消息样式(包括语音、文件、图片)现在由ChatMessage组件处理 */
 
 /* 响应式布局 - 大屏幕 */
 @media (min-width: 1300px) {

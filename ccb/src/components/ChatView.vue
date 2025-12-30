@@ -106,11 +106,10 @@ function setcolor(data) {
 }
 
 //显示聊天内容
-function showdetail(data) {
+function showdetail({ uname, img, userId }) {
+  console.log('显示聊天详情:', { uname, img, userId })
+
   showcontent.value = true
-  const uname = data.uname
-  const img = data.img
-  const userId = data.userId
 
   // 设置当前聊天用户
   if (userId) {
@@ -119,7 +118,7 @@ function showdetail(data) {
 
   router.push({
     path: '/chatdetail',
-    query: { uname, img },
+    query: { uname, img, userId },
   })
 }
 

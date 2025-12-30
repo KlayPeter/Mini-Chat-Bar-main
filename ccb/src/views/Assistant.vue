@@ -37,83 +37,35 @@
       </div>
 
       <!-- 消息列表 -->
-      <div class="middle" ref="messageList">
-        <ul>
-          <li 
-            class="message" 
-            v-for="(message, index) in messages" 
-            :key="index"
-            :class="{ 'my-message': message.from === 'user' }"
-          >
-            <!-- 消息时间 -->
-            <div class="message-time-header">
-              {{ formatTime(message.time) }}
-            </div>
-
-            <!-- 消息内容行 - AI消息 -->
-            <div 
-              v-if="message.from === 'AI'"
-              class="message-content-row"
-            >
-              <div class="avatar">
-                <img :src="getRoleAvatar()" alt="AI头像" />
-              </div>
-              <div class="text">
-                <div class="content" v-html="formatMessage(message.content)"></div>
-              </div>
-            </div>
-
-            <!-- 消息内容行 - 用户消息 -->
-            <div 
-              v-else
-              class="message-content-row my-message-row"
-            >
-              <div class="text me">
-                <div class="content" v-html="formatMessage(message.content)"></div>
-              </div>
-              <div class="avatar">
-                <img :src="userAvatar || '/images/avatar/default-avatar.webp'" alt="用户头像" />
-              </div>
-            </div>
-          </li>
-          <!-- 加载动画 -->
-          <li class="message" v-if="isLoading">
-            <div class="message-time-header">{{ formatTime(new Date().toISOString()) }}</div>
-            <div class="message-content-row">
-              <div class="avatar"><img :src="getRoleAvatar()" alt="AI头像" /></div>
-              <div class="text">
-                <div class="content loading-dots">
-                  AI正在思考<span>.</span><span>.</span><span>.</span>
-                </div>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
+      <ChatMessageList
+        ref="messageListRef"
+        :messages="formattedMessages"
+        :currentUserId="'user'"
+        :myAvatar="userAvatar"
+        :baseUrl="baseUrl"
+        messageType="ai"
+        :showAvatar="true"
+        :showSenderName="false"
+        :autoScroll="true"
+        :isLoading="isLoading"
+        :loadingMessage="loadingMessage"
+        @preview-image="handlePreviewImage"
+        @preview-video="handlePreviewVideo"
+        @preview-file="handlePreviewFile"
+        @play-voice="handlePlayVoice"
+      />
 
       <!-- 输入区域 -->
-      <div class="bottom">
-        <div class="input-area">
-          <textarea
-            name="content"
-            id="content"
-            v-model="new_message"
-            @keyup.enter="send"
-            :disabled="isLoading"
-            :placeholder="getPlaceholder()"
-          ></textarea>
-          <div class="toolbar">
-            <button
-              @click="send"
-              :class="{ active: new_message.trim().length > 0 }"
-              :disabled="isLoading || !new_message.trim()"
-              title="发送"
-            >
-              {{ isLoading ? '发送中...' : 'send' }}
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChatInput
+        ref="chatInputRef"
+        :placeholder="getPlaceholder()"
+        :disabled="isLoading"
+        :showEmojiButton="false"
+        :showFileButton="false"
+        :showVoiceButton="false"
+        :showSearchButton="false"
+        @send-message="handleSendMessage"
+      />
     </div>
   </div>
 </template>
@@ -121,15 +73,66 @@
 <script setup>
 import { ref, nextTick, onMounted, computed } from "vue";
 import axios from "axios";
+import ChatMessageList from '../components/chat/ChatMessageList.vue'
+import ChatInput from '../components/chat/ChatInput.vue'
+import { useToast } from '../composables/useToast';
 
 // 数据
 const messages = ref([]);
-const messageList = ref(null);
-const new_message = ref("");
+const messageListRef = ref(null);
+const chatInputRef = ref(null);
 const isLoading = ref(false);
 const selectedRole = ref("default");
 const userAvatar = ref("");
 const showRoleMenu = ref(false);
+const baseUrl = import.meta.env.VITE_BASE_URL;
+const toast = useToast();
+
+// 计算属性 - 格式化消息用于ChatMessageList组件
+const formattedMessages = computed(() => {
+  return messages.value.map(msg => ({
+    ...msg,
+    messageType: 'text',
+    // 确保AI消息有正确的头像
+    avatar: msg.from === 'AI' ? getRoleAvatar() : userAvatar.value
+  }))
+});
+
+// 加载消息
+const loadingMessage = computed(() => ({
+  from: 'AI',
+  content: 'AI正在思考...',
+  time: new Date().toISOString(),
+  messageType: 'text',
+  avatar: getRoleAvatar()
+}));
+
+// 事件处理函数
+function handleSendMessage(messageData) {
+  if (messageData && messageData.content && messageData.content.trim()) {
+    send(messageData.content)
+  }
+}
+
+function handlePreviewImage(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePreviewVideo(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePreviewFile(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePlayVoice(fileInfo) {
+  const audio = new Audio(baseUrl + fileInfo.fileUrl)
+  audio.play().catch(err => {
+    console.error('播放语音失败:', err)
+    toast.error('播放语音失败')
+  })
+}
 
 // 角色列表
 const roles = ref([
@@ -221,11 +224,10 @@ const loadHistory = async () => {
       }];
     }
     
-    scrollToBottom();
   } catch (err) {
     console.error("加载历史失败:", err);
     messages.value = [{
-      from: "AI",
+      from: "AI", 
       content: getWelcomeMessage(),
       time: new Date().toISOString()
     }];
@@ -247,12 +249,10 @@ const getWelcomeMessage = () => {
 };
 
 // 发送消息
-const send = async (e) => {
-  if (e) e.preventDefault();
+const send = async (content) => {
   if (isLoading.value) return;
   
-  const content = new_message.value.trim();
-  if (!content) {
+  if (!content || !content.trim()) {
     console.warn("输入内容不能为空！");
     return;
   }
@@ -266,11 +266,12 @@ const send = async (e) => {
   console.log('发送用户消息:', userMessage);
   messages.value.push(userMessage);
   
-  new_message.value = "";
-  scrollToBottom();
+  // 清空输入框
+  if (chatInputRef.value) {
+    chatInputRef.value.clearInput();
+  }
 
   isLoading.value = true;
-  scrollToBottom();
 
   try {
     const token = localStorage.getItem("token");
@@ -310,7 +311,6 @@ const send = async (e) => {
     });
   } finally {
     isLoading.value = false;
-    scrollToBottom();
   }
 };
 
@@ -355,7 +355,6 @@ const selectRole = async (roleKey) => {
       }];
       
       showRoleMenu.value = false;
-      scrollToBottom();
     } catch (err) {
       console.error("切换角色失败:", err);
       alert("切换角色失败，请重试");
@@ -381,22 +380,10 @@ const clearHistory = async () => {
       content: getWelcomeMessage(),
       time: new Date().toISOString()
     }];
-    
-    scrollToBottom();
   } catch (err) {
     console.error("清空历史失败:", err);
     alert("清空历史失败，请重试");
   }
-};
-
-// 滚动到底部
-const scrollToBottom = () => {
-  nextTick(() => {
-    const el = messageList.value;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  });
 };
 
 // 获取用户头像

@@ -426,7 +426,7 @@ async function initFriends() {
 // UI切换聊天页
 function switchChat(friend) {
   chatStore.switchChatUser(friend.id);
-  emit("todetail", { uname: friend.name, img: friend.img });
+  emit("todetail", { uname: friend.name, img: friend.img, userId: friend.id });
 }
 
 // 显示右键菜单

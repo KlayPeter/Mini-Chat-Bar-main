@@ -1,5 +1,5 @@
 <template>
-  <div class="box" @click="hideMessageContextMenu">
+  <div class="box">
     <div class="main">
       <div class="header">
         <div class="header-left">
@@ -20,551 +20,45 @@
           <button class="off" @click="offmessage">✖</button>
         </div>
       </div>
-      <div class="middle" ref="messageList">
-        <ul>
-          <li
-            class="message"
-            v-for="(message, index) in messages"
-            :key="index"
-            :class="{
-              selected: selectedMessages.includes(index),
-              'my-message': message.from !== chatstore.currentChatUser,
-            }"
-            @contextmenu.prevent="
-              showMessageContextMenu($event, message, index)
-            "
-            @click="toggleMessageSelection(index)"
-          >
-            <!-- 消息时间 - 独立居中显示在最上方 -->
-            <div class="message-time-header">
-              {{ formatMessageTime(message.time) }}
-            </div>
-
-            <!-- 消息内容行 -->
-            <div
-              class="message-content-row"
-              :class="{
-                'my-message-row': message.from !== chatstore.currentChatUser,
-              }"
-            >
-              <!-- 多选模式下的选择框 -->
-              <div v-if="isSelectionMode" class="message-checkbox">
-                <input
-                  type="checkbox"
-                  :checked="selectedMessages.includes(index)"
-                  @change="toggleMessageSelection(index)"
-                  @click.stop
-                />
-              </div>
-
-              <!-- 对方消息：头像在左边 -->
-              <div
-                class="avatar"
-                v-if="message.from === chatstore.currentChatUser"
-              >
-                <img :src="avatar || '/images/avatar/out.webp'" alt="头像" />
-              </div>
-
-              <div
-                class="text"
-                :class="{ me: message.from !== chatstore.currentChatUser }"
-              >
-                <!-- 消息内容 -->
-                <!-- 文件和图片消息直接显示，不在content容器内 -->
-                <template
-                  v-if="message.messageType === 'image' && message.fileInfo"
-                >
-                  <div class="file-message">
-                    <div
-                      v-if="message.isForwarded || message.forwardedFrom"
-                      class="forwarded-info"
-                    >
-                      转自: {{ message.forwardedFrom }}
-                    </div>
-                    <div
-                      class="image-preview-container"
-                      @click="
-                        previewImage(
-                          baseUrl + message.fileInfo.fileUrl,
-                          message.fileInfo.fileName,
-                          message.fileInfo.fileSize,
-                          message.fileInfo.fileType
-                        )
-                      "
-                    >
-                      <img
-                        :src="baseUrl + message.fileInfo.fileUrl"
-                        :alt="message.fileInfo.fileName"
-                        class="chat-image-preview"
-                      />
-                      <div class="preview-overlay">
-                        <span class="preview-icon"
-                          ><img
-                            src="/images/icon/search.png"
-                            alt="预览"
-                            style="width: 32px; height: 32px"
-                        /></span>
-                      </div>
-                    </div>
-                    <div class="file-info">{{ message.fileInfo.fileName }}</div>
-                  </div>
-                </template>
-                <template
-                  v-else-if="message.messageType === 'file' && message.fileInfo"
-                >
-                  <div class="file-message">
-                    <div
-                      v-if="message.isForwarded || message.forwardedFrom"
-                      class="forwarded-info"
-                    >
-                      转自: {{ message.forwardedFrom }}
-                    </div>
-                    <div class="file-content">
-                      <!-- 视频文件预览 -->
-                      <div
-                        v-if="isVideoFile(message.fileInfo.fileType)"
-                        class="video-preview-container"
-                        @click="
-                          previewVideo(
-                            baseUrl + message.fileInfo.fileUrl,
-                            message.fileInfo.fileName,
-                            message.fileInfo.fileSize,
-                            message.fileInfo.fileType
-                          )
-                        "
-                      >
-                        <video
-                          class="chat-video-preview"
-                          :src="baseUrl + message.fileInfo.fileUrl"
-                          preload="metadata"
-                        ></video>
-                        <div class="preview-overlay">
-                          <!-- <span class="preview-icon">▶️</span> -->
-                        </div>
-                        <div class="file-info">
-                          <span class="file-name"
-                            >🎬 {{ message.fileInfo.fileName }}</span
-                          >
-                          <span class="file-size">{{
-                            formatFileSize(message.fileInfo.fileSize)
-                          }}</span>
-                        </div>
-                      </div>
-                      <!-- 其他文件类型 -->
-                      <div
-                        v-else
-                        class="file-link-container"
-                        @click="
-                          previewFile(
-                            baseUrl + message.fileInfo.fileUrl,
-                            message.fileInfo.fileName,
-                            message.fileInfo.fileSize,
-                            message.fileInfo.fileType
-                          )
-                        "
-                      >
-                        <div class="file-icon-container">
-                          <img
-                            :src="getFileIcon(message.fileInfo.fileType)"
-                            alt="文件图标"
-                            class="file-icon-img"
-                          />
-                          <div class="preview-overlay">
-                            <span class="preview-icon"
-                              ><img
-                                src="/images/icon/eye.png"
-                                alt="查看"
-                                style="width: 16px; height: 16px"
-                            /></span>
-                          </div>
-                        </div>
-                        <div class="file-details">
-                          <div class="file-name">
-                            {{ message.fileInfo.fileName }}
-                          </div>
-                          <div class="file-size">
-                            {{ formatFileSize(message.fileInfo.fileSize) }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <!-- 语音消息 -->
-                <template
-                  v-else-if="message.messageType === 'voice' && message.fileInfo"
-                >
-                  <div class="voice-message">
-                    <div
-                      v-if="message.isForwarded || message.forwardedFrom"
-                      class="forwarded-info"
-                    >
-                      转自: {{ message.forwardedFrom }}
-                    </div>
-                    <div class="voice-content">
-                      <button class="voice-play-btn" @click="playVoice(message.fileInfo)">
-                        🎤
-                      </button>
-                      <div class="voice-duration">
-                        {{ formatTime(message.fileInfo.duration || 0) }}
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <!-- 只有普通文本消息才显示在content容器内 -->
-                <div v-else class="content">
-                  {{ message.content }}
-                </div>
-              </div>
-
-              <!-- 自己消息：头像在右边 -->
-              <div
-                class="avatar"
-                v-if="message.from !== chatstore.currentChatUser"
-              >
-                <img :src="myAvatar || '/images/avatar/out.webp'" alt="头像" />
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-      <div class="bottom">
-        <div v-if="showPicker" class="emoji-picker-container">
-          <emoji-picker
-            id="emoji-picker-instance"
-            class="absolute bottom-full right-0 mb-2"
-          ></emoji-picker>
-        </div>
-
-        <!-- 统一的输入区域 -->
-        <div class="input-area">
-          <!-- 文件选择状态显示（在输入框内部） -->
-          <div v-if="selectedFiles.length > 0" class="file-preview-inline">
-            <div
-              v-for="(file, index) in selectedFiles"
-              :key="index"
-              class="file-item"
-            >
-              <div class="file-icon-container">
-                <!-- 图片文件显示缩略图 -->
-                <img
-                  v-if="file.type.startsWith('image/')"
-                  :src="selectedFilePreviewUrls[index]"
-                  alt="图片预览"
-                  class="file-icon-img image-thumbnail"
-                />
-                <!-- 非图片文件显示文件图标 -->
-                <img
-                  v-else
-                  :src="getFileIcon(file.type)"
-                  alt="文件图标"
-                  class="file-icon-img"
-                />
-              </div>
-              <div class="file-details">
-                <div class="file-name">{{ file.name }}</div>
-                <div class="file-size">
-                  {{ formatFileSize(file.size) }}
-                </div>
-              </div>
-              <button class="cancel-file" @click="removeFile(index)">❌</button>
-            </div>
-            <div v-if="selectedFiles.length > 1" class="file-count">
-              共选择了 {{ selectedFiles.length }} 个文件
-            </div>
-          </div>
-
-          <!-- 文本输入框 -->
-          <textarea
-            name="content"
-            id="content"
-            v-model="new_message"
-            @keyup.enter="send"
-            :placeholder="
-              selectedFiles.length > 0 ? '添加文字消息（可选）' : '输入消息...'
-            "
-            :class="{ 'with-file': selectedFiles.length > 0 }"
-          ></textarea>
-
-          <!-- 工具栏 -->
-          <div class="toolbar">
-            <button @click="showpicker" title="表情">😀</button>
-            <input
-              type="file"
-              ref="fileInputRef"
-              style="display: none"
-              @change="handleFileChange"
-              multiple
-            />
-            <button class="file-button" @click="triggerFileInput" title="文件">
-              <img
-                src="/images/icon/folder.png"
-                alt="文件夹"
-                style="width: 16px; height: 16px"
-              />
-            </button>
-            <!-- 录音按钮 -->
-            <button
-              v-if="!isRecording"
-              class="voice-button"
-              @click="handleStartRecording"
-              title="录音"
-            >
-              🎤
-            </button>
-            <button
-              v-else
-              class="voice-recording"
-              @click="handleStopRecording"
-              title="点击发送"
-            >
-              ⏹ {{ formatTime(recordingTime) }}
-            </button>
-            <button
-              v-if="isRecording"
-              class="voice-cancel"
-              @click="handleCancelRecording"
-              title="取消录音"
-            >
-              ❌
-            </button>
-            <button
-              class="search-button"
-              @click="openSearchModal"
-              title="搜索历史记录"
-            >
-              <img
-                src="/images/icon/search.png"
-                alt="搜索"
-                style="width: 16px; height: 16px"
-              />
-            </button>
-            <button
-              @click="send"
-              :class="{
-                active:
-                  new_message.trim().length > 0 || selectedFiles.length > 0,
-              }"
-              title="发送"
-            >
-              send
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 多选操作栏 -->
-      <div v-if="isSelectionMode" class="selection-toolbar">
-        <div class="selection-info">
-          已选择 {{ selectedMessages.length }} 条消息
-        </div>
-        <div class="selection-actions">
-          <button
-            @click="forwardSelectedMessages"
-            :disabled="selectedMessages.length === 0"
-            class="forward-btn"
-          >
-            <img
-              src="/images/icon/forward.png"
-              alt="转发"
-              style="width: 16px; height: 16px"
-            />
-            转发
-          </button>
-          <button
-            @click="deleteSelectedMessages"
-            :disabled="selectedMessages.length === 0"
-            class="delete-btn"
-          >
-            <img
-              src="/images/icon/delete-2.png"
-              alt="删除"
-              style="width: 16px; height: 16px"
-            />
-            删除
-          </button>
-          <button @click="exitSelectionMode" class="cancel-btn">❌ 取消</button>
-        </div>
-      </div>
+      
+      <!-- 消息列表区域 -->
+      <ChatMessageList
+        ref="messageListRef"
+        :messages="messages"
+        :currentUserId="currentUserId"
+        :otherUserAvatar="avatar"
+        :myAvatar="myAvatar"
+        :baseUrl="baseUrl"
+        messageType="normal"
+        :showAvatar="true"
+        :showSenderName="false"
+        :autoScroll="true"
+        @preview-image="handlePreviewImage"
+        @preview-video="handlePreviewVideo"
+        @preview-file="handlePreviewFile"
+        @play-voice="handlePlayVoice"
+        @forward-message="handleForwardMessage"
+        @forward-messages="handleForwardMessages"
+        @download-file="handleDownloadFile"
+        @delete-message="handleDeleteMessage"
+        @delete-messages="handleDeleteMessages"
+        @selection-change="handleSelectionChange"
+      />
+      
+      <!-- 输入区域 -->
+      <ChatInput
+        ref="chatInputRef"
+        placeholder="输入消息..."
+        :showEmojiButton="true"
+        :showFileButton="true"
+        :showVoiceButton="true"
+        :showSearchButton="false"
+        @send-message="handleSendMessage"
+        @send-file="handleSendFile"
+        @typing-start="handleTypingStart"
+        @typing-stop="handleTypingStop"
+      />
     </div>
-
-    <!-- 消息右键菜单 -->
-    <div
-      v-if="messageContextMenu.show"
-      class="message-context-menu"
-      :style="{
-        left: messageContextMenu.x + 'px',
-        top: messageContextMenu.y + 'px',
-      }"
-      @click.stop
-    >
-      <div class="context-menu-item" @click="enterSelectionMode">
-        <img
-          src="/images/icon/more-choice.png"
-          alt="多选"
-          style="width: 16px; height: 16px"
-        />
-        多选
-      </div>
-      <div
-        class="context-menu-item"
-        @click="forwardSingleMessage(messageContextMenu.message)"
-      >
-        <img
-          src="/images/icon/forward.png"
-          alt="转发"
-          style="width: 16px; height: 16px"
-        />
-        转发
-      </div>
-      <div
-        v-if="
-          messageContextMenu.message &&
-          (messageContextMenu.message.messageType === 'image' ||
-            messageContextMenu.message.messageType === 'file') &&
-          messageContextMenu.message.fileInfo
-        "
-        class="context-menu-item"
-        @click="downloadFile(messageContextMenu.message.fileInfo)"
-      >
-        <img
-          src="/images/icon/download.png"
-          alt="下载"
-          style="width: 16px; height: 16px"
-        />
-        下载
-      </div>
-      <div
-        class="context-menu-item"
-        @click="deleteSingleMessage(messageContextMenu.index)"
-      >
-        <img
-          src="/images/icon/delete-2.png"
-          alt="删除"
-          style="width: 16px; height: 16px"
-        />
-        删除
-      </div>
-    </div>
-
-    <!-- 转发对话框 -->
-    <div v-if="forwardDialog.show" class="forward-dialog">
-      <div class="forward-dialog-content">
-        <h3>转发消息</h3>
-        <div class="forward-friends-list">
-          <div
-            v-for="friend in forwardFriends"
-            :key="friend.id"
-            class="forward-friend-item"
-            :class="{
-              selected: forwardDialog.selectedFriends.includes(friend.id),
-            }"
-            @click="toggleForwardFriend(friend.id)"
-          >
-            <img
-              :src="friend.avatar"
-              :alt="friend.name"
-              class="friend-avatar"
-            />
-            <span class="friend-name">{{ friend.name }}</span>
-            <div class="friend-checkbox">
-              <input
-                type="checkbox"
-                :checked="forwardDialog.selectedFriends.includes(friend.id)"
-                @change="toggleForwardFriend(friend.id)"
-                @click.stop
-              />
-            </div>
-          </div>
-        </div>
-        <div class="forward-dialog-actions">
-          <button
-            @click="confirmForward"
-            :disabled="forwardDialog.selectedFriends.length === 0"
-            class="confirm-btn"
-          >
-            确认转发
-          </button>
-          <button @click="cancelForward" class="cancel-btn">取消</button>
-        </div>
-      </div>
-      <div class="forward-dialog-overlay" @click="cancelForward"></div>
-    </div>
-
-    <!-- 遮罩层，点击关闭菜单 -->
-    <div
-      v-if="false"
-      class="context-menu-overlay"
-      @click="hideMessageContextMenu"
-    ></div>
-
-    <!-- 文件预览弹窗 -->
-    <div v-if="previewDialog.show" class="preview-dialog">
-      <div class="preview-dialog-content">
-        <div class="preview-header">
-          <h3>{{ previewDialog.fileName }}</h3>
-          <button class="close-btn" @click="closePreview">✖</button>
-        </div>
-        <div class="preview-body">
-          <!-- 图片预览 -->
-          <div v-if="previewDialog.type === 'image'" class="image-preview">
-            <img :src="previewDialog.fileUrl" :alt="previewDialog.fileName" />
-          </div>
-          <!-- 视频预览 -->
-          <div v-else-if="previewDialog.type === 'video'" class="video-preview">
-            <video :src="previewDialog.fileUrl" controls autoplay></video>
-          </div>
-          <!-- 文本文件预览 -->
-          <div v-else-if="previewDialog.type === 'text'" class="text-preview">
-            <pre>{{ previewDialog.content }}</pre>
-          </div>
-          <!-- PDF预览 -->
-          <div v-else-if="previewDialog.type === 'pdf'" class="pdf-preview">
-            <iframe :src="previewDialog.fileUrl" frameborder="0"></iframe>
-          </div>
-          <!-- 其他文件类型 -->
-          <div v-else class="file-preview">
-            <div class="file-preview-info">
-              <img
-                :src="getFileIcon(previewDialog.fileType)"
-                alt="文件图标"
-                class="file-icon-large"
-              />
-              <div class="file-details-large">
-                <div class="file-name-large">{{ previewDialog.fileName }}</div>
-                <div class="file-size-large">
-                  {{ formatFileSize(previewDialog.fileSize) }}
-                </div>
-                <div class="file-type">{{ previewDialog.fileType }}</div>
-              </div>
-            </div>
-            <div class="file-actions">
-              <button @click="downloadFileFromPreview" class="download-btn">
-                <img
-                  src="/images/icon/download.png"
-                  alt="下载"
-                  style="width: 16px; height: 16px"
-                />
-                下载文件
-              </button>
-              <button @click="openFileInNewTab" class="open-btn">
-                🔗 在新标签页打开
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="preview-dialog-overlay" @click="closePreview"></div>
-    </div>
-
-    <!-- 搜索弹窗 -->
-    <SearchModal
-      v-if="searchModal.show"
-      :is-visible="searchModal.show"
-      :current-user="chatstore.currentChatUser"
-      @close="closeSearchModal"
-      @jump-to-message="jumpToMessage"
-    />
   </div>
 </template>
 
@@ -576,39 +70,353 @@ import axios from 'axios'
 import { watch } from 'vue'
 import { socket } from '../../utils/socket'
 import { onBeforeUnmount } from 'vue'
-import EmojiPicker from 'vue3-emoji-picker'
-import 'vue3-emoji-picker/css'
-import SearchModal from '../components/SearchModal.vue'
-import { useAudioRecorder } from '../composables/useAudioRecorder'
+import ChatMessageList from '../components/chat/ChatMessageList.vue'
+import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
 
 const messages = ref([])
-const messageList = ref(null)
-const new_message = ref('')
-const disturb = ref(true)
+const messageListRef = ref(null)
+const chatInputRef = ref(null)
 const chatstore = useChatStore()
 
 const uname = ref('')
 const avatar = ref('') // 对方头像
 const myAvatar = ref('') // 自己的头像
+const currentUserId = ref(localStorage.getItem('userId') || '') // 当前登录用户ID
 const route = useRoute()
-const showPicker = ref(false)
-
-const fileInputRef = ref(null)
-const selectedFiles = ref([])
-const selectedFilePreviewUrls = ref([])
 const baseUrl = import.meta.env.VITE_BASE_URL
+const toast = useToast()
 
-// 多选和右键菜单相关状态
-const isSelectionMode = ref(false)
-const selectedMessages = ref([])
-const messageContextMenu = ref({
-  show: false,
-  x: 0,
-  y: 0,
-  message: null,
-  index: -1,
-})
+// 新增事件处理函数
+function handleSendMessage(messageData) {
+  if (messageData && messageData.content && messageData.content.trim()) {
+    sendMessage(messageData.content)
+  }
+}
+
+async function handleSendFile(messageData) {
+  if (!messageData.files || messageData.files.length === 0) return
+  
+  const token = localStorage.getItem('token')
+  if (!token) {
+    toast.error('请先登录')
+    return
+  }
+
+  try {
+    for (const file of messageData.files) {
+      // 上传文件
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const uploadRes = await axios.post(
+        `${baseUrl}/api/file/upload`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      )
+
+      // 发送文件消息
+      const messageType = file.type.startsWith('image/') ? 'image' : 
+                         file.type.startsWith('video/') ? 'video' : 'file'
+                         
+      await axios.post(
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+        {
+          content: messageData.content || '',
+          messageType: messageType,
+          fileInfo: {
+            fileName: uploadRes.data.fileName,
+            fileUrl: uploadRes.data.fileUrl,
+            fileSize: uploadRes.data.fileSize,
+            fileType: uploadRes.data.fileType || file.type
+          }
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+      
+      // 通过Socket发送实时文件消息
+      socket.emit('private-file-message', {
+        to: chatstore.currentChatUser,
+        messageType: messageType,
+        fileInfo: {
+          fileName: uploadRes.data.fileName,
+          fileUrl: uploadRes.data.fileUrl,
+          fileSize: uploadRes.data.fileSize,
+          fileType: uploadRes.data.fileType || file.type
+        }
+      })
+    }
+    
+    // 刷新消息列表
+    await getlists()
+  } catch (error) {
+    console.error('发送文件失败:', error)
+    toast.error('发送文件失败: ' + (error.response?.data?.message || error.message))
+  }
+}
+
+function handlePreviewImage(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePreviewVideo(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePreviewFile(fileInfo) {
+  window.open(baseUrl + fileInfo.fileUrl, '_blank')
+}
+
+function handlePlayVoice(fileInfo) {
+  const audio = new Audio(baseUrl + fileInfo.fileUrl)
+  audio.play().catch(err => {
+    console.error('播放语音失败:', err)
+    toast.error('播放语音失败')
+  })
+}
+
+function handleForwardMessage(message) {
+  console.log('转发单条消息:', message)
+  toast.info('请选择转发目标聊天')
+  // TODO: 实现转发对话框选择逻辑
+}
+
+// 批量转发消息 - 模仿微信逻辑
+function handleForwardMessages(messages) {
+  if (!messages || messages.length === 0) return
+  
+  console.log('批量转发消息:', messages)
+  
+  // 检查转发消息数量限制（微信通常限制30条）
+  if (messages.length > 30) {
+    toast.error('一次最多转发30条消息')
+    return
+  }
+  
+  // 过滤出可转发的消息类型
+  const forwardableMessages = messages.filter(msg => {
+    // 排除系统消息等不可转发类型
+    return msg.messageType !== 'system' && msg.content
+  })
+  
+  if (forwardableMessages.length === 0) {
+    toast.error('选中的消息无法转发')
+    return
+  }
+  
+  // 显示转发预览和目标选择
+  showForwardDialog(forwardableMessages)
+}
+
+// 批量删除消息
+function handleDeleteMessages(messages) {
+  if (!messages || messages.length === 0) return
+  
+  if (confirm(`确定要删除这 ${messages.length} 条消息吗？`)) {
+    console.log('批量删除消息:', messages)
+    toast.success(`已删除 ${messages.length} 条消息`)
+    // TODO: 实现实际的删除逻辑
+  }
+}
+
+// 显示转发对话框（微信风格）
+function showForwardDialog(messages) {
+  // 简化版本：直接显示提示，实际项目中应该打开对话框
+  const messageCount = messages.length
+  const hasImages = messages.some(msg => msg.messageType === 'image')
+  const hasFiles = messages.some(msg => msg.messageType === 'file')
+  
+  let summary = `${messageCount}条消息`
+  if (hasImages && hasFiles) {
+    summary += '（包含图片和文件）'
+  } else if (hasImages) {
+    summary += '（包含图片）'  
+  } else if (hasFiles) {
+    summary += '（包含文件）'
+  }
+  
+  toast.info(`准备转发${summary}`)
+  console.log('转发预览:', { messages, summary })
+}
+
+function handleDownloadFile(fileInfo) {
+  const link = document.createElement('a')
+  link.href = baseUrl + fileInfo.fileUrl
+  link.download = fileInfo.fileName || 'download'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function handleDeleteMessage(messageIndex) {
+  if (confirm('确定要删除这条消息吗？')) {
+    messages.value.splice(messageIndex, 1)
+    toast.success('消息已删除')
+  }
+}
+
+// 消息选择功能现在由ChatMessageList组件处理
+
+// 输入状态事件现在由ChatInput组件处理
+
+// 发送消息函数
+async function sendMessage(content) {
+  if (!content || !content.trim()) return
+  
+  const token = localStorage.getItem('token')
+  if (!token) {
+    toast.error('请先登录')
+    return
+  }
+
+  try {
+    const res = await axios.post(
+      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+      {
+        content: content,
+        messageType: 'text'
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+
+    // 发送成功，刷新消息列表
+    await getlists()
+    
+    // 通过Socket发送实时消息
+    socket.emit('private-message', {
+      to: chatstore.currentChatUser,
+      content: content,
+      messageType: 'text'
+    })
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    toast.error('发送消息失败: ' + (error.response?.data?.message || error.message))
+  }
+}
+
+// 获取消息列表
+async function getlists() {
+  console.log('=== 开始获取消息列表 ===')
+  console.log('chatstore.currentChatUser:', chatstore.currentChatUser)
+  
+  if (!chatstore.currentChatUser) {
+    console.warn('没有设置currentChatUser，无法获取消息')
+    return
+  }
+  
+  const token = localStorage.getItem('token')
+  if (!token) {
+    console.warn('没有token，无法获取消息')
+    return
+  }
+
+  try {
+    const url = `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`
+    console.log('请求URL:', url)
+    
+    const res = await axios.get(url, { 
+      headers: { Authorization: `Bearer ${token}` } 
+    })
+    
+    messages.value = res.data || []
+    console.log('获取到的消息数量:', messages.value.length)
+    console.log('消息列表:', messages.value)
+  } catch (error) {
+    console.error('获取消息列表失败:', error)
+    console.error('错误详情:', error.response?.data)
+  }
+}
+
+// 获取对方头像
+async function getavatar() {
+  if (!chatstore.currentChatUser) return
+  
+  try {
+    const res = await axios.get(
+      `${baseUrl}/api/user/friend_avatar/${chatstore.currentChatUser}`
+    )
+    avatar.value = res.data.avatar || '/images/avatar/default-avatar.webp'
+    console.log('获取到对方头像:', avatar.value)
+  } catch (error) {
+    console.error('获取头像失败:', error)
+    // 设置默认头像
+    avatar.value = '/images/avatar/default-avatar.webp'
+  }
+}
+
+// 获取自己的头像
+async function getMyAvatar() {
+  const token = localStorage.getItem('token')
+  console.log('=== 获取自己的头像 ===')
+  console.log('Token:', token ? '存在' : '不存在')
+  
+  if (!token) {
+    console.warn('没有token，无法获取头像')
+    return
+  }
+
+  try {
+    const response = await axios.get(
+      `${baseUrl}/api/user/info`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+
+    console.log('用户信息响应:', response.data)
+    
+    // 后端返回的是 { id, name, ava }，没有success字段
+    if (response.data && response.data.ava) {
+      myAvatar.value = response.data.ava
+      console.log('设置的myAvatar:', myAvatar.value)
+    } else {
+      console.warn('响应中没有头像数据')
+      myAvatar.value = '/images/avatar/default-avatar.webp'
+    }
+  } catch (error) {
+    console.error('获取自己头像失败:', error)
+    console.error('错误详情:', error.response?.data)
+    myAvatar.value = '/images/avatar/default-avatar.webp'
+  }
+}
+
+// 删除当前聊天记录
+async function deleteCurrentChat() {
+  if (!confirm('确定要删除与该用户的所有聊天记录吗？')) return
+  
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  try {
+    await axios.delete(
+      `${baseUrl}/api/chat/delete/${chatstore.currentChatUser}`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+    
+    messages.value = []
+    toast.success('聊天记录已删除')
+  } catch (error) {
+    console.error('删除聊天记录失败:', error)
+    toast.error('删除失败')
+  }
+}
+
+// 关闭消息窗口
+function offmessage() {
+  // 可以添加关闭逻辑，比如返回到联系人列表
+  chatstore.currentChatUser = ''
+}
 
 // 清理Socket事件监听器
 onBeforeUnmount(() => {
@@ -619,69 +427,50 @@ onBeforeUnmount(() => {
   socket.off('private-file-message')
 })
 
-// 转发相关状态
-const forwardDialog = ref({
-  show: false,
-  selectedFriends: [],
-  messagesToForward: [],
-})
-const forwardFriends = ref([])
-
-// 预览相关状态
-const previewDialog = ref({
-  show: false,
-  type: '', // 'image', 'video', 'text', 'pdf', 'file'
-  fileName: '',
-  fileUrl: '',
-  fileSize: 0,
-  fileType: '',
-  content: '', // 用于文本文件内容
-})
-
-// 搜索弹窗相关状态
-const searchModal = ref({
-  show: false,
-})
-
-// 语音录制相关
-const toast = useToast()
-const {
-  isRecording,
-  recordingTime,
-  audioBlob,
-  startRecording,
-  stopRecording,
-  cancelRecording,
-  formatTime,
-} = useAudioRecorder()
-
 onMounted(() => {
-  console.log('Content组件挂载，当前聊天用户:', chatstore.currentChatUser)
+  console.log('=== Content组件挂载 ===')
+  console.log('当前聊天用户 (chatstore):', chatstore.currentChatUser)
+  console.log('URL参数:', route.query)
+  
   uname.value = route.query.uname
   avatar.value = route.query.img
 
+  // 页面刷新时从URL参数恢复用户状态
+  const urlUserId = route.query.userId
+  if (urlUserId && !chatstore.currentChatUser) {
+    console.log('从URL参数恢复用户状态:', urlUserId)
+    chatstore.switchChatUser(urlUserId)
+  }
+
   // 发送Socket登录事件
   const currentUserId = localStorage.getItem('userId')
+  console.log('当前登录用户ID:', currentUserId)
   if (currentUserId) {
     socket.emit('login', currentUserId)
   }
 
-  //这里获取对方头像 - 只有在有当前聊天用户时才获取
-  if (chatstore.currentChatUser) {
+  // 确保有聊天用户后再获取数据
+  const targetUserId = chatstore.currentChatUser || urlUserId
+  console.log('目标聊天用户ID:', targetUserId)
+  
+  if (targetUserId) {
+    //这里获取对方头像
     getavatar()
+    //这里写获取消息列表
+    getlists().then(() => {
+      // 消息加载完成后滚动到底部
+      nextTick(() => {
+        if (messageListRef.value) {
+          messageListRef.value.scrollToBottom()
+        }
+      })
+    })
   }
+  
   //这里获取自己的头像
   getMyAvatar()
 
-  //这里写获取消息列表 - 只有在有当前聊天用户时才获取
-  if (chatstore.currentChatUser) {
-    getlists()
-  }
-
-  const el = messageList.value
-  if (el) {
-    el.scrollTop = el.scrollHeight
-  }
+  // ChatMessageList组件会自动滚动到底部
 
   // 监听消息删除事件
   socket.on('message-deleted', (data) => {
@@ -718,12 +507,7 @@ onMounted(() => {
     // 只有当消息来自当前聊天用户时才刷新消息列表
     if (from === chatstore.currentChatUser) {
       await getlists()
-      nextTick(() => {
-        const el = messageList.value
-        if (el) {
-          el.scrollTop = el.scrollHeight
-        }
-      })
+      // ChatMessageList组件会自动滚动到底部
     }
   })
 
@@ -734,477 +518,17 @@ onMounted(() => {
       // 只有当消息来自当前聊天用户时才刷新消息列表
       if (from === chatstore.currentChatUser) {
         await getlists()
-        nextTick(() => {
-          const el = messageList.value
-          if (el) {
-            el.scrollTop = el.scrollHeight
-          }
-        })
+        // ChatMessageList组件会自动滚动到底部
       }
     }
   )
 })
 
-//拿对方头像
-async function getavatar() {
-  const res = await axios.get(
-    `${baseUrl}/api/user/friend_avatar/${chatstore.currentChatUser}`
-  )
-  avatar.value = res.data.avatar || '/images/avatar/default-avatar.webp'
-  console.log('获取到对方头像:', avatar.value)
-}
+// 重复函数已删除，保留上面的版本
 
-//获取自己的头像
-async function getMyAvatar() {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.get(`${baseUrl}/api/user/info`, {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-    })
-    myAvatar.value = res.data.ava
-  } catch (err) {
-    console.error('获取自己头像失败：', err)
-  }
-}
+// 录音功能现在由ChatInput组件处理
 
-// 时间格式化函数 - 类似微信的逻辑
-function formatMessageTime(dateStr) {
-  if (!dateStr) return ''
-
-  const date = new Date(dateStr)
-  const currentDate = new Date()
-
-  // 检查是否是无效日期
-  if (isNaN(date.getTime())) return ''
-
-  // 今天：显示时间（如 14:30）
-  if (date.toDateString() === currentDate.toDateString()) {
-    return date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  // 昨天：显示"昨天 时间"
-  const yesterday = new Date(currentDate)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) {
-    return `昨天 ${date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
-  }
-
-  // 本周内：显示星期几和时间
-  const weekStart = new Date(currentDate)
-  weekStart.setDate(currentDate.getDate() - currentDate.getDay())
-  if (date >= weekStart) {
-    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-    return `${weekDays[date.getDay()]} ${date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
-  }
-
-  // 今年内：显示月-日 时间
-  if (date.getFullYear() === currentDate.getFullYear()) {
-    return `${
-      date.getMonth() + 1
-    }月${date.getDate()}日 ${date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
-  }
-
-  // 其他：显示年-月-日 时间
-  return `${date.getFullYear()}年${
-    date.getMonth() + 1
-  }月${date.getDate()}日 ${date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })}`
-}
-
-//拿对话消息
-async function getlists() {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.get(
-      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    messages.value = res.data
-  } catch (err) {
-    console.error('消息获取失败:', err)
-  }
-}
-
-function triggerFileInput() {
-  fileInputRef.value.click()
-}
-
-function handleFileChange(event) {
-  const files = Array.from(event.target.files)
-  if (files.length > 0) {
-    // 清理之前的预览URL
-    selectedFilePreviewUrls.value.forEach((url) => {
-      if (url) URL.revokeObjectURL(url)
-    })
-
-    selectedFiles.value = files
-    selectedFilePreviewUrls.value = []
-
-    // 为每个文件创建预览URL（如果是图片）
-    files.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        selectedFilePreviewUrls.value.push(URL.createObjectURL(file))
-      } else {
-        selectedFilePreviewUrls.value.push('')
-      }
-    })
-  }
-}
-
-function removeFile(index) {
-  // 清理对应的预览URL
-  if (selectedFilePreviewUrls.value[index]) {
-    URL.revokeObjectURL(selectedFilePreviewUrls.value[index])
-  }
-
-  selectedFiles.value.splice(index, 1)
-  selectedFilePreviewUrls.value.splice(index, 1)
-
-  // 如果没有文件了，清空文件输入
-  if (selectedFiles.value.length === 0 && fileInputRef.value) {
-    fileInputRef.value.value = ''
-  }
-}
-
-function cancelFileSelection() {
-  // 清理所有预览URL，避免内存泄漏
-  selectedFilePreviewUrls.value.forEach((url) => {
-    if (url) URL.revokeObjectURL(url)
-  })
-
-  selectedFiles.value = []
-  selectedFilePreviewUrls.value = []
-  if (fileInputRef.value) {
-    fileInputRef.value.value = ''
-  }
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-async function uploadFiles(textMessage = '') {
-  if (selectedFiles.value.length === 0) {
-    console.warn('没有选中文件')
-    return
-  }
-
-  const token = localStorage.getItem('token')
-
-  try {
-    // 逐个上传文件
-    for (const file of selectedFiles.value) {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await axios.post(`${baseUrl}/api/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      const fileInfo = {
-        fileName: res.data.fileName,
-        fileUrl: res.data.fileUrl,
-        fileSize: res.data.fileSize,
-        fileType: res.data.fileType,
-      }
-
-      const messageType = file.type.startsWith('image/') ? 'image' : 'file'
-
-      // 构建消息内容
-      let messageContent = `发送了一个${
-        messageType === 'image' ? '图片' : '文件'
-      }: ${fileInfo.fileName}`
-      if (textMessage.trim()) {
-        messageContent = `${textMessage}\n\n${messageContent}`
-      }
-
-      // 发送文件消息到后端
-      await axios.post(
-        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-        {
-          content: messageContent,
-          messageType: messageType,
-          fileInfo: fileInfo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-
-      // 直接添加消息到本地列表，避免重新请求接口
-      const newMessage = {
-        from: localStorage.getItem('userId') || 'me',
-        to: chatstore.currentChatUser,
-        content: messageContent,
-        messageType: messageType,
-        fileInfo: fileInfo,
-        time: new Date().toISOString(),
-      }
-      messages.value.push(newMessage)
-
-      // 通过Socket.IO发送实时消息
-      socket.emit('private-file-message', {
-        to: chatstore.currentChatUser,
-        fileUrl: fileInfo.fileUrl,
-        fileName: fileInfo.fileName,
-        fileType: fileInfo.fileType,
-        messageType: messageType,
-      })
-
-      // 通知接收方有新消息(用于更新lastChat)
-      socket.emit('private-message', {
-        to: chatstore.currentChatUser,
-        from: localStorage.getItem('userId'),
-      })
-    }
-
-    // 清理所有预览URL和文件选择
-    selectedFilePreviewUrls.value.forEach((url) => {
-      if (url) URL.revokeObjectURL(url)
-    })
-
-    selectedFiles.value = []
-    selectedFilePreviewUrls.value = []
-    if (fileInputRef.value) {
-      fileInputRef.value.value = ''
-    }
-
-    nextTick(() => {
-      const el = messageList.value
-      if (el) {
-        el.scrollTop = el.scrollHeight
-      }
-    })
-  } catch (err) {
-    console.error('文件上传失败:', err)
-    console.error('错误详情:', err.response?.data || err.message)
-    toast.error(`文件上传失败: ${err.response?.data?.message || err.message}`)
-  }
-}
-
-// 开始录音
-async function handleStartRecording() {
-  const success = await startRecording()
-  if (success) {
-    toast.success('开始录音...')
-  }
-}
-
-// 停止录音并发送
-async function handleStopRecording() {
-  stopRecording()
-  
-  // 等待 audioBlob 更新
-  await nextTick()
-  
-  if (audioBlob.value && recordingTime.value > 0) {
-    await uploadVoiceMessage()
-  } else {
-    toast.warning('录音时间太短')
-  }
-}
-
-// 取消录音
-function handleCancelRecording() {
-  cancelRecording()
-  toast.info('已取消录音')
-}
-
-// 上传语音消息
-async function uploadVoiceMessage() {
-  if (!audioBlob.value) {
-    toast.error('没有录音数据')
-    return
-  }
-
-  const token = localStorage.getItem('token')
-  const duration = recordingTime.value
-
-  try {
-    // 将 webm 格式转换为文件
-    const audioFile = new File(
-      [audioBlob.value],
-      `voice-${Date.now()}.webm`,
-      { type: 'audio/webm' }
-    )
-
-    const formData = new FormData()
-    formData.append('file', audioFile)
-
-    // 上传语音文件
-    const res = await axios.post(`${baseUrl}/api/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const fileInfo = {
-      fileName: res.data.fileName,
-      fileUrl: res.data.fileUrl,
-      fileSize: res.data.fileSize,
-      fileType: res.data.fileType,
-      duration: duration, // 语音时长（秒）
-    }
-
-    const messageContent = `发送了一条语音消息 ${formatTime(duration)}`
-
-    // 发送语音消息到后端
-    await axios.post(
-      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-      {
-        content: messageContent,
-        messageType: 'voice',
-        fileInfo: fileInfo,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    )
-
-    // 添加消息到本地列表
-    const newMessage = {
-      from: localStorage.getItem('userId') || 'me',
-      to: chatstore.currentChatUser,
-      content: messageContent,
-      messageType: 'voice',
-      fileInfo: fileInfo,
-      time: new Date().toISOString(),
-    }
-    messages.value.push(newMessage)
-
-    // 通过Socket.IO发送实时消息
-    socket.emit('private-file-message', {
-      to: chatstore.currentChatUser,
-      fileUrl: fileInfo.fileUrl,
-      fileName: fileInfo.fileName,
-      fileType: fileInfo.fileType,
-      messageType: 'voice',
-      duration: duration,
-    })
-
-    socket.emit('private-message', {
-      to: chatstore.currentChatUser,
-      from: localStorage.getItem('userId'),
-    })
-
-    // 清理录音数据
-    cancelRecording()
-    toast.success('语音发送成功')
-
-    nextTick(() => {
-      const el = messageList.value
-      if (el) {
-        el.scrollTop = el.scrollHeight
-      }
-    })
-  } catch (err) {
-    console.error('语音上传失败:', err)
-    toast.error(`语音上传失败: ${err.response?.data?.message || err.message}`)
-  }
-}
-
-async function send(e) {
-  e.preventDefault()
-
-  const hasFiles = selectedFiles.value.length > 0
-  const hasText = new_message.value.trim().length > 0
-
-  // 如果既没有文件也没有文字，不发送
-  if (!hasFiles && !hasText) {
-    console.warn('请输入消息内容或选择文件')
-    return
-  }
-
-  // 如果有文件，上传文件（可能包含文字）
-  if (hasFiles) {
-    await uploadFiles(new_message.value)
-    new_message.value = ''
-    return
-  }
-
-  // 检查是否是文件选择提示文本
-  const isFilePrompt = new_message.value.match(/^\[已选择(图片|文件): .+\]$/)
-  if (isFilePrompt) {
-    console.warn('请先选择文件或清空输入框后输入文本消息')
-    return
-  }
-
-  // 发送文本消息
-  if (new_message.value.trim()) {
-    try {
-      const token = localStorage.getItem('token')
-      const messageContent = new_message.value
-      const res = await axios.post(
-        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-        { content: messageContent },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-
-      // 直接添加消息到本地列表，避免重新请求接口
-      const newMessage = {
-        from: localStorage.getItem('userId') || 'me',
-        to: chatstore.currentChatUser,
-        content: messageContent,
-        messageType: 'text',
-        time: new Date().toISOString(),
-      }
-      messages.value.push(newMessage)
-
-      new_message.value = ''
-
-      // 通知对方有新消息
-      socket.emit('private-message', {
-        to: chatstore.currentChatUser,
-        from: localStorage.getItem('userId'),
-      })
-
-      nextTick(() => {
-        const el = messageList.value
-        if (el) {
-          el.scrollTop = el.scrollHeight
-        }
-      })
-    } catch (err) {
-      console.error('发送失败：', err)
-      console.error('错误详情:', err.response?.data || err.message)
-      toast.error(`消息发送失败: ${err.response?.data?.message || err.message}`)
-    }
-  } else {
-    console.warn('输入内容不能为空！')
-  }
-}
+// send函数现在由ChatInput组件处理
 
 watch(
   () => chatstore.currentChatUser,
@@ -1222,9 +546,12 @@ watch(
       await getavatar()
       await getMyAvatar()
       await getlists()
+      
+      // 显式滚动到底部
       nextTick(() => {
-        const el = messageList.value
-        if (el) el.scrollTop = el.scrollHeight
+        if (messageListRef.value) {
+          messageListRef.value.scrollToBottom()
+        }
       })
     }
   }
@@ -1237,606 +564,12 @@ watch(
   }
 )
 
-watch(messages, () => {
-  nextTick(() => {
-    const el = messageList.value
-    if (el) {
-      el.scrollTop = el.scrollHeight
-    }
-  })
-})
-
-function muted() {
-  disturb.value = !disturb.value
-}
+// 滚动和静音功能现在由组件处理
 
 const emit = defineEmits(['closemessage'])
-function offmessage() {
-  emit('closemessage')
-}
+// offmessage函数已在上面定义
 
-// 移除重复的Socket事件监听器注册
-// 这些事件监听器已经在第一个onMounted钩子中注册了
-
-// 删除当前聊天记录
-async function deleteCurrentChat() {
-  if (confirm(`确定要删除与${uname.value}的所有聊天记录吗？此操作不可恢复！`)) {
-    try {
-      const token = localStorage.getItem('token')
-      await axios.delete(
-        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-
-      // 清空当前消息列表
-      messages.value = []
-      toast.success(`与${uname.value}的聊天记录已删除！`)
-    } catch (err) {
-      console.error('删除聊天记录失败:', err)
-      toast.error('删除聊天记录失败，请重试！')
-    }
-  }
-}
-
-// 显示消息右键菜单
-function showMessageContextMenu(event, message, index) {
-  messageContextMenu.value = {
-    show: true,
-    x: event.clientX,
-    y: event.clientY,
-    message: message,
-    index: index,
-  }
-}
-
-// 隐藏消息右键菜单
-function hideMessageContextMenu() {
-  messageContextMenu.value.show = false
-}
-
-// 下载文件
-async function downloadFile(fileInfo) {
-  if (!fileInfo || !fileInfo.fileUrl) {
-    toast.warning('文件信息不完整，无法下载')
-    return
-  }
-
-  try {
-    // 获取文件数据
-    const response = await fetch(fileInfo.fileUrl)
-    if (!response.ok) {
-      throw new Error('文件下载失败')
-    }
-
-    // 获取文件blob
-    const blob = await response.blob()
-
-    // 创建下载链接
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileInfo.fileName || 'download'
-
-    // 添加到DOM并触发下载
-    document.body.appendChild(link)
-    link.click()
-
-    // 清理
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  } catch (error) {
-    console.error('下载文件失败:', error)
-    toast.error('下载文件失败，请重试！')
-  }
-
-  hideMessageContextMenu()
-}
-
-// 进入多选模式
-function enterSelectionMode() {
-  isSelectionMode.value = true
-  selectedMessages.value = []
-  hideMessageContextMenu()
-}
-
-// 退出多选模式
-function exitSelectionMode() {
-  isSelectionMode.value = false
-  selectedMessages.value = []
-}
-
-// 切换消息选择状态
-function toggleMessageSelection(index) {
-  if (!isSelectionMode.value) return
-
-  const selectedIndex = selectedMessages.value.indexOf(index)
-  if (selectedIndex > -1) {
-    selectedMessages.value.splice(selectedIndex, 1)
-  } else {
-    selectedMessages.value.push(index)
-  }
-}
-
-// 删除单条消息
-async function deleteSingleMessage(index) {
-  if (confirm('确定要删除这条消息吗？')) {
-    try {
-      const token = localStorage.getItem('token')
-      const message = messages.value[index]
-
-      // 调用删除单条消息的API
-      await axios.delete(`${baseUrl}/api/chat/message/${message._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      // 通过Socket通知其他用户消息已删除
-      socket.emit('message-deleted', {
-        messageId: message._id,
-        chatWith: route.params.id,
-      })
-
-      // 从本地删除
-      messages.value.splice(index, 1)
-      toast.success('消息已删除')
-    } catch (err) {
-      console.error('删除消息失败:', err)
-      toast.error('删除消息失败，请重试！')
-    }
-  }
-  hideMessageContextMenu()
-}
-
-// 删除选中的消息
-async function deleteSelectedMessages() {
-  if (selectedMessages.value.length === 0) return
-
-  if (confirm(`确定要删除选中的 ${selectedMessages.value.length} 条消息吗？`)) {
-    try {
-      const token = localStorage.getItem('token')
-      // 按索引从大到小排序，避免删除时索引错乱
-      const sortedIndexes = [...selectedMessages.value].sort((a, b) => b - a)
-      const deletedMessageIds = []
-
-      for (const index of sortedIndexes) {
-        const message = messages.value[index]
-        // 调用API删除消息
-        await axios.delete(`${baseUrl}/api/chat/message/${message._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-
-        deletedMessageIds.push(message._id)
-        // 从本地删除
-        messages.value.splice(index, 1)
-      }
-
-      // 通过Socket通知其他用户消息已删除
-      socket.emit('messages-deleted', {
-        messageIds: deletedMessageIds,
-        chatWith: route.params.id,
-      })
-
-      toast.success(`已删除 ${selectedMessages.value.length} 条消息`)
-      exitSelectionMode()
-    } catch (err) {
-      console.error('删除消息失败:', err)
-      toast.error('删除消息失败，请重试！')
-    }
-  }
-}
-
-// 获取好友列表用于转发
-async function loadForwardFriends() {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.get(`${baseUrl}/api/user/friends`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    forwardFriends.value = res.data
-  } catch (err) {
-    console.error('获取好友列表失败:', err)
-  }
-}
-
-// 转发单条消息
-function forwardSingleMessage(message) {
-  forwardDialog.value.messagesToForward = [message]
-  forwardDialog.value.show = true
-  forwardDialog.value.selectedFriends = []
-  loadForwardFriends()
-  hideMessageContextMenu()
-}
-
-// 转发选中的消息
-function forwardSelectedMessages() {
-  if (selectedMessages.value.length === 0) return
-
-  const messagesToForward = selectedMessages.value.map(
-    (index) => messages.value[index]
-  )
-  forwardDialog.value.messagesToForward = messagesToForward
-  forwardDialog.value.show = true
-  forwardDialog.value.selectedFriends = []
-  loadForwardFriends()
-}
-
-// 切换转发好友选择
-function toggleForwardFriend(friendId) {
-  const index = forwardDialog.value.selectedFriends.indexOf(friendId)
-  if (index > -1) {
-    forwardDialog.value.selectedFriends.splice(index, 1)
-  } else {
-    forwardDialog.value.selectedFriends.push(friendId)
-  }
-}
-
-// 确认转发
-async function confirmForward() {
-  if (forwardDialog.value.selectedFriends.length === 0) return
-
-  try {
-    const token = localStorage.getItem('token')
-
-    // 获取当前用户信息用于显示转发来源
-    const userRes = await axios.get(`${baseUrl}/user/info`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const currentUserName = userRes.data.name
-
-    for (const friendId of forwardDialog.value.selectedFriends) {
-      for (const message of forwardDialog.value.messagesToForward) {
-        let forwardedContent = message.content
-
-        // 为文本消息添加转发来源信息
-        if (message.messageType === 'text' || !message.messageType) {
-          forwardedContent = `[转自 ${currentUserName}] ${message.content}`
-        }
-
-        // 发送转发的消息
-        await axios.post(
-          `${baseUrl}/api/chat/messages/${friendId}`,
-          {
-            content: forwardedContent,
-            messageType: message.messageType || 'text',
-            fileInfo: message.fileInfo,
-            isForwarded: true,
-            forwardedFrom: currentUserName,
-          },
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        )
-
-        // 通过Socket发送实时消息
-        socket.emit('private-message', {
-          to: friendId,
-          content: forwardedContent,
-          messageType: message.messageType || 'text',
-          fileInfo: message.fileInfo,
-          isForwarded: true,
-          forwardedFrom: currentUserName,
-        })
-      }
-    }
-
-    alert('消息转发成功！')
-
-    // 刷新当前聊天的消息列表
-    await getlists()
-
-    // 通知LastChats组件刷新好友列表
-
-    socket.emit('refresh-friend-list')
-
-    cancelForward()
-
-    if (isSelectionMode.value) {
-      exitSelectionMode()
-    }
-  } catch (err) {
-    console.error('转发消息失败:', err)
-    alert('转发消息失败，请重试！')
-  }
-}
-
-// 取消转发
-function cancelForward() {
-  forwardDialog.value.show = false
-  forwardDialog.value.selectedFriends = []
-  forwardDialog.value.messagesToForward = []
-}
-
-// 播放语音消息
-function playVoice(fileInfo) {
-  const audioUrl = baseUrl + fileInfo.fileUrl
-  const audio = new Audio(audioUrl)
-  
-  audio.play().catch(err => {
-    console.error('播放语音失败:', err)
-    toast.error('播放语音失败')
-  })
-  
-  audio.onended = () => {
-    console.log('语音播放完成')
-  }
-}
-
-// 预览图片
-function previewImage(fileUrl, fileName, fileSize, fileType) {
-  previewDialog.value = {
-    show: true,
-    type: 'image',
-    fileName: fileName,
-    fileUrl: fileUrl,
-    fileSize: fileSize || 0,
-    fileType: fileType || 'image',
-    content: '',
-  }
-}
-
-// 预览视频
-function previewVideo(fileUrl, fileName, fileSize, fileType) {
-  previewDialog.value = {
-    show: true,
-    type: 'video',
-    fileName: fileName,
-    fileUrl: fileUrl,
-    fileSize: fileSize,
-    fileType: fileType,
-    content: '',
-  }
-}
-
-// 预览文件
-async function previewFile(fileUrl, fileName, fileSize, fileType) {
-  const lowerFileType = fileType.toLowerCase()
-
-  // Office文件直接下载，不预览
-  if (
-    lowerFileType.includes('doc') ||
-    lowerFileType.includes('docx') ||
-    lowerFileType.includes('ppt') ||
-    lowerFileType.includes('pptx') ||
-    lowerFileType.includes('xls') ||
-    lowerFileType.includes('xlsx')
-  ) {
-    const fileInfo = {
-      fileUrl: fileUrl,
-      fileName: fileName,
-      fileSize: fileSize,
-      fileType: fileType,
-    }
-    downloadFile(fileInfo)
-    return
-  }
-
-  // 代码文件直接下载
-  if (
-    lowerFileType.includes('html') ||
-    lowerFileType.includes('htm') ||
-    lowerFileType.includes('css') ||
-    lowerFileType.includes('js') ||
-    lowerFileType.includes('javascript') ||
-    lowerFileType.includes('php') ||
-    lowerFileType.includes('java') ||
-    lowerFileType.includes('cpp') ||
-    lowerFileType.includes('c++') ||
-    lowerFileType.includes('py') ||
-    lowerFileType.includes('python') ||
-    lowerFileType.includes('sql')
-  ) {
-    const fileInfo = {
-      fileUrl: fileUrl,
-      fileName: fileName,
-      fileSize: fileSize,
-      fileType: fileType,
-    }
-    downloadFile(fileInfo)
-    return
-  }
-
-  // 判断可预览的文件类型
-  if (lowerFileType.includes('pdf')) {
-    previewDialog.value = {
-      show: true,
-      type: 'pdf',
-      fileName: fileName,
-      fileUrl: fileUrl,
-      fileSize: fileSize,
-      fileType: fileType,
-      content: '',
-    }
-  } else if (
-    lowerFileType.includes('image/') ||
-    lowerFileType.includes('.jpg') ||
-    lowerFileType.includes('.jpeg') ||
-    lowerFileType.includes('.png') ||
-    lowerFileType.includes('.gif') ||
-    lowerFileType.includes('.webp') ||
-    lowerFileType.includes('.bmp') ||
-    lowerFileType.includes('.svg')
-  ) {
-    // 图片文件
-    previewDialog.value = {
-      show: true,
-      type: 'image',
-      fileName: fileName,
-      fileUrl: fileUrl,
-      fileSize: fileSize,
-      fileType: fileType,
-      content: '',
-    }
-  } else if (isVideoFile(fileType)) {
-    // 视频文件
-    previewDialog.value = {
-      show: true,
-      type: 'video',
-      fileName: fileName,
-      fileUrl: fileUrl,
-      fileSize: fileSize,
-      fileType: fileType,
-      content: '',
-    }
-  } else if (
-    lowerFileType.includes('text') ||
-    lowerFileType.includes('txt') ||
-    lowerFileType.includes('.md') ||
-    lowerFileType.includes('markdown') ||
-    lowerFileType.includes('json') ||
-    lowerFileType.includes('xml') ||
-    lowerFileType.includes('csv') ||
-    lowerFileType.includes('log')
-  ) {
-    // 文本文件，尝试获取内容预览
-    try {
-      const response = await fetch(fileUrl)
-      const content = await response.text()
-      previewDialog.value = {
-        show: true,
-        type: 'text',
-        fileName: fileName,
-        fileUrl: fileUrl,
-        fileSize: fileSize,
-        fileType: fileType,
-        content: content,
-      }
-    } catch (err) {
-      console.error('获取文本文件内容失败:', err)
-      // 如果获取失败，直接下载
-      const fileInfo = {
-        fileUrl: fileUrl,
-        fileName: fileName,
-        fileSize: fileSize,
-        fileType: fileType,
-      }
-      downloadFile(fileInfo)
-    }
-  } else {
-    // 其他未分类文件类型，显示文件信息预览
-    previewDialog.value = {
-      show: true,
-      type: 'file',
-      fileName: fileName,
-      fileUrl: fileUrl,
-      fileSize: fileSize,
-      fileType: fileType,
-      content: '',
-    }
-  }
-}
-
-// 关闭预览
-function closePreview() {
-  previewDialog.value.show = false
-}
-
-// 从预览中下载文件
-function downloadFileFromPreview() {
-  const fileInfo = {
-    fileUrl: previewDialog.value.fileUrl,
-    fileName: previewDialog.value.fileName,
-    fileSize: previewDialog.value.fileSize,
-    fileType: previewDialog.value.fileType,
-  }
-  downloadFile(fileInfo)
-}
-
-// 在新标签页打开文件
-function openFileInNewTab() {
-  window.open(previewDialog.value.fileUrl, '_blank')
-}
-
-// 获取文件图标
-function getFileIcon(fileType) {
-  const lowerType = fileType.toLowerCase()
-
-  // .md文件用md.png
-  if (lowerType.includes('.md') || lowerType.includes('markdown')) {
-    return '/images/icon/md.png'
-  }
-
-  // .docx和.doc文件用doc.png
-  if (lowerType.includes('doc') || lowerType.includes('docx') || lowerType.includes('word') || lowerType.includes('document')) {
-    return '/images/icon/doc.png'
-  }
-
-  // excel文件用excel.png
-  if (
-    lowerType.includes('xls') ||
-    lowerType.includes('xlsx') ||
-    lowerType.includes('excel') ||
-    lowerType.includes('spreadsheet')
-  ) {
-    return '/images/icon/excel.png'
-  }
-
-  // ppt和pptx文件用ppt.png
-  if (lowerType.includes('ppt') || lowerType.includes('pptx') || lowerType.includes('presentation')) {
-    return '/images/icon/ppt.png'
-  }
-
-  // txt文件用txt.png
-  if (lowerType.includes('txt') || lowerType.includes('text')) {
-    return '/images/icon/txt.png'
-  }
-
-  // html文件用html.png
-  if (lowerType.includes('html') || lowerType.includes('htm')) {
-    return '/images/icon/html.png'
-  }
-
-  // PDF文件用doc.png（因为没有pdf.png）
-  if (lowerType.includes('pdf')) {
-    return '/images/icon/doc.png'
-  }
-
-  // 压缩文件用folder.png
-  if (lowerType.includes('zip') || lowerType.includes('rar') || lowerType.includes('7z') || lowerType.includes('tar') || lowerType.includes('gz')) {
-    return '/images/icon/folder.png'
-  }
-
-  // 视频文件用camera.png
-  if (lowerType.includes('video') || lowerType.includes('.mp4') || lowerType.includes('.avi') || lowerType.includes('.mov') || lowerType.includes('.wmv') || lowerType.includes('.flv')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 音频文件用camera.png
-  if (lowerType.includes('audio') || lowerType.includes('.mp3') || lowerType.includes('.wav') || lowerType.includes('.flac') || lowerType.includes('.aac')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 图片文件用camera.png
-  if (lowerType.includes('image') || lowerType.includes('.jpg') || lowerType.includes('.jpeg') || lowerType.includes('.png') || lowerType.includes('.gif') || lowerType.includes('.webp') || lowerType.includes('.bmp') || lowerType.includes('.svg')) {
-    return '/images/icon/camera.png'
-  }
-
-  // 其他文件用other.png
-  return '/images/icon/other.png'
-}
-
-// 判断是否为视频文件
-function isVideoFile(fileType) {
-  if (!fileType) return false
-  const lowerType = fileType.toLowerCase()
-  return (
-    lowerType.includes('video/') ||
-    lowerType.includes('.mp4') ||
-    lowerType.includes('.avi') ||
-    lowerType.includes('.mov') ||
-    lowerType.includes('.wmv') ||
-    lowerType.includes('.flv') ||
-    lowerType.includes('.webm') ||
-    lowerType.includes('.mkv')
-  )
-}
-
-onMounted(() => {
-  // 点击其他地方关闭右键菜单
-  document.addEventListener('click', hideMessageContextMenu)
-})
+// 所有消息相关功能现在由ChatMessageList和ChatInput组件处理
 
 onBeforeUnmount(() => {
   socket.off('private-message')
@@ -1844,98 +577,15 @@ onBeforeUnmount(() => {
   socket.off('message-deleted')
   socket.off('messages-deleted')
   socket.off('avatar-updated')
-  document.removeEventListener('click', hideMessageContextMenu)
-
-  // 清理表情选择器事件监听器
-  if (pickerElement && boundAddEmoji) {
-    pickerElement.removeEventListener('emoji-click', boundAddEmoji)
-  }
-})
-
-let pickerElement = null
-let boundAddEmoji = null
-
-function showpicker() {
-  showPicker.value = !showPicker.value
-}
-
-function addEmoji(event) {
-  new_message.value += event.detail.emoji.unicode
-  showPicker.value = false
-}
-
-// 搜索弹窗相关方法
-function openSearchModal() {
-  searchModal.value.show = true
-}
-
-function closeSearchModal() {
-  searchModal.value.show = false
-}
-
-function jumpToMessage(messageId) {
-  console.log('跳转到消息:', messageId)
-  closeSearchModal()
-
-  // 查找消息在当前消息列表中的索引
-  const messageIndex = messages.value.findIndex((msg) => msg._id === messageId)
-
-  if (messageIndex !== -1) {
-    // 找到消息，滚动到对应位置
-    nextTick(() => {
-      const messageList = document.querySelector('.middle ul')
-      const messageElements = messageList.querySelectorAll('.message')
-
-      if (messageElements[messageIndex]) {
-        // 滚动到目标消息
-        messageElements[messageIndex].scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        })
-
-        // 高亮显示目标消息
-        messageElements[messageIndex].classList.add('highlight-message')
-
-        // 3秒后移除高亮效果
-        setTimeout(() => {
-          messageElements[messageIndex].classList.remove('highlight-message')
-        }, 3000)
-      }
-    })
-  } else {
-    console.warn('未找到对应的消息:', messageId)
-    // 如果当前消息列表中没有找到，可能需要加载更多历史消息
-    // 这里可以添加加载历史消息的逻辑
-  }
-}
-
-watch(showPicker, (newValue) => {
-  if (newValue) {
-    nextTick(() => {
-      pickerElement = document.getElementById('emoji-picker-instance')
-      if (pickerElement) {
-        boundAddEmoji = addEmoji
-        pickerElement.addEventListener('emoji-click', boundAddEmoji)
-      } else {
-        console.warn('Emoji picker element not found after nextTick.')
-      }
-    })
-  } else {
-    if (pickerElement && boundAddEmoji) {
-      pickerElement.removeEventListener('emoji-click', boundAddEmoji)
-      pickerElement = null
-      boundAddEmoji = null
-    }
-  }
 })
 </script>
 
 <style scoped lang="scss">
 .box {
-  width: 96%;
-  height: 92%;
-  padding: 4% 2%;
-  padding-top: 2%;
+  width: 100%;
+  height: 100%;
+  padding: 2% 1%;
+  padding-top: 1%;
   /* height: 100vh; */
 }
 
@@ -1952,15 +602,15 @@ watch(showPicker, (newValue) => {
   .header {
     border-top-left-radius: 24px;
     border-top-right-radius: 24px;
-    flex: 1;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    padding: 0 24px;
+    padding: 12px 24px;
     background-color: #ffffff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    min-height: 70px;
+    height: 60px;
 
     .header-left {
       display: flex;
@@ -2030,80 +680,6 @@ watch(showPicker, (newValue) => {
   border: none;
   outline: none;
 }
-/* 消息容器基础样式 */
-.message {
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 10px;
-  transition: background-color 0.3s ease;
-
-  /* 消息时间头部 - 居中显示 */
-  .message-time-header {
-    text-align: center;
-    font-size: 12px;
-    color: #b2b2b2;
-    margin: 8px 0 10px;
-    padding: 2px 0;
-  }
-
-  /* 消息内容行 - 头像+消息横向排列 */
-  .message-content-row {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 0 10px;
-
-    /* 对方的消息：头像在左 */
-    .avatar {
-      order: 1;
-      margin-right: 0;
-    }
-
-    .text {
-      order: 2;
-    }
-
-    /* 自己发送的消息：消息+头像 */
-    &.my-message-row {
-      justify-content: flex-end;
-
-      .text {
-        order: 1;
-      }
-
-      .avatar {
-        order: 2;
-        margin-left: 0;
-        margin-right: 0;
-      }
-    }
-  }
-
-  /* 高亮消息样式 */
-  &.highlight-message {
-    background-color: rgba(255, 235, 59, 0.3);
-    border-radius: 8px;
-    padding: 8px;
-    margin: 2px 0;
-    animation: highlight-pulse 0.6s ease-in-out;
-  }
-
-  .avatar {
-    /* border: 1px solid black; */
-    width: 40px;
-    height: 40px;
-    aspect-ratio: 1/1;
-    border-radius: 50%;
-    overflow: hidden;
-
-    img {
-      width: 100%;
-      aspect-ratio: 1/1;
-      object-fit: cover;
-    }
-  }
-}
 
 /* 高亮动画 */
 @keyframes highlight-pulse {
@@ -2170,7 +746,7 @@ watch(showPicker, (newValue) => {
     margin: 0 1vw 0.4rem;
     border-radius: 18px 18px 18px 4px;
     width: fit-content;
-    max-width: 70%;
+    max-width: 85%;
     word-wrap: break-word;
     word-break: break-word;
     font-size: 16px;
@@ -2191,228 +767,6 @@ watch(showPicker, (newValue) => {
   bottom: 0;
   left: 5px;
   color: transparent;
-}
-
-/* 底部样式 */
-.bottom {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border-radius: 20px;
-  flex: 2;
-  width: 94%;
-  margin: 2% 3% 2.5% 3%;
-  background-color: #ffffff;
-  max-height: 25vh;
-  min-height: 180px;
-  position: relative;
-  -webkit-app-region: no-drag;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-
-  .input-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-
-    .file-preview-inline {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 12px;
-      margin: 8px 12px 0;
-      background-color: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      max-height: 120px;
-      overflow-y: auto;
-
-      .file-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px;
-        background-color: #ffffff;
-        border-radius: 6px;
-        border: 1px solid #dee2e6;
-      }
-
-      .file-count {
-        text-align: center;
-        font-size: 0.75rem;
-        color: #6c757d;
-        padding: 4px;
-        background-color: #e9ecef;
-        border-radius: 4px;
-        margin-top: 4px;
-      }
-
-      .file-icon-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        background-color: #ffffff;
-        border-radius: 6px;
-        flex-shrink: 0;
-
-        .file-icon-img {
-          width: 40px;
-          height: 40px;
-          object-fit: contain;
-        }
-      }
-
-      .file-details {
-        flex: 1;
-        min-width: 0;
-
-        .file-name {
-          font-weight: 500;
-          color: #495057;
-          margin-bottom: 2px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 0.8rem;
-        }
-
-        .file-size {
-          font-size: 0.7rem;
-          color: #6c757d;
-        }
-      }
-
-      .cancel-file {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-
-        &:hover {
-          background-color: #e9ecef;
-        }
-      }
-    }
-
-    textarea {
-      flex: 1;
-      // width: calc(100% - 24px);
-      width: 92%;
-      margin: 0 12px;
-      padding: 12px;
-      border: none;
-      outline: none;
-      resize: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: normal;
-      background-color: transparent;
-      line-height: 1.5;
-      font-family: inherit;
-      min-height: 60px;
-
-      &.with-file {
-        margin-top: 8px;
-      }
-
-      &::placeholder {
-        color: #999;
-        font-size: 0.95rem;
-      }
-
-      &:focus {
-        background-color: #fafafa;
-      }
-    }
-
-    .toolbar {
-      position: absolute;
-      bottom: 8px;
-      right: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px;
-      background-color: var(--bg-tertiary, rgba(255, 255, 255, 0.9));
-      border-radius: 20px;
-      border: 1px solid var(--border-color, #e9ecef);
-      backdrop-filter: blur(4px);
-      -webkit-app-region: no-drag;
-      z-index: 10;
-
-      button {
-        height: 32px;
-        width: 32px;
-        padding: 0;
-        border-radius: 50%;
-        border: none;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: transparent;
-        flex-shrink: 0;
-
-        &:hover {
-          background-color: var(--hover-bg, #f8f9fa);
-          transform: scale(1.1);
-        }
-
-        &:first-of-type {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #fff3cd;
-          }
-        }
-
-        &.file-button {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #e3f2fd;
-          }
-        }
-
-        &.search-button {
-          color: var(--text-secondary, #666);
-
-          &:hover {
-            background-color: #e8f5e9;
-          }
-        }
-
-        &:last-of-type {
-          display: none;
-          background: var(--primary-gradient, linear-gradient(135deg, rgb(255, 127, 80) 0%, rgb(255, 140, 100) 100%));
-          color: white;
-          font-size: 0.85rem;
-          font-weight: 600;
-          width: auto;
-          min-width: 65px;
-          border-radius: 16px;
-          padding: 0 14px;
-          box-shadow: var(--shadow-primary, 0 2px 8px rgba(255, 127, 80, 0.3));
-
-          &:hover {
-            transform: scale(1.05);
-            box-shadow: var(--shadow-md, 0 4px 12px rgba(255, 127, 80, 0.4));
-          }
-        }
-
-        &.active {
-          display: flex;
-        }
-      }
-    }
-  }
 }
 
 .send {
