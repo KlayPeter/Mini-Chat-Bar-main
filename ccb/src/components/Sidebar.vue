@@ -8,20 +8,16 @@
     <div class="toolbar">
       <ul>
         <li :class="{ active: activeTab === 'chat' }">
-          <font-awesome-icon icon="comment" title="聊天" @click="chat" />
+          <i title="聊天" @click="chat">💬</i>
         </li>
         <li :class="{ active: activeTab === 'contacts' }">
-          <font-awesome-icon icon="users" title="通讯录" @click="contacts" />
+          <i title="通讯录" @click="contacts">👥</i>
         </li>
         <li :class="{ active: activeTab === 'group' }">
-          <font-awesome-icon
-            :icon="['fas', 'users']"
-            title="群聊"
-            @click="toGroupChat"
-          />
+          <i title="群聊" @click="toGroupChat">👥</i>
         </li>
         <li :class="{ active: activeTab === 'favorites' }">
-          <font-awesome-icon icon="star" title="收藏夹" @click="togithub" />
+          <i title="收藏夹" @click="togithub">⭐</i>
         </li>
       </ul>
     </div>

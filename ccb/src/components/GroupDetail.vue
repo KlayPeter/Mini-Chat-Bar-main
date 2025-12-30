@@ -22,7 +22,7 @@
             />
             <h2 v-else>{{ group.RoomName }}</h2>
             <button v-if="isAdmin" @click="startEdit" class="edit-btn">
-              <i class="fas fa-edit"></i>
+              <i>✏️</i>
             </button>
           </div>
           <p class="group-id">群ID: {{ group.RoomID }}</p>
@@ -33,7 +33,7 @@
           <div class="section-header">
             <h4>群成员 ({{ group.Members.length }})</h4>
             <button v-if="isMember" @click="showInviteDialog = true" class="add-btn">
-              <i class="fas fa-user-plus"></i>
+              <i>👥➕</i>
             </button>
           </div>
           <div class="member-list">
@@ -94,7 +94,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import InviteMemberDialog from './InviteMemberDialog.vue'
 import { useToast } from '../composables/useToast'
@@ -109,8 +109,21 @@ const props = defineProps({
 const emit = defineEmits(['close', 'update'])
 
 const baseUrl = import.meta.env.VITE_BASE_URL
-const currentUserId = ref(localStorage.getItem('userId') || '')
+const currentUserId = ref('')
 const toast = useToast()
+
+// 获取当前用户信息
+async function loadCurrentUser() {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(`${baseUrl}/api/user/info`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    currentUserId.value = String(res.data.id || res.data.uID)
+  } catch (err) {
+    console.error('获取用户信息失败:', err)
+  }
+}
 
 const isEditing = ref(false)
 const editGroupName = ref('')
@@ -204,6 +217,10 @@ async function handleLeaveGroup() {
     toast.error('操作失败')
   }
 }
+
+onMounted(() => {
+  loadCurrentUser()
+})
 </script>
 
 <style scoped lang="scss">

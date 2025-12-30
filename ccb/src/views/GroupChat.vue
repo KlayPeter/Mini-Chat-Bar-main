@@ -12,7 +12,7 @@
 
         <!-- 搜索按钮 -->
         <button class="search-fab" @click="showSearchModal = true" title="搜索群聊和历史消息">
-          <i class="fas fa-search"></i>
+          <i>🔍</i>
           <span>搜索</span>
         </button>
       </div>
@@ -21,7 +21,7 @@
       <div class="section3-wrapper" :class="{ active: showChatArea }">
       <div v-if="!currentGroup" class="section3">
         <div class="welcome-state">
-          <i class="fas fa-comments"></i>
+          <i class="icon">💬</i>
           <p>选择一个群聊开始对话</p>
         </div>
       </div>
@@ -31,7 +31,7 @@
         <div class="chat-header">
           <!-- 移动端返回按钮 -->
           <button class="back-btn mobile-only" @click="backToList">
-            <i class="fas fa-arrow-left"></i>
+            <i>←</i>
           </button>
           
           <div class="group-info">
@@ -44,8 +44,8 @@
             </div>
           </div>
           <div class="header-actions">
-            <button @click="showGroupDetail = true" class="detail-btn">
-              <i class="fas fa-info-circle"></i>
+            <button @click="showGroupDetail = true" class="detail-btn" title="群详情">
+              <i>ⓘ</i>
             </button>
           </div>
         </div>
@@ -53,12 +53,12 @@
         <!-- 消息列表 -->
         <div class="message-list" ref="messageListRef">
           <div v-if="isLoadingMessages" class="loading-state">
-            <i class="fas fa-spinner fa-spin"></i>
+            <i class="spin">⟳</i>
             <p>加载中...</p>
           </div>
 
           <div v-else-if="messages.length === 0" class="empty-messages">
-            <i class="fas fa-comments"></i>
+            <i>💬</i>
             <p>暂无消息，发送第一条消息吧~</p>
           </div>
 
@@ -463,6 +463,8 @@ function initSocket() {
 }
 
 async function handleSelectGroup(group) {
+  console.log('选择群聊:', group) // 调试日志
+  
   if (currentGroup.value && socket) {
     socket.emit('leave-group', {
       roomId: currentGroup.value.RoomID,
@@ -472,6 +474,8 @@ async function handleSelectGroup(group) {
 
   currentGroup.value = group
   showChatArea.value = true // 移动端显示聊天区域
+  
+  console.log('当前群聊已设置:', currentGroup.value) // 调试日志
 
   // 加载消息
   await loadMessages()
@@ -1138,12 +1142,15 @@ function playVoice(fileInfo) {
 .chat-header {
   padding: 15px 20px;
   border-bottom: 1px solid #e0e0e0;
-  display: flex;
+  display: flex !important;
   justify-content: space-between;
   align-items: center;
   background: white;
   flex: 0 0 auto;
   flex-shrink: 0;
+  min-height: 60px;
+  position: relative;
+  z-index: 10;
 
   .back-btn {
     display: none;
@@ -1184,15 +1191,33 @@ function playVoice(fileInfo) {
     }
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .detail-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     font-size: 20px;
     color: #666;
     cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
 
     &:hover {
       color: #333;
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    i {
+      font-size: 18px;
     }
   }
 }
@@ -1222,6 +1247,30 @@ function playVoice(fileInfo) {
 
     p {
       font-size: 14px;
+    }
+  }
+
+  .empty-messages {
+    padding: 60px 20px;
+    font-size: 16px;
+
+    i {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #ccc;
+    }
+  }
+
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
     }
   }
 }

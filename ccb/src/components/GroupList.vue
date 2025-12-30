@@ -3,7 +3,7 @@
     <div class="header">
       <h3>群聊</h3>
       <button class="create-btn" @click="showCreateDialog = true">
-        <i class="fas fa-plus"></i> 创建群聊
+        <i>➕</i> 创建群聊
       </button>
     </div>
 
