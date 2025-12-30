@@ -258,13 +258,43 @@ function showForwardDialog(messages) {
   console.log('转发预览:', { messages, summary })
 }
 
-function handleDownloadFile(fileInfo) {
-  const link = document.createElement('a')
-  link.href = baseUrl + fileInfo.fileUrl
-  link.download = fileInfo.fileName || 'download'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+async function handleDownloadFile(fileInfo) {
+  try {
+    const token = localStorage.getItem('token')
+    const fileUrl = fileInfo.fileUrl.startsWith('http') ? fileInfo.fileUrl : baseUrl + fileInfo.fileUrl
+    
+    // 使用fetch下载文件，携带认证token
+    const response = await fetch(fileUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status} ${response.statusText}`)
+    }
+    
+    // 获取文件blob
+    const blob = await response.blob()
+    
+    // 创建下载链接
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = fileInfo.fileName || 'download'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // 清理URL对象
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    toast.success('文件下载成功')
+  } catch (error) {
+    console.error('下载文件失败:', error)
+    toast.error('下载文件失败: ' + error.message)
+  }
 }
 
 function handleDeleteMessage(messageIndex) {
@@ -559,12 +589,13 @@ watch(
       await getMyAvatar()
       await getlists()
       
-      // 显式滚动到底部
-      nextTick(() => {
+      // 确保DOM完全更新后再滚动到底部
+      await nextTick()
+      setTimeout(() => {
         if (messageListRef.value) {
           messageListRef.value.scrollToBottom()
         }
-      })
+      }, 100)
     }
   }
 )

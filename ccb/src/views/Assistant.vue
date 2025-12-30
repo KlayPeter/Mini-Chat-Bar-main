@@ -294,6 +294,14 @@ const send = async (content) => {
       time: new Date().toISOString()
     });
     
+    // 确保AI回复后滚动到底部
+    await nextTick()
+    setTimeout(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollToBottom()
+      }
+    }, 100)
+    
   } catch (err) {
     console.error("发送消息失败:", err);
     let errorMsg = "抱歉，我现在遇到了一些问题，请稍后再试。";
@@ -309,6 +317,14 @@ const send = async (content) => {
       content: errorMsg,
       time: new Date().toISOString()
     });
+    
+    // 错误消息也需要滚动到底部
+    await nextTick()
+    setTimeout(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollToBottom()
+      }
+    }, 100)
   } finally {
     isLoading.value = false;
   }
