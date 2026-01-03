@@ -10,7 +10,7 @@
         <!-- 群基本信息 -->
         <div class="section">
           <div class="group-avatar-large">
-            <img :src="group.RoomAvatar || '/images/group-default.png'" alt="群头像" />
+            <GroupAvatar :members="group.Members" :size="60" />
           </div>
           <div class="group-name-edit">
             <input
@@ -46,6 +46,16 @@
               <span class="member-name">{{ member.Nickname }}</span>
               <span v-if="member.userID === group.Creator" class="badge">群主</span>
               <span v-else-if="group.Admins.includes(member.userID)" class="badge">管理员</span>
+              
+              <!-- 踢人按钮 -->
+              <button 
+                v-if="canKickMember(member)"
+                @click="handleKickMember(member)"
+                class="kick-btn"
+                title="移除成员"
+              >
+                踢出
+              </button>
             </div>
           </div>
         </div>
@@ -97,6 +107,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { EditPencil, UserPlus } from '@iconoir/vue'
 import axios from 'axios'
+import GroupAvatar from './GroupAvatar.vue'
 import InviteMemberDialog from './InviteMemberDialog.vue'
 import { useToast } from '../composables/useToast'
 
@@ -139,6 +150,24 @@ const isMember = computed(() =>
   props.group.Members.some(m => m.userID === currentUserId.value)
 )
 
+// 判断是否可以踢出某个成员
+const canKickMember = (member) => {
+  // 不能踢自己
+  if (member.userID === currentUserId.value) return false
+  
+  // 群主可以踢任何人（除了自己）
+  if (isCreator.value) return true
+  
+  // 管理员不能踢群主和其他管理员，但可以踢普通成员
+  if (isAdmin.value) {
+    return member.userID !== props.group.Creator && 
+           !props.group.Admins.includes(member.userID)
+  }
+  
+  // 普通成员不能踢任何人
+  return false
+}
+
 // 编辑群名称
 function startEdit() {
   editGroupName.value = props.group.RoomName
@@ -158,7 +187,11 @@ async function saveGroupName() {
       { groupName: editGroupName.value },
       { headers: { Authorization: `Bearer ${token}` } }
     )
+    
+    // 立即更新本地显示的群名称
+    Object.assign(props.group, { RoomName: editGroupName.value })
     isEditing.value = false
+    toast.success('群名称已更新')
     emit('update')
   } catch (err) {
     console.error('更新群名称失败:', err)
@@ -184,11 +217,48 @@ async function saveAnnouncement() {
       { announcement: editAnnouncement.value },
       { headers: { Authorization: `Bearer ${token}` } }
     )
+    
+    // 立即更新本地显示的群公告
+    Object.assign(props.group, { Announcement: editAnnouncement.value })
     isEditingAnnouncement.value = false
+    toast.success('群公告已更新')
     emit('update')
   } catch (err) {
     console.error('更新群公告失败:', err)
     toast.error('更新失败')
+  }
+}
+
+// 踢出成员
+async function handleKickMember(member) {
+  if (!canKickMember(member)) {
+    toast.error('没有权限踢出该成员')
+    return
+  }
+  
+  // 确认踢出操作
+  if (!confirm(`确定要将 ${member.Nickname} 踢出群聊吗？`)) {
+    return
+  }
+  
+  try {
+    const token = localStorage.getItem('token')
+    await axios.delete(
+      `${baseUrl}/room/${props.group.RoomID}/member/${member.userID}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 从本地成员列表中移除被踢成员
+    const memberIndex = props.group.Members.findIndex(m => m.userID === member.userID)
+    if (memberIndex !== -1) {
+      props.group.Members.splice(memberIndex, 1)
+    }
+    
+    toast.success(`${member.Nickname} 已被踢出群聊`)
+    emit('update')
+  } catch (err) {
+    console.error('踢出成员失败:', err)
+    toast.error('踢出成员失败: ' + (err.response?.data?.message || '操作失败'))
   }
 }
 
@@ -242,7 +312,9 @@ onMounted(() => {
   background: white;
   display: flex;
   flex-direction: column;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  box-shadow: -2px 0 20px rgba(0, 0, 0, 0.15);
+  border-radius: 12px 0 0 12px;
+  overflow: hidden;
 }
 
 .panel-header {
@@ -286,13 +358,11 @@ onMounted(() => {
 
   .group-avatar-large {
     text-align: center;
-    margin-bottom: 15px;
-
-    img {
-      width: 80px;
-      height: 80px;
-      border-radius: 12px;
-    }
+    margin-bottom: 20px;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
   }
 
   .group-name-edit {
@@ -316,11 +386,20 @@ onMounted(() => {
     }
 
     .edit-btn {
-      background: none;
-      border: none;
-      color: #07c160;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      color: #0284c7;
       cursor: pointer;
       font-size: 16px;
+      border-radius: 6px;
+      padding: 4px 8px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+        color: #0369a1;
+      }
     }
   }
 
@@ -372,11 +451,18 @@ onMounted(() => {
     .member-item {
       display: flex;
       align-items: center;
-      padding: 10px;
-      border-radius: 4px;
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #fafafa;
+      border: 1px solid #f0f0f0;
+      transition: all 0.2s ease;
 
       &:hover {
-        background: #f5f5f5;
+        background: #f0f9ff;
+        border-color: #bae6fd;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
 
       img {
@@ -398,17 +484,43 @@ onMounted(() => {
         border-radius: 10px;
         color: #d63031;
       }
+      
+      .kick-btn {
+        padding: 4px 8px;
+        font-size: 12px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        margin-left: 8px;
+        
+        &:hover {
+          background: linear-gradient(135deg, #ee5a52 0%, #d63031 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(238, 90, 82, 0.3);
+        }
+        
+        &:active {
+          transform: translateY(0);
+        }
+      }
     }
   }
 
   .announcement-text {
-    background: #f5f5f5;
-    padding: 15px;
-    border-radius: 4px;
-    min-height: 60px;
-    margin-bottom: 10px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 20px;
+    border-radius: 10px;
+    min-height: 80px;
+    margin-bottom: 15px;
     white-space: pre-wrap;
-    color: #666;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   textarea {
@@ -428,20 +540,35 @@ onMounted(() => {
     margin-top: 10px;
 
     button {
-      padding: 6px 15px;
+      padding: 8px 20px;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
 
       &.cancel-btn {
-        background: #f5f5f5;
-        color: #333;
+        background: #f8f9fa;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+
+        &:hover {
+          background: #e9ecef;
+          color: #495057;
+        }
       }
 
       &.save-btn {
-        background: #07c160;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
+        border: 1px solid transparent;
+
+        &:hover {
+          background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
       }
     }
   }

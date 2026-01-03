@@ -108,6 +108,14 @@
       @select-group="handleSearchSelectGroup"
       @select-message="handleSearchSelectMessage"
     />
+
+    <!-- 转发对话框 -->
+    <ForwardDialog
+      v-if="showForwardDialog"
+      :messages="forwardMessages"
+      @close="showForwardDialog = false"
+      @forward-complete="handleForwardComplete"
+    />
     </div>
 
     <!-- 移动端底部导航栏 -->
@@ -126,6 +134,7 @@ import GroupDetail from '../components/GroupDetail.vue'
 import GroupAvatar from '../components/GroupAvatar.vue'
 import BottomNavbar from '../components/BottomNavbar.vue'
 import GroupSearchModal from '../components/GroupSearchModal.vue'
+import ForwardDialog from '../components/ForwardDialog.vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
@@ -151,6 +160,8 @@ const currentUserId = ref('')
 const myAvatar = ref('')
 const showGroupDetail = ref(false)
 const showSearchModal = ref(false)
+const showForwardDialog = ref(false)
+const forwardMessages = ref([])
 const messageListRef = ref(null)
 const groupListRef = ref(null)
 const chatInputRef = ref(null)
@@ -364,8 +375,8 @@ function playVoice(fileInfo) {
 // 新组件需要的事件处理方法
 function handleForwardMessage(message) {
   console.log('转发单条消息:', message)
-  toast.info('请选择转发目标聊天')
-  // TODO: 实现转发对话框选择逻辑
+  forwardMessages.value = [message]
+  showForwardDialog.value = true
 }
 
 // 批量转发消息 - 模仿微信逻辑
@@ -391,8 +402,9 @@ function handleForwardMessages(messages) {
     return
   }
   
-  // 显示转发预览和目标选择
-  showForwardDialog(forwardableMessages)
+  // 显示转发对话框
+  forwardMessages.value = forwardableMessages
+  showForwardDialog.value = true
 }
 
 // 批量删除消息
@@ -406,24 +418,10 @@ function handleDeleteMessages(messages) {
   }
 }
 
-// 显示转发对话框（微信风格）
-function showForwardDialog(messages) {
-  // 简化版本：直接显示提示，实际项目中应该打开对话框
-  const messageCount = messages.length
-  const hasImages = messages.some(msg => msg.messageType === 'image')
-  const hasFiles = messages.some(msg => msg.messageType === 'file')
-  
-  let summary = `${messageCount}条消息`
-  if (hasImages && hasFiles) {
-    summary += '（包含图片和文件）'
-  } else if (hasImages) {
-    summary += '（包含图片）'  
-  } else if (hasFiles) {
-    summary += '（包含文件）'
-  }
-  
-  toast.info(`准备转发${summary}`)
-  console.log('转发预览:', { messages, summary })
+// 处理转发完成
+function handleForwardComplete() {
+  // 转发完成后的处理
+  console.log('转发完成')
 }
 
 async function handleDownloadFile(fileInfo) {
@@ -664,9 +662,32 @@ async function sendMessage(content) {
   }
 }
 
-function handleGroupUpdate() {
+async function handleGroupUpdate() {
+  // 重新加载群组列表
   if (groupListRef.value) {
     groupListRef.value.loadGroups()
+  }
+  
+  // 同时更新当前群聊信息
+  if (currentGroup.value && currentGroup.value.RoomID) {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${baseUrl}/room/list`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (res.data.success && res.data.rooms) {
+        // 从群聊列表中找到当前群聊
+        const updatedGroup = res.data.rooms.find(room => room.RoomID === currentGroup.value.RoomID)
+        if (updatedGroup) {
+          // 更新当前群聊信息，保持响应性
+          Object.assign(currentGroup.value, updatedGroup)
+          console.log('群聊信息已更新:', currentGroup.value)
+        }
+      }
+    } catch (err) {
+      console.error('获取群聊列表失败:', err)
+    }
   }
 }
 

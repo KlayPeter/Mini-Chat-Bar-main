@@ -1,5 +1,9 @@
 {
   "devDependencies": {
     "sass-embedded": "^1.90.0"
+  },
+  "dependencies": {
+    "@iconoir/vue": "^7.11.0",
+    "lucide-vue-next": "^0.562.0"
   }
 }

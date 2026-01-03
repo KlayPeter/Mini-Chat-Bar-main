@@ -67,6 +67,14 @@
         @typing-stop="handleTypingStop"
       />
     </div>
+
+    <!-- 转发对话框 -->
+    <ForwardDialog
+      v-if="showForwardDialog"
+      :messages="forwardMessages"
+      @close="showForwardDialog = false"
+      @forward-complete="handleForwardComplete"
+    />
   </div>
 </template>
 
@@ -80,12 +88,15 @@ import { socket } from '../../utils/socket'
 import { onBeforeUnmount } from 'vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
+import ForwardDialog from '../components/ForwardDialog.vue'
 import { useToast } from '../composables/useToast'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const messages = ref([])
 const messageListRef = ref(null)
 const chatInputRef = ref(null)
+const showForwardDialog = ref(false)
+const forwardMessages = ref([])
 const chatstore = useChatStore()
 
 const uname = ref('')
@@ -196,8 +207,8 @@ function handlePlayVoice(fileInfo) {
 
 function handleForwardMessage(message) {
   console.log('转发单条消息:', message)
-  toast.info('请选择转发目标聊天')
-  // TODO: 实现转发对话框选择逻辑
+  forwardMessages.value = [message]
+  showForwardDialog.value = true
 }
 
 // 批量转发消息 - 模仿微信逻辑
@@ -223,8 +234,9 @@ function handleForwardMessages(messages) {
     return
   }
   
-  // 显示转发预览和目标选择
-  showForwardDialog(forwardableMessages)
+  // 显示转发对话框
+  forwardMessages.value = forwardableMessages
+  showForwardDialog.value = true
 }
 
 // 批量删除消息
@@ -238,24 +250,10 @@ function handleDeleteMessages(messages) {
   }
 }
 
-// 显示转发对话框（微信风格）
-function showForwardDialog(messages) {
-  // 简化版本：直接显示提示，实际项目中应该打开对话框
-  const messageCount = messages.length
-  const hasImages = messages.some(msg => msg.messageType === 'image')
-  const hasFiles = messages.some(msg => msg.messageType === 'file')
-  
-  let summary = `${messageCount}条消息`
-  if (hasImages && hasFiles) {
-    summary += '（包含图片和文件）'
-  } else if (hasImages) {
-    summary += '（包含图片）'  
-  } else if (hasFiles) {
-    summary += '（包含文件）'
-  }
-  
-  toast.info(`准备转发${summary}`)
-  console.log('转发预览:', { messages, summary })
+// 处理转发完成
+function handleForwardComplete() {
+  // 转发完成后的处理
+  console.log('转发完成')
 }
 
 async function handleDownloadFile(fileInfo) {
