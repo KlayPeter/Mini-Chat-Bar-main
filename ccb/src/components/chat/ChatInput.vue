@@ -506,7 +506,12 @@ defineExpose({
     nextTick(() => autoResizeTextarea())
   },
   getText: () => inputText.value,
-  getSelectedFiles: () => selectedFiles.value
+  getSelectedFiles: () => selectedFiles.value,
+  setInputContent: (content) => {
+    inputText.value = content
+    nextTick(() => autoResizeTextarea())
+  },
+  focusInput: () => inputRef.value?.focus()
 })
 </script>
 

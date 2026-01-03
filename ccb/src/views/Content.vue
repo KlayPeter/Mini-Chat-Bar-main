@@ -50,6 +50,8 @@
         @download-file="handleDownloadFile"
         @delete-message="handleDeleteMessage"
         @delete-messages="handleDeleteMessages"
+        @recall-message="handleRecallMessage"
+        @re-edit-message="handleReEditMessage"
         @selection-change="handleSelectionChange"
       />
       
@@ -254,6 +256,80 @@ function handleDeleteMessages(messages) {
 function handleForwardComplete() {
   // 转发完成后的处理
   console.log('转发完成')
+}
+
+// 处理撤回消息
+async function handleRecallMessage(messageIndex) {
+  try {
+    const messageToRecall = messages.value[messageIndex]
+    if (!messageToRecall) {
+      toast.error('消息不存在')
+      return
+    }
+
+    // 验证撤回权限和时间限制
+    const messageTime = new Date(messageToRecall.time)
+    const now = new Date()
+    const diffMinutes = (now - messageTime) / (1000 * 60)
+    
+    if (diffMinutes > 2) {
+      toast.error('消息发送超过2分钟，无法撤回')
+      return
+    }
+
+    // 检查是否是自己的消息 - 修正逻辑以匹配MessageContextMenu
+    const currentUserId = localStorage.getItem('userId')
+    const isMyMessage = String(messageToRecall.from) === String(currentUserId)
+    if (!isMyMessage) {
+      toast.error('只能撤回自己的消息')
+      return
+    }
+
+    // 临时方案：客户端撤回（因为服务端API暂未实现）
+    // TODO: 服务端需要实现 DELETE /api/chat/messages/{messageId}/recall 端点
+    console.warn('撤回API暂未在服务端实现，使用客户端方案')
+
+    // 更新消息状态为已撤回，并添加重新编辑选项
+    messages.value[messageIndex] = {
+      ...messageToRecall,
+      content: '你撤回了一条消息',
+      messageType: 'system',
+      recalled: true,
+      originalContent: messageToRecall.content, // 保存原始内容用于重新编辑
+      canReEdit: true // 标记可以重新编辑
+    }
+
+    // 通过Socket通知对方消息被撤回
+    socket.emit('recall-private-message', {
+      chatWith: chatstore.currentChatUser,
+      messageId: messageToRecall._id || messageToRecall.id,
+      userId: currentUserId
+    })
+
+    // 显示重新编辑选项
+    toast.success('消息已撤回', {
+      action: {
+        text: '重新编辑',
+        onClick: () => handleReEditMessage(messageToRecall)
+      }
+    })
+  } catch (error) {
+    console.error('撤回消息失败:', error)
+    toast.error('撤回消息失败: ' + (error.response?.data?.message || '操作失败'))
+  }
+}
+
+// 处理重新编辑消息
+function handleReEditMessage(recalledMessage) {
+  // 将原始内容填充到输入框
+  if (chatInputRef.value && recalledMessage.originalContent) {
+    chatInputRef.value.setInputContent(recalledMessage.originalContent)
+    
+    // 聚焦到输入框
+    chatInputRef.value.focusInput()
+    
+    toast.info('原消息内容已恢复到输入框，可以重新编辑发送')
+  }
 }
 
 async function handleDownloadFile(fileInfo) {
@@ -465,6 +541,7 @@ onBeforeUnmount(() => {
   socket.off('avatar-updated')
   socket.off('private-message')
   socket.off('private-file-message')
+  socket.off('private-message-recalled')
 })
 
 onMounted(() => {
@@ -557,11 +634,31 @@ onMounted(() => {
     async ({ from, fileUrl, fileName, fileType, messageType }) => {
       // 只有当消息来自当前聊天用户时才刷新消息列表
       if (from === chatstore.currentChatUser) {
+        console.log('收到私聊文件消息，刷新消息列表')
         await getlists()
-        // ChatMessageList组件会自动滚动到底部
       }
     }
   )
+
+  // 监听私聊消息撤回事件
+  socket.on('private-message-recalled', (data) => {
+    if (data.chatWith === route.params.id) {
+      // 找到被撤回的消息并更新
+      const messageIndex = messages.value.findIndex(msg => 
+        (msg._id || msg.id) === data.messageId
+      )
+      
+      if (messageIndex !== -1) {
+        const recalledMessage = messages.value[messageIndex]
+        messages.value[messageIndex] = {
+          ...recalledMessage,
+          content: data.userId === currentUserId.value ? '你撤回了一条消息' : `${data.userName || '对方'}撤回了一条消息`,
+          messageType: 'system',
+          recalled: true
+        }
+      }
+    }
+  })
 })
 
 // 重复函数已删除，保留上面的版本

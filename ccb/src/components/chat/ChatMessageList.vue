@@ -76,6 +76,7 @@
         @preview-video="handlePreviewVideo"
         @preview-file="handlePreviewFile"
         @play-voice="handlePlayVoice"
+        @re-edit-message="handleReEditMessage"
       />
     </template>
 
@@ -94,6 +95,7 @@
       @forward-message="handleForwardMessage"
       @download-file="handleDownloadFile"
       @delete-message="handleDeleteMessage"
+      @recall-message="handleRecallMessage"
     />
   </div>
 </template>
@@ -168,6 +170,8 @@ const emit = defineEmits([
   'download-file',
   'delete-message',
   'delete-messages',
+  'recall-message',
+  're-edit-message',
   'scroll-to-bottom'
 ])
 
@@ -304,6 +308,17 @@ function handleDownloadFile(fileInfo) {
 function handleDeleteMessage(messageIndex) {
   emit('delete-message', messageIndex)
   hideContextMenu()
+}
+
+// 处理撤回消息
+function handleRecallMessage(messageIndex) {
+  emit('recall-message', messageIndex)
+  hideContextMenu()
+}
+
+// 处理重新编辑消息
+function handleReEditMessage(message) {
+  emit('re-edit-message', message)
 }
 
 // 滚动到底部

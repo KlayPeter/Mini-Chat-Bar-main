@@ -12,7 +12,15 @@
   >
     <!-- 系统消息 -->
     <div v-if="message.messageType === 'system'" class="system-message">
-      {{ message.content }}
+      <span class="system-text">{{ message.content }}</span>
+      <!-- 重新编辑按钮（仅撤回消息显示） -->
+      <button 
+        v-if="message.recalled && message.canReEdit" 
+        @click="$emit('re-edit-message', message)"
+        class="re-edit-btn"
+      >
+        重新编辑
+      </button>
     </div>
 
     <!-- 普通消息 -->
@@ -204,7 +212,8 @@ const emit = defineEmits([
   'preview-image',
   'preview-video',
   'preview-file',
-  'play-voice'
+  'play-voice',
+  're-edit-message'
 ])
 
 // 计算是否为我的消息
@@ -412,6 +421,36 @@ function handleImageError(event) {
     text-align: center;
     color: #999;
     font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    .system-text {
+      display: block;
+    }
+
+    .re-edit-btn {
+      padding: 4px 12px;
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: linear-gradient(135deg, #0056b3 0%, #003d82 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
     padding: 5px 0;
   }
 }
