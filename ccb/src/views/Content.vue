@@ -327,8 +327,6 @@ function handleReEditMessage(recalledMessage) {
     
     // 聚焦到输入框
     chatInputRef.value.focusInput()
-    
-    toast.info('原消息内容已恢复到输入框，可以重新编辑发送')
   }
 }
 

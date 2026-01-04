@@ -68,7 +68,7 @@
         :showSenderName="showSenderName"
         :showSelectionMode="selectionMode"
         :isSelected="selectedMessages.includes(index)"
-        :isHighlighted="highlightedMessageId === (message._id || message.id)"
+        :isHighlighted="message && highlightedMessageId === (message._id || message.id)"
         @click="handleMessageClick"
         @contextmenu="handleMessageContextMenu"
         @toggle-selection="handleToggleSelection"
@@ -188,6 +188,7 @@ const contextMenu = ref({
 
 // 获取消息唯一key
 function getMessageKey(message, index) {
+  if (!message) return `msg-${index}`
   return message._id || message.id || `msg-${index}`
 }
 

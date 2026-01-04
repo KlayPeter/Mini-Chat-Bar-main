@@ -83,6 +83,9 @@
           :showSearchButton="true"
           :isRecording="isRecording"
           :recordingTime="recordingTime"
+          :groupMembers="currentGroup?.Members || []"
+          :currentUserId="currentUserId"
+          :userRole="getCurrentUserRole()"
           @send-message="handleSendMessage"
           @send-file="handleSendFile"
           @start-recording="handleStartRecording"
@@ -177,6 +180,9 @@ onMounted(async () => {
   await loadCurrentUser()
   await loadMyAvatar()
   initSocket()
+  
+  // 监听GroupList发送的加入所有房间事件
+  window.addEventListener('joinAllRooms', handleJoinAllRooms)
 })
 
 onUnmounted(() => {
@@ -192,8 +198,11 @@ onUnmounted(() => {
     socket.off('member-joined')
     socket.off('member-left')
     socket.off('message-recalled')
+    socket.off('mention-notification')
     socket.disconnect()
   }
+  // 清理事件监听器
+  window.removeEventListener('joinAllRooms', handleJoinAllRooms)
 })
 
 async function loadCurrentUser() {
@@ -220,26 +229,256 @@ async function loadMyAvatar() {
   }
 }
 
-function initSocket() {
-  socket = io(baseUrl)
+// 处理GroupList发送的加入所有房间事件
+function handleJoinAllRooms(event) {
+  console.log('🎯 GroupChat收到加入所有房间事件:', event.detail)
+  
+  if (!socket || !socket.connected) {
+    console.log('⚠️ Socket未连接，无法加入房间')
+    return
+  }
+  
+  const { groups, userId } = event.detail
+  console.log('🚪 开始加入所有群聊Socket房间...')
+  console.log('群聊列表:', groups.map(g => ({id: g.RoomID, name: g.RoomName})))
+  
+  groups.forEach(group => {
+    console.log(`🏠 加入Socket房间: ${group.RoomID} (${group.RoomName})`)
+    
+    // 发送多种加入房间事件，确保服务器能识别
+    socket.emit('join-group', {
+      roomId: group.RoomID,
+      userId: userId
+    })
+    socket.emit('join-room', group.RoomID)
+    socket.emit('join', group.RoomID)
+  })
+  
+  console.log('✅ 所有群聊房间加入请求已发送')
+}
 
-  socket.on('connect', () => {
-    // Socket连接成功
+function initSocket() {
+  socket = io(baseUrl, {
+    transports: ['websocket', 'polling'],
+    upgrade: true,
+    rememberUpgrade: true
   })
 
-  socket.on('group-message', (data) => {
-    if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
-      messages.value.push(data.message)
-      // 消息列表组件会自动滚动到底部
+  socket.on('connect', () => {
+    console.log('🎉 Socket连接成功:', socket.id)
+    console.log('👤 当前用户ID:', currentUserId.value)
+    
+    // 发送连接测试
+    socket.emit('test-connection', {
+      userId: currentUserId.value,
+      timestamp: Date.now(),
+      message: 'Socket连接测试'
+    })
+    
+    // 加入用户所有的群聊房间（关键修复！）
+    console.log('🏠 Socket连接时加入所有群聊房间...')
+    if (groupListRef.value && groupListRef.value.groups) {
+      const allGroups = groupListRef.value.groups
+      console.log('📋 用户的所有群聊:', allGroups.map(g => ({id: g.RoomID, name: g.RoomName})))
+      
+      allGroups.forEach(group => {
+        console.log('🚪 加入群聊房间:', group.RoomID, group.RoomName)
+        socket.emit('join-group', {
+          roomId: group.RoomID,
+          userId: currentUserId.value
+        })
+        socket.emit('join-room', group.RoomID)
+        socket.emit('join', group.RoomID)
+      })
+    }
+    
+    // 如果已经选择了群聊，额外确认加入当前房间
+    if (currentGroup.value) {
+      console.log('🏠 额外确认加入当前群聊房间:', currentGroup.value.RoomID)
+      socket.emit('join-group', {
+        roomId: currentGroup.value.RoomID,
+        userId: currentUserId.value
+      })
     }
   })
 
+  // 监听连接测试回应
+  socket.on('test-response', (data) => {
+    console.log('📡 收到Socket连接测试回应:', data)
+  })
+
+  // 监听服务器广播的测试消息
+  socket.on('broadcast-test', (data) => {
+    console.log('📻 收到服务器广播测试:', data)
+  })
+
+  socket.on('disconnect', () => {
+    console.log('Socket连接断开')
+  })
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket连接错误:', error)
+  })
+
+  socket.on('group-message', (data) => {
+    console.log('========== 收到群消息事件 ==========')
+    console.log('消息数据:', data)
+    console.log('当前群聊ID:', currentGroup.value?.RoomID)
+    console.log('消息来自群聊ID:', data.roomId)
+    console.log('Socket ID:', socket.id)
+    
+    if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
+      // 检查消息数据是否存在(消息内容直接在data中)
+      if (!data.content && !data.message) {
+        console.log('❌ 收到的消息数据为空:', data)
+        return
+      }
+      
+      // 适配不同的消息数据结构
+      let messageData;
+      if (data.message) {
+        // 如果有message属性，使用message属性
+        messageData = data.message;
+      } else if (data.content) {
+        // 如果消息内容直接在data中，构造消息对象
+        messageData = {
+          _id: data._id || data.id,
+          id: data.id || data._id,
+          content: data.content,
+          from: data.from,
+          fromName: data.fromName,
+          fromAvatar: data.fromAvatar,
+          messageType: data.messageType || 'text',
+          createdAt: data.createdAt || data.timestamp || new Date(),
+          mentions: data.mentions
+        };
+      } else {
+        console.log('❌ 无法识别的消息数据格式:', data)
+        return
+      }
+      
+      // 检查是否是自己发送的消息，避免重复添加
+      const isDuplicate = messages.value.some(msg => 
+        (msg._id && messageData._id && msg._id === messageData._id) || 
+        (msg.id && messageData.id && msg.id === messageData.id) ||
+        (msg.content === messageData.content && msg.from === messageData.from)
+      )
+      
+      if (!isDuplicate) {
+        console.log('✅ 添加新消息到当前群聊:', messageData)
+        messages.value.push(messageData)
+        
+        // 滚动到底部
+        nextTick(() => {
+          if (messageListRef.value) {
+            messageListRef.value.scrollToBottom()
+          }
+        })
+      } else {
+        console.log('⚠️ 消息已存在，跳过重复添加')
+      }
+    } else if (data.roomId !== currentGroup.value?.RoomID) {
+      // 如果是其他群的消息，在GroupList中显示未读数量和更新最新消息
+      console.log('📬 为其他群聊增加未读数量:', data.roomId)
+      
+      // 构造消息数据 - 添加详细调试
+      console.log('🔍 开始提取消息参数...')
+      console.log('原始数据结构:', JSON.stringify(data, null, 2))
+      
+      let messageContent, senderName;
+      if (data.message) {
+        console.log('使用data.message路径')
+        messageContent = data.message.content;
+        senderName = data.message.fromName;
+        console.log('提取结果 - 内容:', messageContent, '发送者:', senderName)
+      } else if (data.content) {
+        console.log('使用data直接路径')
+        messageContent = data.content;
+        senderName = data.fromName;
+        console.log('提取结果 - 内容:', messageContent, '发送者:', senderName)
+      } else {
+        console.log('⚠️ 无法提取消息内容，数据结构:', data)
+      }
+      
+      console.log('最终参数 - roomId:', data.roomId, '内容:', messageContent, '发送者:', senderName)
+      
+      if (groupListRef.value && groupListRef.value.markGroupAsUnread) {
+        console.log('✅ 准备调用 groupListRef.markGroupAsUnread')
+        console.log('传递参数:', {roomId: data.roomId, content: messageContent, sender: senderName})
+        groupListRef.value.markGroupAsUnread(data.roomId, messageContent, senderName)
+      } else {
+        console.log('❌ groupListRef 不可用:', groupListRef.value)
+      }
+    }
+    console.log('=====================================')
+  })
+
+  // 监听各种可能的Socket事件
+  socket.on('joined-room', (data) => {
+    console.log('✅ 已加入Socket房间:', data)
+  })
+
+  socket.on('left-room', (data) => {
+    console.log('⬅️ 已离开Socket房间:', data)
+  })
+
+  socket.on('joined-group', (data) => {
+    console.log('✅ 已加入群聊房间:', data)
+  })
+
+  socket.on('room-joined', (data) => {
+    console.log('✅ 房间加入确认:', data)
+  })
+
+  // 监听房间成员信息
+  socket.on('room-members', (data) => {
+    console.log('👥 房间成员列表:', data)
+  })
+
+  // 监听房间状态
+  socket.on('room-status', (data) => {
+    console.log('🏠 房间状态:', data)
+  })
+
+  // 监听所有可能的消息事件
+  socket.on('message', (data) => {
+    console.log('📥 收到message事件:', data)
+    // 转发给group-message处理
+    socket.emit('group-message', data)
+  })
+
+  socket.on('new-message', (data) => {
+    console.log('📥 收到new-message事件:', data)
+    // 转发给group-message处理
+    socket.emit('group-message', data)
+  })
+
+  socket.on('chat-message', (data) => {
+    console.log('📥 收到chat-message事件:', data)
+    // 转发给group-message处理
+    socket.emit('group-message', data)
+  })
+
+  // 监听其他Socket事件
+  socket.on('user-joined', (data) => {
+    console.log('👤 用户加入房间:', data)
+  })
+
+  socket.on('user-left', (data) => {
+    console.log('👤 用户离开房间:', data)
+  })
+
   socket.on('member-joined', (data) => {
-    // 成员加入
+    console.log('👥 成员加入群聊:', data)
   })
 
   socket.on('member-left', (data) => {
-    // 成员离开
+    console.log('👥 成员离开群聊:', data)
+  })
+
+  // 监听Socket错误
+  socket.on('error', (error) => {
+    console.error('Socket错误:', error)
   })
 
   // 监听群聊消息撤回事件
@@ -261,12 +500,102 @@ function initSocket() {
       }
     }
   })
+
+  // 监听@提及通知事件
+  socket.on('mention-notification', (data) => {
+    console.log('GroupChat 收到@提及通知事件:', data)
+    console.log('当前用户ID:', currentUserId.value)
+    
+    // 检查是否@了当前用户
+    const isMentioned = data.mentions.some(mention => 
+      mention.type === 'all' || mention.userId === currentUserId.value
+    )
+    
+    console.log('是否被@:', isMentioned)
+    
+    if (isMentioned && data.senderName) {
+      // 如果是其他群的@提醒，在GroupList中显示红色@标记
+      if (!currentGroup.value || data.roomId !== currentGroup.value.RoomID) {
+        console.log('为其他群聊显示@提醒:', data.roomId)
+        if (groupListRef.value && groupListRef.value.markGroupAsMentioned) {
+          console.log('调用 groupListRef.markGroupAsMentioned')
+          groupListRef.value.markGroupAsMentioned(data.roomId)
+        } else {
+          console.log('groupListRef 不可用于@提醒:', groupListRef.value)
+        }
+      }
+      
+      // 只在当前群聊中显示详细通知
+      if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
+        // 区分@全体成员和@个人的通知文案
+        const isAllMention = data.mentions.some(m => m.type === 'all')
+        const notificationTitle = isAllMention 
+          ? `${data.senderName}@了全体成员` 
+          : `${data.senderName} 在群聊中@了你`
+        
+        // 显示微信风格的@提及通知
+        toast.success(notificationTitle, {
+          duration: 6000,
+          icon: '🔔',
+          position: 'top-right',
+          style: {
+            background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%)',
+            color: 'white',
+            fontWeight: '500',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(255, 107, 107, 0.4)'
+          },
+          action: {
+            text: '查看消息',
+            onClick: () => {
+              // 滚动到对应消息
+              scrollToMessage(data.messageId)
+            }
+          }
+        })
+        
+        // 播放提示音（如果支持）
+        try {
+          const audio = new Audio('/sounds/mention-notification.mp3')
+          audio.volume = 0.3
+          audio.play().catch(() => {
+            // 如果音频播放失败，使用系统提示音
+            console.log('播放@提醒声音')
+          })
+        } catch (e) {
+          console.log('@提及通知音频播放失败')
+        }
+      }
+    }
+  })
+}
+
+// 获取当前用户在群聊中的角色
+function getCurrentUserRole() {
+  if (!currentGroup.value || !currentGroup.value.Members) return 'member'
+  
+  const currentUser = currentGroup.value.Members.find(member => 
+    String(member.id || member.userId) === String(currentUserId.value)
+  )
+  
+  if (!currentUser) return 'member'
+  
+  // 根据角色字段或创建者判断
+  if (currentUser.role === 'creator' || String(currentGroup.value.CreatorID) === String(currentUserId.value)) {
+    return 'creator'
+  } else if (currentUser.role === 'admin') {
+    return 'admin'
+  } else {
+    return 'member'
+  }
 }
 
 async function handleSelectGroup(group) {
-  console.log('选择群聊:', group) // 调试日志
-  
+  console.log('选择群聊:', group.RoomName, '房间ID:', group.RoomID)
+
   if (currentGroup.value && socket) {
+    console.log('离开当前群聊房间:', currentGroup.value.RoomID)
     socket.emit('leave-group', {
       roomId: currentGroup.value.RoomID,
       userId: currentUserId.value
@@ -275,8 +604,6 @@ async function handleSelectGroup(group) {
 
   currentGroup.value = group
   showChatArea.value = true // 移动端显示聊天区域
-  
-  console.log('当前群聊已设置:', currentGroup.value) // 调试日志
 
   // 加载消息
   await loadMessages()
@@ -289,10 +616,27 @@ async function handleSelectGroup(group) {
     }
   }, 100)
 
-  if (socket) {
+  if (socket && socket.connected) {
+    console.log('🏠 加入新群聊房间:', group.RoomID)
+    
+    // 尝试多种房间加入事件名称
+    socket.emit('join-group', group.RoomID)
+    socket.emit('join-room', group.RoomID) 
+    socket.emit('join', group.RoomID)
+    
+    // 同时发送带用户信息的版本
     socket.emit('join-group', {
       roomId: group.RoomID,
       userId: currentUserId.value
+    })
+    
+    console.log('📡 已发送房间加入请求')
+  } else {
+    console.log('❌ Socket未连接，无法加入房间')
+    console.log('Socket状态:', {
+      exists: !!socket,
+      connected: socket?.connected,
+      id: socket?.id
     })
   }
 }
@@ -521,8 +865,6 @@ function handleReEditMessage(recalledMessage) {
     
     // 聚焦到输入框
     chatInputRef.value.focusInput()
-    
-    toast.info('原消息内容已恢复到输入框，可以重新编辑发送')
   }
 }
 
@@ -732,17 +1074,100 @@ async function sendVoiceMessage() {
   }
 }
 
+// 解析@提及内容
+function parseMentions(content) {
+  const mentions = []
+  const mentionRegex = /@(全体成员|[^@\s]+)/g
+  let match
+
+  console.log('🔍 开始解析@提及内容:', content)
+  console.log('📋 当前群成员列表:', currentGroup.value?.Members)
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    const mentionText = match[1]
+    console.log('🎯 找到@提及:', mentionText)
+    
+    if (mentionText === '全体成员') {
+      // @全体成员
+      mentions.push({
+        type: 'all',
+        text: mentionText,
+        userId: null
+      })
+      console.log('✅ 添加@全体成员')
+    } else {
+      // 查找对应的用户 - 检查所有可能的显示名称字段
+      const member = currentGroup.value?.Members?.find(m => {
+        // 收集所有可能的显示名称
+        const possibleNames = [
+          m.Nickname, m.nickname, m.NickName,
+          m.name, m.userName, m.Name, m.uName,
+          m.displayName, m.DisplayName,
+          m.realName, m.RealName
+        ].filter(Boolean) // 过滤掉空值
+        
+        console.log('🔍 检查成员:', {
+          member: m,
+          possibleNames,
+          target: mentionText
+        })
+        
+        // 检查是否有任何名称匹配
+        return possibleNames.includes(mentionText)
+      })
+      
+      if (member) {
+        // 尝试多个可能的ID字段
+        const userId = member.id || member.userId || member.uID || member.ID || member.uid
+        mentions.push({
+          type: 'user',
+          text: mentionText,
+          userId: String(userId) // 确保转为字符串
+        })
+        console.log('✅ 添加用户@提及:', {
+          text: mentionText,
+          userId: userId,
+          member: member
+        })
+      } else {
+        console.log('❌ 未找到对应用户:', mentionText)
+      }
+    }
+  }
+  
+  console.log('📤 最终@提及列表:', mentions)
+  return mentions
+}
+
 // 发送文本消息
 async function sendMessage(content) {
   if (!content.trim() || !currentGroup.value) return
 
   try {
+    // 解析@提及
+    console.log('========== 开始发送消息和@提及解析 ==========')
+    console.log('消息内容:', content)
+    console.log('当前群组:', currentGroup.value)
+    console.log('群成员列表:', currentGroup.value?.Members)
+    
+    const mentions = parseMentions(content)
+    console.log('解析后的@提及列表:', mentions)
+    console.log('@提及数量:', mentions.length)
+    
+    // 验证@全体成员权限
+    const hasAllMention = mentions.some(m => m.type === 'all')
+    if (hasAllMention && getCurrentUserRole() === 'member') {
+      toast.error('只有管理员和群主可以@全体成员')
+      return
+    }
+
     const token = localStorage.getItem('token')
     const res = await axios.post(
       `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
       {
         content: content,
-        messageType: 'text'
+        messageType: 'text',
+        mentions: mentions.length > 0 ? mentions : undefined
       },
       {
         headers: { Authorization: `Bearer ${token}` }
@@ -750,23 +1175,65 @@ async function sendMessage(content) {
     )
 
     if (res.data.success) {
-      if (socket) {
+      // 立即添加消息到本地消息列表，确保实时显示
+      const newMessage = {
+        ...res.data.message,
+        mentions: mentions.length > 0 ? mentions : undefined
+      }
+      messages.value.push(newMessage)
+      
+      // 滚动到底部
+      await nextTick()
+      if (messageListRef.value) {
+        messageListRef.value.scrollToBottom()
+      }
+      
+      if (socket && socket.connected) {
+        console.log('========== 发送Socket消息 ==========')
+        console.log('房间ID:', currentGroup.value.RoomID)
+        console.log('Socket ID:', socket.id)
+        console.log('Socket连接状态:', socket.connected)
+        console.log('消息内容:', newMessage)
+        
+        // 使用最简单直接的Socket事件发送
         socket.emit('group-message', {
           roomId: currentGroup.value.RoomID,
-          message: res.data.message
+          message: newMessage
         })
+        console.log('📤 发送消息事件到房间:', currentGroup.value.RoomID)
+        
+        // 发送@提及通知
+        if (mentions.length > 0) {
+          console.log('========== 发送@提及通知 ==========')
+          console.log('@提及列表:', mentions)
+          
+          // 简化@提及通知发送
+          socket.emit('mention-notification', {
+            roomId: currentGroup.value.RoomID,
+            mentions: mentions,
+            messageId: res.data.message.id || res.data.message._id,
+            senderName: myAvatar.value || '某位成员'
+          })
+          console.log('📧 发送@提及通知到房间:', currentGroup.value.RoomID)
+        }
+        
+        console.log('===================================')
+      } else {
+        console.log('❌ Socket未连接，无法发送实时消息')
+        console.log('Socket状态:', socket?.connected)
       }
-      await loadMessages()
     }
-  } catch (err) {
-    console.error('发送消息失败:', err)
+  } catch (error) {
+    console.error('发送消息失败:', error)
     toast.error('发送消息失败')
   }
 }
 
 async function handleGroupUpdate() {
-  // 重新加载群组列表
-  if (groupListRef.value) {
+  console.log('群聊信息更新事件触发')
+  
+  // 重新加载群聊列表
+  if (groupListRef.value && groupListRef.value.loadGroups) {
     groupListRef.value.loadGroups()
   }
   

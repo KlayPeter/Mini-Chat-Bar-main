@@ -6,12 +6,12 @@
       'selected': isSelected,
       'highlight-message': isHighlighted
     }"
-    :data-message-id="message._id || message.id"
+    :data-message-id="message ? (message._id || message.id) : ''"
     @click="$emit('click', message, messageIndex)"
     @contextmenu.prevent="$emit('contextmenu', $event, message, messageIndex)"
   >
     <!-- 系统消息 -->
-    <div v-if="message.messageType === 'system'" class="system-message">
+    <div v-if="message && message.messageType === 'system'" class="system-message">
       <span class="system-text">{{ message.content }}</span>
       <!-- 重新编辑按钮（仅撤回消息显示） -->
       <button 
@@ -24,7 +24,7 @@
     </div>
 
     <!-- 普通消息 -->
-    <template v-else>
+    <template v-else-if="message">
       <!-- 消息时间头部 -->
       <div class="message-time-header">
         {{ formatTime(message.time) }}
@@ -137,7 +137,8 @@
 
           <!-- 文本消息 -->
           <div v-else class="content">
-            {{ message.content }}
+            <span v-if="hasMentions" v-html="renderMentions(message.content)"></span>
+            <span v-else>{{ message.content }}</span>
           </div>
         </div>
 
@@ -218,15 +219,34 @@ const emit = defineEmits([
 
 // 计算是否为我的消息
 const isMyMessage = computed(() => {
+  if (!props.message) return false
+  
   if (props.messageType === 'ai') {
     return props.message.from === 'user'
   }
   if (props.messageType === 'group') {
-    return String(props.message.from) === String(props.currentUserId)
+    return String(props.message.from || '') === String(props.currentUserId)
   }
   // 私聊模式：判断消息发送者是否是当前登录用户
-  return String(props.message.from) === String(props.currentUserId)
+  return String(props.message.from || '') === String(props.currentUserId)
 })
+
+// 计算是否包含@提及
+const hasMentions = computed(() => {
+  if (!props.message.content || typeof props.message.content !== 'string') return false
+  return /@(全体成员|[^@\s]+)/.test(props.message.content)
+})
+
+// 渲染@提及高亮
+function renderMentions(content) {
+  if (!content || typeof content !== 'string') return content
+  
+  // 高亮@提及内容
+  return content.replace(
+    /@(全体成员|[^@\s]+)/g, 
+    '<span class="mention-highlight">@$1</span>'
+  )
+}
 
 // 格式化时间
 function formatTime(time) {

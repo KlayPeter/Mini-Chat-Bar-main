@@ -235,7 +235,9 @@
           @contextmenu.prevent="showContextMenu($event, friend)"
         >
           <div class="chat-avatar">
-            <div v-if="friend.unreadCount > 0" class="unread-dot"></div>
+            <div v-if="friend.unreadCount > 0" class="unread-count-badge">
+              {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
+            </div>
             <img :src="friend.avatar" alt="avatar" />
           </div>
           <div class="chat-details">
@@ -1366,15 +1368,24 @@ onBeforeUnmount(() => {
           object-fit: cover;
         }
 
-        .unread-dot {
+        .unread-count-badge {
           position: absolute;
-          top: -2px;
-          right: -2px;
-          width: 10px;
-          height: 10px;
-          background: var(--primary-color);
-          border-radius: 50%;
+          top: -4px;
+          right: -4px;
+          min-width: 18px;
+          height: 18px;
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+          color: white;
+          border-radius: 10px;
           border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: bold;
+          padding: 0 4px;
+          box-shadow: 0 2px 4px rgba(255, 107, 107, 0.4);
+          z-index: 2;
         }
       }
 

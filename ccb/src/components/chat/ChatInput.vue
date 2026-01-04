@@ -133,8 +133,51 @@
       </div>
     </div>
 
+    <!-- @成员选择弹窗 -->
+    <div v-if="showMentionList" class="mention-list-container" :style="mentionListStyle">
+      <div class="mention-list">
+        <!-- @全体成员选项（仅管理员可见） -->
+        <div 
+          v-if="canMentionAll" 
+          class="mention-item"
+          :class="{ active: selectedMentionIndex === -1 }"
+          @click="selectMention({ id: 'all', name: '全体成员', isAll: true })"
+        >
+          <div class="member-avatar">
+            <span class="all-icon">@</span>
+          </div>
+          <div class="member-info">
+            <span class="member-name">全体成员</span>
+            <span class="member-desc">通知所有群成员</span>
+          </div>
+        </div>
+        
+        <!-- 普通成员列表 -->
+        <div 
+          v-for="(member, index) in filteredMembers" 
+          :key="member.id || member.userId"
+          class="mention-item"
+          :class="{ active: selectedMentionIndex === index }"
+          @click="selectMention(member)"
+        >
+          <div class="member-avatar">
+            <img :src="member.Avatar || member.avatar || '/images/avatar/default-avatar.webp'" :alt="member.Nickname" />
+          </div>
+          <div class="member-info">
+            <span class="member-name">{{ member.Nickname || member.name || member.userName || member.uname || '未知用户' }}</span>
+            <span v-if="member.role" class="member-role">{{ member.role }}</span>
+          </div>
+        </div>
+        
+        <!-- 无匹配结果 -->
+        <div v-if="filteredMembers.length === 0 && !canMentionAll" class="no-results">
+          没有找到匹配的成员
+        </div>
+      </div>
+    </div>
+
     <!-- 表情选择器 -->
-    <div v-if="showEmojiPicker" class="emoji-picker">
+    <div v-if="showEmojiPicker" class="emoji-picker-container">
       <div class="emoji-grid">
         <button
           v-for="emoji in commonEmojis"
@@ -215,6 +258,20 @@ const props = defineProps({
   recordingTime: {
     type: Number,
     default: 0
+  },
+  
+  // @提及相关
+  groupMembers: {
+    type: Array,
+    default: () => []
+  },
+  currentUserId: {
+    type: String,
+    default: ''
+  },
+  userRole: {
+    type: String,
+    default: 'member' // member, admin, creator
   }
 })
 
@@ -240,6 +297,13 @@ const showEmojiPicker = ref(false)
 const isTyping = ref(false)
 const typingTimer = ref(null)
 
+// @提及功能相关数据
+const showMentionList = ref(false)
+const mentionQuery = ref('')
+const mentionStartPos = ref(0)
+const selectedMentionIndex = ref(0)
+const mentionListStyle = ref({})
+
 // 常用表情
 const commonEmojis = [
   '😀', '😂', '🤣', '😊', '😍', '🥰', '😘', '😗', '😚', '😙',
@@ -257,6 +321,30 @@ const canSend = computed(() => {
   return (inputText.value.trim().length > 0 || selectedFiles.value.length > 0) && !props.disabled
 })
 
+// @提及相关计算属性
+const canMentionAll = computed(() => {
+  return props.userRole === 'admin' || props.userRole === 'creator'
+})
+
+const filteredMembers = computed(() => {
+  if (!props.groupMembers || props.groupMembers.length === 0) return []
+  
+  // 过滤掉自己
+  let members = props.groupMembers.filter(member => 
+    String(member.id || member.userId) !== String(props.currentUserId)
+  )
+  
+  // 根据搜索关键词过滤
+  if (mentionQuery.value.trim()) {
+    const query = mentionQuery.value.toLowerCase()
+    members = members.filter(member => 
+      (member.Nickname || member.name || member.userName || member.uname || '').toLowerCase().includes(query)
+    )
+  }
+  
+  return members
+})
+
 const getPlaceholder = () => {
   if (selectedFiles.value.length > 0) {
     return '添加文字消息（可选）'
@@ -266,6 +354,37 @@ const getPlaceholder = () => {
 
 // 处理键盘事件
 function handleKeyDown(event) {
+  // 如果@成员列表显示中，处理方向键和回车
+  if (showMentionList.value) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      const maxIndex = (canMentionAll.value ? -1 : 0) + filteredMembers.value.length - 1
+      selectedMentionIndex.value = Math.min(selectedMentionIndex.value + 1, maxIndex)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      const minIndex = canMentionAll.value ? -1 : 0
+      selectedMentionIndex.value = Math.max(selectedMentionIndex.value - 1, minIndex)
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const member = selectedMentionIndex.value === -1 
+        ? { id: 'all', name: '全体成员', isAll: true }
+        : filteredMembers.value[selectedMentionIndex.value]
+      if (member) {
+        selectMention(member)
+      }
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      hideMentionList()
+      return
+    }
+  }
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     handleSend()
@@ -290,6 +409,98 @@ function handleKeyDown(event) {
 function handleKeyUp() {
   // 自动调整文本框高度
   autoResizeTextarea()
+  
+  // 检测@符号输入
+  checkMentionTrigger()
+}
+
+// 检测@提及触发
+function checkMentionTrigger() {
+  const textarea = inputRef.value
+  if (!textarea) return
+  
+  const cursorPos = textarea.selectionStart
+  const text = inputText.value
+  
+  // 从光标位置向前查找@符号
+  let atPos = -1
+  for (let i = cursorPos - 1; i >= 0; i--) {
+    if (text[i] === '@') {
+      // 检查@前面是否是空格或开头
+      if (i === 0 || text[i - 1] === ' ' || text[i - 1] === '\n') {
+        atPos = i
+        break
+      }
+    } else if (text[i] === ' ' || text[i] === '\n') {
+      // 遇到空格或换行，停止查找
+      break
+    }
+  }
+  
+  if (atPos !== -1) {
+    // 找到了@符号，显示成员列表
+    const query = text.slice(atPos + 1, cursorPos)
+    mentionStartPos.value = atPos
+    mentionQuery.value = query
+    selectedMentionIndex.value = canMentionAll.value ? -1 : 0
+    showMentionList.value = true
+    updateMentionListPosition()
+  } else {
+    // 没有找到@符号，隐藏成员列表
+    hideMentionList()
+  }
+}
+
+// 更新@成员列表位置
+function updateMentionListPosition() {
+  const textarea = inputRef.value
+  if (!textarea) return
+  
+  // 显示在输入框上方，避免被遮挡
+  const rect = textarea.getBoundingClientRect()
+  const listHeight = 200 // 成员列表最大高度
+  
+  mentionListStyle.value = {
+    position: 'absolute',
+    bottom: `${rect.height + 10}px`, // 显示在输入框上方
+    left: '10px',
+    right: '10px',
+    maxHeight: `${listHeight}px`,
+    zIndex: 1000
+  }
+}
+
+// 选择@提及成员
+function selectMention(member) {
+  const textarea = inputRef.value
+  if (!textarea) return
+  
+  const text = inputText.value
+  const beforeAt = text.slice(0, mentionStartPos.value)
+  const afterCursor = text.slice(textarea.selectionStart)
+  
+  // 插入@标记
+  const memberName = member.Nickname || member.name || member.userName || member.uname || '未知用户'
+  const mentionText = member.isAll ? '@全体成员 ' : `@${memberName} `
+  const newText = beforeAt + mentionText + afterCursor
+  const newCursorPos = beforeAt.length + mentionText.length
+  
+  inputText.value = newText
+  
+  nextTick(() => {
+    textarea.focus()
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+    autoResizeTextarea()
+  })
+  
+  hideMentionList()
+}
+
+// 隐藏@成员列表
+function hideMentionList() {
+  showMentionList.value = false
+  mentionQuery.value = ''
+  selectedMentionIndex.value = 0
 }
 
 function handlePaste(event) {
@@ -853,6 +1064,113 @@ defineExpose({
           height: 36px;
         }
       }
+    }
+  }
+}
+
+// @成员列表样式
+.mention-list-container {
+  position: absolute;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  
+  .mention-list {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: #ccc;
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: #999;
+    }
+    
+    .mention-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      
+      &:hover,
+      &.active {
+        background-color: #f5f5f5;
+      }
+      
+      .member-avatar {
+        width: 32px;
+        height: 32px;
+        margin-right: 10px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        
+        .all-icon {
+          font-size: 18px;
+          font-weight: bold;
+          color: #007bff;
+          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+        }
+      }
+      
+      .member-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        
+        .member-name {
+          font-size: 14px;
+          font-weight: 500;
+          color: #333;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .member-desc,
+        .member-role {
+          font-size: 12px;
+          color: #666;
+          margin-top: 2px;
+        }
+      }
+    }
+    
+    .no-results {
+      padding: 16px 12px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
     }
   }
 }
