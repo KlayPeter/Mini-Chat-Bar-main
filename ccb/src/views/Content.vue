@@ -306,13 +306,8 @@ async function handleRecallMessage(messageIndex) {
       userId: currentUserId
     })
 
-    // 显示重新编辑选项
-    toast.success('消息已撤回', {
-      action: {
-        text: '重新编辑',
-        onClick: () => handleReEditMessage(messageToRecall)
-      }
-    })
+    // 显示撤回成功提示
+    toast.success('消息已撤回')
   } catch (error) {
     console.error('撤回消息失败:', error)
     toast.error('撤回消息失败: ' + (error.response?.data?.message || '操作失败'))

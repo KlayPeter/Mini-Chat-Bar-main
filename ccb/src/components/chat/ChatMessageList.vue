@@ -89,6 +89,7 @@
       :message="contextMenu.message"
       :messageIndex="contextMenu.messageIndex"
       :messageType="messageType"
+      :currentUserId="currentUserId"
       :selectionMode="selectionMode"
       @close="hideContextMenu"
       @enter-selection-mode="enterSelectionMode"

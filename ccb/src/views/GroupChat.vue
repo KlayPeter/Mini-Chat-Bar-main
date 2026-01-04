@@ -825,14 +825,36 @@ async function handleRecallMessage(messageIndex) {
     // TODO: 服务端需要实现 DELETE /room/{roomId}/messages/{messageId}/recall 端点
     console.warn('群聊撤回API暂未在服务端实现，使用客户端方案')
 
+    // 根据消息类型生成撤回提示
+    let recallText = '你撤回了一条消息'
+    switch (messageToRecall.messageType) {
+      case 'image':
+        recallText = '你撤回了一张图片'
+        break
+      case 'file':
+        recallText = '你撤回了一个文件'
+        break
+      case 'audio':
+        recallText = '你撤回了一段语音'
+        break
+      case 'video':
+        recallText = '你撤回了一个视频'
+        break
+      case 'text':
+      default:
+        recallText = '你撤回了一条消息'
+        break
+    }
+
     // 更新消息状态为已撤回，并添加重新编辑选项
     messages.value[messageIndex] = {
       ...messageToRecall,
-      content: '你撤回了一条消息',
+      content: recallText,
       messageType: 'system',
       recalled: true,
       originalContent: messageToRecall.content, // 保存原始内容用于重新编辑
-      canReEdit: true // 标记可以重新编辑
+      originalMessageType: messageToRecall.messageType, // 保存原始消息类型
+      canReEdit: messageToRecall.messageType === 'text' // 只有文本消息可以重新编辑
     }
 
     // 通过Socket通知其他成员消息被撤回
@@ -844,13 +866,12 @@ async function handleRecallMessage(messageIndex) {
       })
     }
 
-    // 显示重新编辑选项
-    toast.success('消息已撤回', {
-      action: {
-        text: '重新编辑',
-        onClick: () => handleReEditMessage(messageToRecall)
-      }
-    })
+    // 显示撤回成功提示
+    if (messageToRecall.messageType === 'text') {
+      toast.success('消息已撤回，可点击"重新编辑"按钮重新编辑')
+    } else {
+      toast.success('消息已撤回')
+    }
   } catch (error) {
     console.error('撤回群聊消息失败:', error)
     toast.error('撤回消息失败: ' + (error.response?.data?.message || '操作失败'))
@@ -996,13 +1017,22 @@ async function uploadFiles(files, textMessage = '') {
       if (socket) {
         socket.emit('group-message', {
           roomId: currentGroup.value.RoomID,
-          message: {
-            content: messageContent,
-            messageType: messageType,
-            fileInfo: fileInfo,
-            from: currentUserId.value,
-            time: new Date()
-          }
+          content: messageContent,
+          messageType: messageType,
+          fileInfo: fileInfo,
+          from: currentUserId.value,
+          fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+          time: new Date()
+        })
+      }
+      
+      // 立即通知GroupList更新最新消息（解决文件上传后列表不更新的问题）
+      if (groupListRef.value) {
+        groupListRef.value.updateGroupLastMessage(currentGroup.value.RoomID, {
+          content: messageContent,
+          fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+          messageType: messageType,
+          createdAt: new Date()
         })
       }
     }
@@ -1195,12 +1225,26 @@ async function sendMessage(content) {
         console.log('Socket连接状态:', socket.connected)
         console.log('消息内容:', newMessage)
         
-        // 使用最简单直接的Socket事件发送
+        // 使用与文件消息一致的Socket事件结构
         socket.emit('group-message', {
           roomId: currentGroup.value.RoomID,
-          message: newMessage
+          content: newMessage.content,
+          messageType: newMessage.messageType || 'text',
+          from: newMessage.from,
+          fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+          time: newMessage.time
         })
         console.log('📤 发送消息事件到房间:', currentGroup.value.RoomID)
+        
+        // 立即通知GroupList更新最新消息（解决socket连接时机问题）
+        if (groupListRef.value) {
+          groupListRef.value.updateGroupLastMessage(currentGroup.value.RoomID, {
+            content: newMessage.content,
+            fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+            messageType: newMessage.messageType || 'text',
+            createdAt: new Date()
+          })
+        }
         
         // 发送@提及通知
         if (mentions.length > 0) {

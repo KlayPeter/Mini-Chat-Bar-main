@@ -318,8 +318,33 @@ function getLastMessage(group) {
     return lastMsg.content
   }
   
-  const content = lastMsg.content || '[文件]'
-  const result = `${lastMsg.fromName}: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`
+  let displayContent = ''
+  
+  // 根据消息类型显示不同的描述
+  switch (lastMsg.messageType) {
+    case 'image':
+      displayContent = '[图片]'
+      break
+    case 'file':
+      displayContent = '[文件]'
+      break
+    case 'audio':
+      displayContent = '[语音]'
+      break
+    case 'video':
+      displayContent = '[视频]'
+      break
+    case 'text':
+    default:
+      displayContent = lastMsg.content || '[消息]'
+      // 限制文本长度
+      if (displayContent.length > 20) {
+        displayContent = displayContent.substring(0, 20) + '...'
+      }
+      break
+  }
+  
+  const result = `${lastMsg.fromName}: ${displayContent}`
   console.log(`最新消息显示: ${result}`)
   return result
 }
@@ -422,13 +447,19 @@ function initGroupSocket() {
     
     // 总是更新群聊列表的最新消息显示
     console.log('📝 更新群聊列表最新消息显示:', data.roomId)
+    console.log('📋 消息数据:', data)
+    
+    // 正确获取消息类型，而不是硬编码为 'text'
+    const messageType = data.messageType || (data.message && data.message.messageType) || 'text'
+    console.log('📝 消息类型:', messageType)
+    
     groupLastMessages.value[data.roomId] = {
       content: messageContent,
       fromName: data.fromName,
       createdAt: new Date(),
-      messageType: 'text'
+      messageType: messageType
     }
-    console.log('✅ 已更新最新消息显示')
+    console.log('✅ 已更新最新消息显示，类型:', messageType)
     
     // 只对其他群聊（非当前群聊）处理未读状态和@提及
     if (data.roomId !== currentGroupId.value) {
@@ -635,6 +666,19 @@ function sortGroupsByActivity() {
   console.log('✅ 群聊列表重新排序完成')
 }
 
+// 直接更新群聊最新消息（由GroupChat直接调用）
+function updateGroupLastMessage(roomId, messageData) {
+  console.log('🔄 GroupList收到直接消息更新:', roomId, messageData)
+  
+  // 更新最新消息
+  groupLastMessages.value[roomId] = messageData
+  
+  // 触发排序
+  sortGroupsByActivity()
+  
+  console.log('✅ GroupList直接更新完成')
+}
+
 // 获取当前用户的显示名称
 function getCurrentUserDisplayName() {
   // 尝试从各种可能的存储位置获取用户名
@@ -675,7 +719,8 @@ onUnmounted(() => {
 defineExpose({
   loadGroups,
   markGroupAsUnread,
-  markGroupAsMentioned
+  markGroupAsMentioned,
+  updateGroupLastMessage
 })
 </script>
 
