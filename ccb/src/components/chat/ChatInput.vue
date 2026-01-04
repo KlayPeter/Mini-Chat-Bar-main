@@ -658,15 +658,18 @@ function formatRecordingTime(seconds) {
 
 // 工具方法
 function getFileIcon(fileType) {
-  if (!fileType) return '/images/icon/file.png'
+  if (!fileType) return '/images/icon/other.png'
   
-  if (fileType.includes('pdf')) return '/images/icon/pdf.png'
-  if (fileType.includes('word') || fileType.includes('doc')) return '/images/icon/word.png'
+  if (fileType.includes('pdf')) return '/images/icon/other.png' // PDF用通用图标
+  if (fileType.includes('word') || fileType.includes('doc')) return '/images/icon/doc.png'
   if (fileType.includes('excel') || fileType.includes('sheet')) return '/images/icon/excel.png'
-  if (fileType.includes('text')) return '/images/icon/txt.png'
-  if (fileType.includes('zip') || fileType.includes('rar')) return '/images/icon/zip.png'
+  if (fileType.includes('powerpoint') || fileType.includes('ppt')) return '/images/icon/ppt.png'
+  if (fileType.includes('text') || fileType.includes('txt')) return '/images/icon/txt.png'
+  if (fileType.includes('html')) return '/images/icon/html.png'
+  if (fileType.includes('markdown') || fileType.includes('md')) return '/images/icon/md.png'
+  if (fileType.includes('zip') || fileType.includes('rar')) return '/images/icon/folder.png' // 压缩文件用文件夹图标
   
-  return '/images/icon/file.png'
+  return '/images/icon/other.png'
 }
 
 function formatFileSize(size) {
