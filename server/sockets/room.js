@@ -66,15 +66,13 @@ module.exports = function(socket, io) {
   // 发送群消息
   socket.on("group-message", async (data) => {
     try {
-      const { roomId, message } = data
-      
-      console.log(`群消息 [${roomId}]:`, message)
-      
-      // 广播消息给房间内所有人（包括发送者）
-      io.to(roomId).emit("group-message", {
-        ...message,
+      // 直接广播原始数据加timestamp，避免数据丢失
+      const broadcastData = {
+        ...data,
         timestamp: new Date()
-      })
+      }
+      
+      io.to(data.roomId).emit("group-message", broadcastData)
       
     } catch (err) {
       console.error("发送群消息失败:", err)

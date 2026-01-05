@@ -378,39 +378,9 @@ function initSocket() {
         console.log('⚠️ 消息已存在，跳过重复添加')
       }
     } else if (data.roomId !== currentGroup.value?.RoomID) {
-      // 如果是其他群的消息，在GroupList中显示未读数量和更新最新消息
-      console.log('📬 为其他群聊增加未读数量:', data.roomId)
-      
-      // 构造消息数据 - 添加详细调试
-      console.log('🔍 开始提取消息参数...')
-      console.log('原始数据结构:', JSON.stringify(data, null, 2))
-      
-      let messageContent, senderName;
-      if (data.message) {
-        console.log('使用data.message路径')
-        messageContent = data.message.content;
-        senderName = data.message.fromName;
-        console.log('提取结果 - 内容:', messageContent, '发送者:', senderName)
-      } else if (data.content) {
-        console.log('使用data直接路径')
-        messageContent = data.content;
-        senderName = data.fromName;
-        console.log('提取结果 - 内容:', messageContent, '发送者:', senderName)
-      } else {
-        console.log('⚠️ 无法提取消息内容，数据结构:', data)
-      }
-      
-      console.log('最终参数 - roomId:', data.roomId, '内容:', messageContent, '发送者:', senderName)
-      
-      if (groupListRef.value && groupListRef.value.markGroupAsUnread) {
-        console.log('✅ 准备调用 groupListRef.markGroupAsUnread')
-        console.log('传递参数:', {roomId: data.roomId, content: messageContent, sender: senderName})
-        groupListRef.value.markGroupAsUnread(data.roomId, messageContent, senderName)
-      } else {
-        console.log('❌ groupListRef 不可用:', groupListRef.value)
-      }
+      // 其他群的消息由GroupList处理
+      console.log('其他群聊消息，由GroupList处理')
     }
-    console.log('=====================================')
   })
 
   // 监听各种可能的Socket事件
@@ -576,13 +546,16 @@ function getCurrentUserRole() {
   if (!currentGroup.value || !currentGroup.value.Members) return 'member'
   
   const currentUser = currentGroup.value.Members.find(member => 
-    String(member.id || member.userId) === String(currentUserId.value)
+    String(member.id || member.userId || member.userID) === String(currentUserId.value)
   )
   
   if (!currentUser) return 'member'
   
-  // 根据角色字段或创建者判断
-  if (currentUser.role === 'creator' || String(currentGroup.value.CreatorID) === String(currentUserId.value)) {
+  // 检查是否为创建者
+  const isCreator = currentUser.role === 'creator' || 
+                   String(currentGroup.value.CreatorID || currentGroup.value.Creator) === String(currentUserId.value)
+  
+  if (isCreator) {
     return 'creator'
   } else if (currentUser.role === 'admin') {
     return 'admin'
@@ -1219,31 +1192,39 @@ async function sendMessage(content) {
       }
       
       if (socket && socket.connected) {
-        console.log('========== 发送Socket消息 ==========')
-        console.log('房间ID:', currentGroup.value.RoomID)
-        console.log('Socket ID:', socket.id)
-        console.log('Socket连接状态:', socket.connected)
-        console.log('消息内容:', newMessage)
+        // 获取发送者真实姓名
+        const possibleNames = [
+          localStorage.getItem('username'),
+          localStorage.getItem('userName'),
+          localStorage.getItem('displayName'), 
+          localStorage.getItem('userNickname'),
+          localStorage.getItem('nickName'),
+          localStorage.getItem('name'),
+          '用户' + localStorage.getItem('userId')
+        ]
+        const senderName = possibleNames.find(name => name && name.trim()) || 'Anonymous'
         
-        // 使用与文件消息一致的Socket事件结构
         socket.emit('group-message', {
           roomId: currentGroup.value.RoomID,
           content: newMessage.content,
           messageType: newMessage.messageType || 'text',
           from: newMessage.from,
-          fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+          fromName: senderName,  // 发送真实姓名，不是"我"
+          fromAvatar: localStorage.getItem('userAvatar') || '',
           time: newMessage.time
         })
         console.log('📤 发送消息事件到房间:', currentGroup.value.RoomID)
         
-        // 立即通知GroupList更新最新消息（解决socket连接时机问题）
-        if (groupListRef.value) {
+        // 立即通知GroupList更新最新消息
+        if (groupListRef.value && groupListRef.value.updateGroupLastMessage) {
           groupListRef.value.updateGroupLastMessage(currentGroup.value.RoomID, {
             content: newMessage.content,
-            fromName: localStorage.getItem('userName') || localStorage.getItem('displayName') || '我',
+            fromName: '我',
             messageType: newMessage.messageType || 'text',
             createdAt: new Date()
           })
+        } else {
+          console.error('❌ GroupList引用或方法不存在!')
         }
         
         // 发送@提及通知

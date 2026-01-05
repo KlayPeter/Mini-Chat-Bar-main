@@ -138,7 +138,16 @@ async function loadLastMessage(roomId) {
     )
     if (res.data.success && res.data.messages.length > 0) {
       const lastMsg = res.data.messages[res.data.messages.length - 1]
-      groupLastMessages.value[roomId] = lastMsg
+      
+      // 应用"自己的消息显示我"的逻辑
+      const currentUserId = localStorage.getItem('userId')
+      const isMyMessage = String(lastMsg.from) === String(currentUserId)
+      const displayName = isMyMessage ? '我' : lastMsg.fromName
+      
+      groupLastMessages.value[roomId] = {
+        ...lastMsg,
+        fromName: displayName  // 应用显示逻辑
+      }
     }
   } catch (err) {
     console.error('获取最后消息失败:', err)
@@ -436,69 +445,50 @@ function initGroupSocket() {
     }, 1000)
   })
   
-  // 关键：独立监听群聊消息，就像私聊的private-message一样
+  // 独立监听群聊消息
   groupSocket.on('group-message', (data) => {
-    console.log('🎯 GroupList收到群消息:', data)
-    console.log('消息来自群聊:', data.roomId)
-    console.log('当前群聊:', currentGroupId.value)
+    // 健壮性修复：如果服务器发送残缺数据，直接跳过处理
+    if (!data.roomId || !data.content) {
+      console.warn('⚠️ GroupList收到残缺群消息数据，跳过处理:', data)
+      return
+    }
     
-    const messageContent = data.content || data.message?.content || ''
+    const messageContent = data.content
     const currentUserId = localStorage.getItem('userId')
     
-    // 总是更新群聊列表的最新消息显示
-    console.log('📝 更新群聊列表最新消息显示:', data.roomId)
-    console.log('📋 消息数据:', data)
-    
-    // 正确获取消息类型，而不是硬编码为 'text'
-    const messageType = data.messageType || (data.message && data.message.messageType) || 'text'
-    console.log('📝 消息类型:', messageType)
+    // 获取消息类型和显示名称
+    const messageType = data.messageType || 'text'
+    const isMyMessage = String(data.from) === String(currentUserId)
+    const displayName = isMyMessage ? '我' : data.fromName
     
     groupLastMessages.value[data.roomId] = {
       content: messageContent,
-      fromName: data.fromName,
+      fromName: displayName,  // 自己的消息显示"我"，别人的显示真实姓名
       createdAt: new Date(),
       messageType: messageType
     }
-    console.log('✅ 已更新最新消息显示，类型:', messageType)
     
     // 只对其他群聊（非当前群聊）处理未读状态和@提及
     if (data.roomId !== currentGroupId.value) {
-      console.log('📬 处理其他群聊的未读状态:', data.roomId)
-      
       // 检测@提及
       if (messageContent.includes('@')) {
-        console.log('💡 消息包含@符号，开始@提及检测')
-        
         const userDisplayName = getCurrentUserDisplayName()
-        console.log('当前用户显示名称:', userDisplayName)
         
         if (messageContent.includes(`@${userDisplayName}`) || messageContent.includes('@全体成员')) {
-          console.log('🔔 检测到@提及当前用户，直接标记!')
           markGroupAsMentioned(data.roomId)
           sortGroupsByActivity()
           return
         }
       }
       
-      // 增加未读数量
-      unreadGroups.value.add(data.roomId)
-      unreadCounts.value[data.roomId] = (unreadCounts.value[data.roomId] || 0) + 1
-      console.log('✅ 增加未读数量:', data.roomId, unreadCounts.value[data.roomId])
+      // 通过markGroupAsUnread统一处理未读数量
+      markGroupAsUnread(data.roomId, messageContent, displayName)
     } else {
-      console.log('📝 当前群聊消息，只更新显示不增加未读')
-      
       // 如果是当前用户在当前群聊发送的消息，自动清除未读状态
       if (data.from === currentUserId) {
-        console.log('🔄 当前用户在当前群聊发送消息，自动清除未读状态')
-        
-        // 清除未读标记
         unreadGroups.value.delete(data.roomId)
         unreadCounts.value[data.roomId] = 0
-        
-        // 清除@提及标记
         mentionAlerts.value.delete(data.roomId)
-        
-        console.log('✅ 已清除当前群聊的未读状态和@提及状态')
       }
     }
     
@@ -606,15 +596,31 @@ async function updateGroupMessage(roomId) {
     if (msgRes.data.success && msgRes.data.messages.length > 0) {
       const lastMsg = msgRes.data.messages[msgRes.data.messages.length - 1]
       
-      // 直接更新数据
-      groupLastMessages.value[roomId] = lastMsg
+      // 🔧 修复：应用"自己的消息显示我"的逻辑
+      const currentUserId = localStorage.getItem('userId')
+      const isMyMessage = String(lastMsg.from) === String(currentUserId)
+      const displayName = isMyMessage ? '我' : lastMsg.fromName
+      
+      console.log('🔄 更新消息显示名称:', {
+        roomId: roomId,
+        from: lastMsg.from,
+        currentUserId: currentUserId,
+        isMyMessage: isMyMessage,
+        originalFromName: lastMsg.fromName,
+        displayName: displayName
+      })
+      
+      // 更新数据，应用显示逻辑
+      groupLastMessages.value[roomId] = {
+        ...lastMsg,
+        fromName: displayName  // 应用显示逻辑
+      }
       console.log('✅ 更新群聊最新消息:', roomId, lastMsg.content)
       
-      // 增加未读数量（只对非当前群聊）
+      // 🔧 修复：通过markGroupAsUnread统一处理，避免重复计数
       if (roomId !== currentGroupId.value) {
-        unreadGroups.value.add(roomId)
-        unreadCounts.value[roomId] = (unreadCounts.value[roomId] || 0) + 1
-        console.log('✅ 增加未读数量:', roomId, unreadCounts.value[roomId])
+        console.log('📞 调用markGroupAsUnread统一处理未读状态')
+        markGroupAsUnread(roomId, lastMsg.content, displayName)
       }
       
       // 关键修复：重新排序群聊列表，有新消息的群聊排到最前面
@@ -669,11 +675,14 @@ function sortGroupsByActivity() {
 // 直接更新群聊最新消息（由GroupChat直接调用）
 function updateGroupLastMessage(roomId, messageData) {
   console.log('🔄 GroupList收到直接消息更新:', roomId, messageData)
+  console.log('📊 更新前群聊消息状态:', groupLastMessages.value)
   
   // 更新最新消息
   groupLastMessages.value[roomId] = messageData
+  console.log('📊 更新后群聊消息状态:', groupLastMessages.value)
   
   // 触发排序
+  console.log('🔄 开始群聊排序...')
   sortGroupsByActivity()
   
   console.log('✅ GroupList直接更新完成')
