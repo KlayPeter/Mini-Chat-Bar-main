@@ -343,12 +343,14 @@ import { socket } from '../../utils/socket'
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { Xmark, Trash } from '@iconoir/vue'
 import ThemeSelector from './ThemeSelector.vue'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 const issetting = ref(false)
 const isMobile = ref(false)
 const showAddMenu = ref(false)
@@ -672,6 +674,33 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
   }
 }
 
+// 处理私聊转发消息更新
+function handlePrivateChatListUpdate(event) {
+  console.log('💬 LastChats: 收到私聊转发消息更新事件', event.detail)
+  
+  const { userId, message, forwardData } = event.detail
+  
+  console.log('需要更新的用户ID:', userId)
+  console.log('转发的消息:', message)
+  
+  // 查找对应的好友并更新最新消息
+  const friendIndex = friends.value.findIndex(friend => friend.id.toString() === userId.toString())
+  
+  if (friendIndex !== -1) {
+    friends.value[friendIndex].lastMessage = message.content
+    friends.value[friendIndex].lastTime = message.time || message.createdAt || new Date().toISOString()
+    
+    // 重新按时间排序，将刚更新的好友移到顶部
+    friends.value.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime))
+    
+    console.log('💬 LastChats: 私聊列表已更新', friends.value[friendIndex].name)
+  } else {
+    console.log('💬 LastChats: 未找到对应的好友，刷新好友列表')
+    // 如果找不到对应好友，重新获取好友列表
+    getfriends()
+  }
+}
+
 onMounted(async () => {
   // 检测屏幕尺寸
   checkScreen()
@@ -716,6 +745,9 @@ onMounted(async () => {
     getfriends()
   })
 
+  // 监听私聊转发消息更新事件
+  window.addEventListener('private-chat-list-update', handlePrivateChatListUpdate)
+
   // 点击其他地方关闭右键菜单
   document.addEventListener('click', hideContextMenu)
 })
@@ -723,6 +755,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
   window.removeEventListener('resize', checkScreen)
+  window.removeEventListener('private-chat-list-update', handlePrivateChatListUpdate)
   socket.off('private-message')
   socket.off('avatar-updated')
   socket.off('refresh-friend-list')
@@ -745,7 +778,12 @@ function hideContextMenu() {
 
 // 一键清空所有聊天记录
 async function clearAllChats() {
-  if (confirm('确定要清空所有聊天记录吗？此操作不可恢复！')) {
+  const confirmed = await confirm({
+    title: '清空聊天记录',
+    message: '确定要清空所有聊天记录吗？此操作不可恢复！'
+  })
+  
+  if (confirmed) {
     try {
       const token = localStorage.getItem('token')
       await axios.delete(`${import.meta.env.VITE_BASE_URL}/api/chat/messages`, {
@@ -767,7 +805,12 @@ async function clearAllChats() {
 
 // 删除与指定用户的聊天记录
 async function deleteChatWith(friend) {
-  if (confirm(`确定要删除与${friend.name}的所有聊天记录吗？此操作不可恢复！`)) {
+  const confirmed = await confirm({
+    title: '删除聊天记录',
+    message: `确定要删除与${friend.name}的所有聊天记录吗？此操作不可恢复！`
+  })
+  
+  if (confirmed) {
     try {
       const token = localStorage.getItem('token')
       await axios.delete(

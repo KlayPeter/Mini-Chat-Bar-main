@@ -110,6 +110,7 @@ import axios from 'axios'
 import GroupAvatar from './GroupAvatar.vue'
 import InviteMemberDialog from './InviteMemberDialog.vue'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 
 const props = defineProps({
   group: {
@@ -123,6 +124,7 @@ const emit = defineEmits(['close', 'update'])
 const baseUrl = import.meta.env.VITE_BASE_URL
 const currentUserId = ref('')
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // 获取当前用户信息
 async function loadCurrentUser() {
@@ -237,7 +239,12 @@ async function handleKickMember(member) {
   }
   
   // 确认踢出操作
-  if (!confirm(`确定要将 ${member.Nickname} 踢出群聊吗？`)) {
+  const confirmed = await confirm({
+    title: '踢出成员',
+    message: `确定要将 ${member.Nickname} 踢出群聊吗？`
+  })
+  
+  if (!confirmed) {
     return
   }
   
@@ -271,7 +278,12 @@ function handleInvited() {
 // 退出/解散群聊
 async function handleLeaveGroup() {
   const confirmText = isCreator.value ? '确定要解散群聊吗？' : '确定要退出群聊吗？'
-  if (!confirm(confirmText)) return
+  const confirmed = await confirm({
+    title: isCreator.value ? '解散群聊' : '退出群聊',
+    message: confirmText
+  })
+  
+  if (!confirmed) return
 
   try {
     const token = localStorage.getItem('token')

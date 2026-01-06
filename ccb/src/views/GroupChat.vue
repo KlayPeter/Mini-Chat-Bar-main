@@ -146,9 +146,11 @@ import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
 import { useAudioRecorder } from '../composables/useAudioRecorder'
+import { useConfirm } from '../composables/useConfirm'
 
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // 语音录制相关
 const {
@@ -174,38 +176,9 @@ const groupListRef = ref(null)
 const chatInputRef = ref(null)
 const isLoadingMessages = ref(false)
 const showChatArea = ref(false) // 移动端控制聊天区域显示
-const highlightedMessageId = ref('')
+const highlightedMessageId = ref(null) // 高亮显示的消息ID
 
 let socket = null
-
-onMounted(async () => {
-  await loadCurrentUser()
-  await loadMyAvatar()
-  initSocket()
-  
-  // 监听GroupList发送的加入所有房间事件
-  window.addEventListener('joinAllRooms', handleJoinAllRooms)
-})
-
-onUnmounted(() => {
-  if (socket) {
-    if (currentGroup.value) {
-      socket.emit('leave-group', {
-        roomId: currentGroup.value.RoomID,
-        userId: currentUserId.value
-      })
-    }
-    // 清理Socket事件监听器
-    socket.off('group-message')
-    socket.off('member-joined')
-    socket.off('member-left')
-    socket.off('message-recalled')
-    socket.off('mention-notification')
-    socket.disconnect()
-  }
-  // 清理事件监听器
-  window.removeEventListener('joinAllRooms', handleJoinAllRooms)
-})
 
 async function loadCurrentUser() {
   try {
@@ -749,10 +722,15 @@ function handleForwardMessages(messages) {
 }
 
 // 批量删除消息
-function handleDeleteMessages(messages) {
+async function handleDeleteMessages(messages) {
   if (!messages || messages.length === 0) return
   
-  if (confirm(`确定要删除这 ${messages.length} 条消息吗？`)) {
+  const confirmed = await confirm({
+    title: '删除消息',
+    message: `确定要删除这 ${messages.length} 条消息吗？`
+  })
+  
+  if (confirmed) {
     console.log('批量删除消息:', messages)
     toast.success(`已删除 ${messages.length} 条消息`)
     // TODO: 实现实际的删除逻辑
@@ -932,9 +910,14 @@ async function handleDownloadFile(fileInfo) {
   }
 }
 
-function handleDeleteMessage(messageIndex) {
+async function handleDeleteMessage(messageIndex) {
   // 删除消息
-  if (confirm('确定要删除这条消息吗？')) {
+  const confirmed = await confirm({
+    title: '删除消息',
+    message: '确定要删除这条消息吗？'
+  })
+  
+  if (confirmed) {
     messages.value.splice(messageIndex, 1)
     toast.success('消息已删除')
   }
@@ -1378,6 +1361,120 @@ function formatTime(time) {
   
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
+
+// 处理转发消息事件
+function handleForwardedMessage(event) {
+  console.log('🎯 GroupChat: 收到转发消息事件', event.detail)
+  
+  const { roomId, message, forwardData } = event.detail
+  
+  console.log('当前群聊ID:', currentGroup.value?.RoomID)
+  console.log('事件群聊ID:', roomId)
+  console.log('收到的消息:', message)
+  console.log('当前消息列表长度:', messages.value.length)
+  
+  // 如果转发到当前群聊，立即更新消息列表
+  if (currentGroup.value && roomId === currentGroup.value.RoomID) {
+    console.log('🎯 GroupChat: 匹配到当前群聊，准备更新消息')
+    
+    if (message && !messages.value.some(msg => msg._id === message._id)) {
+      messages.value.push(message)
+      console.log('🎯 GroupChat: 消息已添加，新的消息列表长度:', messages.value.length)
+      
+      // 滚动到底部
+      nextTick(() => {
+        if (messageListRef.value) {
+          messageListRef.value.scrollToBottom()
+          console.log('🎯 GroupChat: 已滚动到底部')
+        }
+      })
+    } else {
+      console.log('🎯 GroupChat: 消息为空或已存在，跳过添加')
+      if (!message) {
+        console.log('消息为空')
+      } else {
+        console.log('消息已存在，检查现有消息ID:', messages.value.map(m => m._id))
+      }
+    }
+  } else {
+    console.log('🎯 GroupChat: 不是当前群聊的消息，忽略')
+  }
+}
+
+// 处理Socket广播事件
+function handleSocketBroadcast(event) {
+  console.log('🔥 GroupChat: 收到Socket广播事件', event.detail)
+  
+  const { roomId, message, forwardData } = event.detail
+  
+  // 通过Socket广播转发的消息给其他群成员
+  if (socket && socket.connected) {
+    // 获取当前用户信息
+    const currentUserName = getCurrentUserRealName()
+    
+    const socketMessageData = {
+      roomId: roomId,
+      content: message.content,
+      messageType: message.messageType || 'text',
+      from: message.from,
+      fromName: currentUserName, // 使用真实姓名，不是"我"
+      fromAvatar: localStorage.getItem('userAvatar') || '',
+      time: message.time || new Date().toISOString()
+    }
+
+    socket.emit('group-message', socketMessageData)
+    console.log('🔥 GroupChat: 已通过Socket广播转发消息到房间:', roomId)
+    
+    // 如果是当前群聊，也通知GroupList更新
+    if (currentGroup.value && roomId === currentGroup.value.RoomID) {
+      if (groupListRef.value && groupListRef.value.updateGroupLastMessage) {
+        groupListRef.value.updateGroupLastMessage(roomId, {
+          content: message.content,
+          fromName: '我', // GroupList中显示为"我"
+          messageType: message.messageType || 'text',
+          time: message.time || new Date().toISOString()
+        })
+      }
+    }
+  }
+}
+
+onMounted(async () => {
+  await loadCurrentUser()
+  await loadMyAvatar()
+  initSocket()
+  
+  // 监听转发消息事件
+  window.addEventListener('group-message-forwarded', handleForwardedMessage)
+  
+  // 监听Socket广播事件
+  window.addEventListener('group-socket-broadcast', handleSocketBroadcast)
+  
+  // 监听GroupList的加入所有房间事件
+  window.addEventListener('joinAllRooms', handleJoinAllRooms)
+})
+
+onUnmounted(() => {
+  if (socket) {
+    if (currentGroup.value) {
+      socket.emit('leave-group', {
+        roomId: currentGroup.value.RoomID,
+        userId: currentUserId.value
+      })
+    }
+    socket.off('group-message')
+    socket.off('member-joined') 
+    socket.off('member-left')
+    socket.off('message-recalled')
+    socket.off('mention-notification')
+    socket.disconnect()
+  }
+  
+  // 清理事件监听器
+  window.removeEventListener('group-message-forwarded', handleForwardedMessage)
+  window.removeEventListener('group-socket-broadcast', handleSocketBroadcast)
+  window.removeEventListener('joinAllRooms', handleJoinAllRooms)
+})
 
 // 图片错误处理由ChatMessage组件处理
 </script>

@@ -76,6 +76,7 @@ import axios from "axios";
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast';
+import { useConfirm } from '../composables/useConfirm';
 
 // 数据
 const messages = ref([]);
@@ -87,6 +88,7 @@ const userAvatar = ref("");
 const showRoleMenu = ref(false);
 const baseUrl = import.meta.env.VITE_BASE_URL;
 const toast = useToast();
+const { confirm } = useConfirm();
 
 // 计算属性 - 格式化消息用于ChatMessageList组件
 const formattedMessages = computed(() => {
@@ -353,7 +355,12 @@ const selectRole = async (roleKey) => {
     return;
   }
   
-  if (confirm('切换角色将清空当前对话历史，确定要继续吗？')) {
+  const confirmed = await confirm({
+    title: '切换角色',
+    message: '切换角色将清空当前对话历史，确定要继续吗？'
+  });
+  
+  if (confirmed) {
     try {
       selectedRole.value = roleKey;
       const token = localStorage.getItem("token");
@@ -382,7 +389,12 @@ const selectRole = async (roleKey) => {
 
 // 清空历史
 const clearHistory = async () => {
-  if (!confirm('确定要清空所有对话历史吗？')) return;
+  const confirmed = await confirm({
+    title: '清空历史',
+    message: '确定要清空所有对话历史吗？'
+  });
+  
+  if (!confirmed) return;
   
   try {
     const token = localStorage.getItem("token");

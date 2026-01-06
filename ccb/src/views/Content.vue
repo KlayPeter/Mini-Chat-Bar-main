@@ -92,6 +92,7 @@ import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import ForwardDialog from '../components/ForwardDialog.vue'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const messages = ref([])
@@ -108,6 +109,7 @@ const currentUserId = ref(localStorage.getItem('userId') || '') // 当前登录�
 const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // 在线状态管理
 const { isUserOnline } = useOnlineStatus()
@@ -242,10 +244,15 @@ function handleForwardMessages(messages) {
 }
 
 // 批量删除消息
-function handleDeleteMessages(messages) {
+async function handleDeleteMessages(messages) {
   if (!messages || messages.length === 0) return
   
-  if (confirm(`确定要删除这 ${messages.length} 条消息吗？`)) {
+  const confirmed = await confirm({
+    title: '删除消息',
+    message: `确定要删除这 ${messages.length} 条消息吗？`
+  })
+  
+  if (confirmed) {
     console.log('批量删除消息:', messages)
     toast.success(`已删除 ${messages.length} 条消息`)
     // TODO: 实现实际的删除逻辑
@@ -364,8 +371,13 @@ async function handleDownloadFile(fileInfo) {
   }
 }
 
-function handleDeleteMessage(messageIndex) {
-  if (confirm('确定要删除这条消息吗？')) {
+async function handleDeleteMessage(messageIndex) {
+  const confirmed = await confirm({
+    title: '删除消息',
+    message: '确定要删除这条消息吗？'
+  })
+  
+  if (confirmed) {
     messages.value.splice(messageIndex, 1)
     toast.success('消息已删除')
   }
@@ -500,7 +512,12 @@ async function getMyAvatar() {
 
 // 删除当前聊天记录
 async function deleteCurrentChat() {
-  if (!confirm('确定要删除与该用户的所有聊天记录吗？')) return
+  const confirmed = await confirm({
+    title: '删除聊天记录',
+    message: '确定要删除与该用户的所有聊天记录吗？'
+  })
+  
+  if (!confirmed) return
   
   const token = localStorage.getItem('token')
   if (!token) return
@@ -535,12 +552,38 @@ onBeforeUnmount(() => {
   socket.off('private-message')
   socket.off('private-file-message')
   socket.off('private-message-recalled')
+  
+  // 清理转发消息事件监听器
+  window.removeEventListener('private-message-forwarded', handleForwardedPrivateMessage)
 })
+
+// 处理私聊转发消息事件
+function handleForwardedPrivateMessage(event) {
+  const { userId, message, forwardData } = event.detail
+  
+  // 如果转发到当前私聊用户，立即更新消息列表
+  if (chatstore.currentChatUser && userId === chatstore.currentChatUser) {
+    if (message && !messages.value.some(msg => msg._id === message._id || msg.id === message.id)) {
+      messages.value.push(message)
+      
+      // 滚动到底部
+      nextTick(() => {
+        const messageList = document.querySelector('.message-list')
+        if (messageList) {
+          messageList.scrollTop = messageList.scrollHeight
+        }
+      })
+    }
+  }
+}
 
 onMounted(() => {
   console.log('=== Content组件挂载 ===')
   console.log('当前聊天用户 (chatstore):', chatstore.currentChatUser)
   console.log('URL参数:', route.query)
+  
+  // 监听私聊转发消息事件
+  window.addEventListener('private-message-forwarded', handleForwardedPrivateMessage)
   
   uname.value = route.query.uname
   avatar.value = route.query.img

@@ -28,22 +28,69 @@
         </div>
 
         <!-- 最近聊天 -->
-        <div class="recent-chats">
+        <div v-if="recentChats.length > 0" class="chat-section">
           <h4>最近聊天</h4>
           <div class="chat-list">
             <div
-              v-for="chat in filteredChats"
+              v-for="chat in filteredRecentChats"
               :key="chat.id"
               class="chat-item"
               :class="{ selected: selectedTargets.includes(chat.id) }"
               @click="toggleTarget(chat)"
             >
-              <img :src="chat.avatar || '/images/avatar/default-avatar.webp'" :alt="chat.name" />
+              <GroupAvatar v-if="chat.type === 'group'" :members="chat.members || []" :size="30" />
+              <img v-else :src="chat.avatar || '/images/avatar/default-avatar.webp'" :alt="chat.name" class="avatar-img" />
               <div class="chat-info">
                 <div class="chat-name">{{ chat.name }}</div>
                 <div class="chat-type">{{ chat.type === 'group' ? '群聊' : '好友' }}</div>
               </div>
               <div v-if="selectedTargets.includes(chat.id)" class="selected-mark">
+                <Check class="check-icon" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 好友列表 -->
+        <div v-if="friends.length > 0" class="chat-section">
+          <h4>好友 ({{ friends.length }})</h4>
+          <div class="chat-list">
+            <div
+              v-for="friend in filteredFriends"
+              :key="friend.id"
+              class="chat-item"
+              :class="{ selected: selectedTargets.includes(friend.id) }"
+              @click="toggleTarget(friend)"
+            >
+              <img :src="friend.avatar || '/images/avatar/default-avatar.webp'" :alt="friend.name" class="avatar-img" />
+              <div class="chat-info">
+                <div class="chat-name">{{ friend.name }}</div>
+                <div class="chat-type">好友</div>
+              </div>
+              <div v-if="selectedTargets.includes(friend.id)" class="selected-mark">
+                <Check class="check-icon" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 群聊列表 -->
+        <div v-if="groups.length > 0" class="chat-section">
+          <h4>群聊 ({{ groups.length }})</h4>
+          <div class="chat-list">
+            <div
+              v-for="group in filteredGroups"
+              :key="group.id"
+              class="chat-item"
+              :class="{ selected: selectedTargets.includes(group.id) }"
+              @click="toggleTarget(group)"
+            >
+              <GroupAvatar :members="group.members || []" :size="30" />
+              <div class="chat-info">
+                <div class="chat-name">{{ group.name }}</div>
+                <div class="chat-type">群聊</div>
+              </div>
+              <div v-if="selectedTargets.includes(group.id)" class="selected-mark">
                 <Check class="check-icon" />
               </div>
             </div>
@@ -70,6 +117,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Xmark, Search, Check } from '@iconoir/vue'
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
+import GroupAvatar from './GroupAvatar.vue'
 
 const props = defineProps({
   messages: {
@@ -84,7 +132,9 @@ const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
 
 const searchText = ref('')
-const allChats = ref([])
+const recentChats = ref([])
+const friends = ref([])
+const groups = ref([])
 const selectedTargets = ref([])
 
 // 转发预览文本
@@ -102,62 +152,106 @@ const summaryText = computed(() => {
   return ''
 })
 
-// 过滤聊天列表
-const filteredChats = computed(() => {
-  if (!searchText.value) return allChats.value
+// 过滤最近聊天
+const filteredRecentChats = computed(() => {
+  if (!searchText.value) return recentChats.value
   
-  return allChats.value.filter(chat => 
+  return recentChats.value.filter(chat => 
     chat.name.toLowerCase().includes(searchText.value.toLowerCase())
   )
 })
 
-// 加载最近聊天列表
-async function loadRecentChats() {
+// 过滤好友列表
+const filteredFriends = computed(() => {
+  if (!searchText.value) return friends.value
+  
+  return friends.value.filter(friend => 
+    friend.name.toLowerCase().includes(searchText.value.toLowerCase())
+  )
+})
+
+// 过滤群聊列表
+const filteredGroups = computed(() => {
+  if (!searchText.value) return groups.value
+  
+  return groups.value.filter(group => 
+    group.name.toLowerCase().includes(searchText.value.toLowerCase())
+  )
+})
+
+// 加载所有数据
+async function loadAllData() {
+  // 先并行加载好友和群聊
+  await Promise.all([
+    loadFriends(),
+    loadGroups()
+  ])
+  // 然后基于已加载的数据生成最近聊天
+  loadRecentChats()
+}
+
+// 加载好友列表
+async function loadFriends() {
   try {
     const token = localStorage.getItem('token')
-    
-    // 获取好友列表
-    const friendsRes = await axios.get(`${baseUrl}/api/friends`, {
+    const res = await axios.get(`${baseUrl}/api/user/friends`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     
-    // 获取群聊列表
-    const groupsRes = await axios.get(`${baseUrl}/room/list`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    
-    const chats = []
-    
-    // 添加好友
-    if (friendsRes.data.success && friendsRes.data.friends) {
-      friendsRes.data.friends.forEach(friend => {
-        chats.push({
-          id: `friend_${friend.uID}`,
-          type: 'friend',
-          name: friend.Nickname || friend.Username,
-          avatar: friend.Avatar,
-          targetId: friend.uID
-        })
-      })
+    if (res.data && Array.isArray(res.data)) {
+      friends.value = res.data.map(friend => ({
+        id: `friend_${friend.uID}`,
+        type: 'friend',
+        name: friend.uName,
+        avatar: friend.uAvatar,
+        targetId: friend.uID
+      }))
+    } else {
+      friends.value = []
     }
-    
-    // 添加群聊
-    if (groupsRes.data.success && groupsRes.data.rooms) {
-      groupsRes.data.rooms.forEach(group => {
-        chats.push({
-          id: `group_${group.RoomID}`,
-          type: 'group',
-          name: group.RoomName,
-          avatar: null, // 群聊使用GroupAvatar组件
-          targetId: group.RoomID
-        })
-      })
-    }
-    
-    allChats.value = chats
   } catch (err) {
-    console.error('加载聊天列表失败:', err)
-    toast.error('加载聊天列表失败')
+    console.warn('获取好友列表失败:', err)
+    friends.value = []
+  }
+}
+
+// 加载群聊列表
+async function loadGroups() {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(`${baseUrl}/room/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    if (res.data.success && res.data.groups) {
+      groups.value = res.data.groups.map(group => ({
+        id: `group_${group.RoomID}`,
+        type: 'group',
+        name: group.RoomName,
+        avatar: null, // 群聊使用GroupAvatar组件
+        targetId: group.RoomID,
+        members: group.Members || [] // 提供群成员数据给GroupAvatar
+      }))
+    } else {
+      groups.value = []
+    }
+  } catch (err) {
+    console.warn('获取群聊列表失败:', err)
+    groups.value = []
+  }
+}
+
+// 加载最近聊天列表（最多10个）
+async function loadRecentChats() {
+  try {
+    // 简单实现：取前5个好友和前5个群聊作为最近聊天
+    const recentFriends = friends.value.slice(0, 5)
+    const recentGroups = groups.value.slice(0, 5)
+    
+    recentChats.value = [...recentFriends, ...recentGroups].slice(0, 10)
+  } catch (err) {
+    console.warn('生成最近聊天列表失败:', err)
+    recentChats.value = []
   }
 }
 
@@ -179,7 +273,9 @@ async function handleForward() {
     const token = localStorage.getItem('token')
     
     for (const targetId of selectedTargets.value) {
-      const target = allChats.value.find(chat => chat.id === targetId)
+      // 在所有列表中查找目标
+      const allTargets = [...recentChats.value, ...friends.value, ...groups.value]
+      const target = allTargets.find(chat => chat.id === targetId)
       if (!target) continue
       
       for (const message of props.messages) {
@@ -191,17 +287,47 @@ async function handleForward() {
         
         if (target.type === 'friend') {
           // 转发给好友
-          await axios.post(`${baseUrl}/api/messages/send`, {
-            to: target.targetId,
-            ...forwardData
-          }, {
+          const res = await axios.post(`${baseUrl}/api/chat/messages/${target.targetId}`, forwardData, {
             headers: { Authorization: `Bearer ${token}` }
           })
+          
+          console.log('私聊转发API响应:', res.data)
+          
+          // 转发成功后，通知私聊界面更新消息
+          if (res.data.success || res.data) {
+            const messageData = res.data.message || res.data
+            console.log('私聊转发消息数据:', messageData)
+            console.log('原始转发数据:', forwardData)
+            
+            // 构建正确的消息对象
+            const correctMessage = {
+              content: forwardData.content, // 使用原始转发内容
+              messageType: forwardData.messageType || 'text',
+              time: messageData.time || new Date().toISOString(),
+              from: messageData.from || localStorage.getItem('userId'),
+              to: target.targetId
+            }
+            
+            emitPrivateMessageUpdate(target, correctMessage, forwardData)
+            // 通知私聊列表更新最新消息
+            emitPrivateChatListUpdate(target, correctMessage, forwardData)
+            // 发送Socket通知给接收方
+            emitPrivateSocketNotification(target, correctMessage, forwardData)
+          }
         } else if (target.type === 'group') {
           // 转发到群聊
-          await axios.post(`${baseUrl}/room/${target.targetId}/send`, forwardData, {
+          const res = await axios.post(`${baseUrl}/room/${target.targetId}/messages`, forwardData, {
             headers: { Authorization: `Bearer ${token}` }
           })
+          
+          // 转发成功后，通知群聊界面更新消息
+          if (res.data.success) {
+            emitGroupMessageUpdate(target, res.data.message, forwardData)
+            // 通知GroupList更新目标群聊的最新消息
+            emitGroupListUpdate(target, res.data.message, forwardData)
+            // 发送Socket广播给其他群成员
+            emitGroupSocketBroadcast(target, res.data.message, forwardData)
+          }
         }
       }
     }
@@ -215,8 +341,140 @@ async function handleForward() {
   }
 }
 
+// 发送群聊消息更新通知
+function emitGroupMessageUpdate(target, serverMessage, forwardData) {
+  try {
+    console.log('🔥 ForwardDialog: 发送群聊消息更新事件')
+    console.log('目标群聊ID:', target.targetId)  
+    console.log('服务器返回消息:', serverMessage)
+    
+    // 通过全局事件总线通知群聊界面更新消息
+    const messageUpdateEvent = new CustomEvent('group-message-forwarded', {
+      detail: {
+        roomId: target.targetId,
+        message: serverMessage,
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(messageUpdateEvent)
+    console.log('🔥 ForwardDialog: 群聊消息更新事件已发送')
+  } catch (err) {
+    console.error('发送群聊消息更新通知失败:', err)
+  }
+}
+
+// 发送私聊消息更新通知
+function emitPrivateMessageUpdate(target, serverMessage, forwardData) {
+  try {
+    // 通过全局事件总线通知私聊界面更新消息
+    const messageUpdateEvent = new CustomEvent('private-message-forwarded', {
+      detail: {
+        userId: target.targetId,
+        message: serverMessage,
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(messageUpdateEvent)
+  } catch (err) {
+    console.warn('发送私聊消息更新通知失败:', err)
+  }
+}
+
+// 发送GroupList更新通知
+function emitGroupListUpdate(target, serverMessage, forwardData) {
+  try {
+    console.log('📋 ForwardDialog: 发送GroupList更新事件')
+    console.log('目标群聊ID:', target.targetId)
+    
+    // 通知GroupList更新目标群聊的最新消息，格式为"我：消息内容"
+    const groupListUpdateEvent = new CustomEvent('group-list-message-update', {
+      detail: {
+        roomId: target.targetId,
+        message: {
+          ...serverMessage,
+          fromName: '我', // 显示为"我"
+          content: serverMessage.content
+        },
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(groupListUpdateEvent)
+    console.log('📋 ForwardDialog: GroupList更新事件已发送')
+  } catch (err) {
+    console.error('发送GroupList更新通知失败:', err)
+  }
+}
+
+// 发送群聊Socket广播
+function emitGroupSocketBroadcast(target, serverMessage, forwardData) {
+  try {
+    console.log('🔥 ForwardDialog: 发送群聊Socket广播')
+    
+    // 通过全局事件通知其他组件进行Socket广播
+    const socketBroadcastEvent = new CustomEvent('group-socket-broadcast', {
+      detail: {
+        roomId: target.targetId,
+        message: serverMessage,
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(socketBroadcastEvent)
+    console.log('🔥 ForwardDialog: Socket广播事件已发送')
+  } catch (err) {
+    console.error('发送Socket广播失败:', err)
+  }
+}
+
+// 发送私聊列表更新通知
+function emitPrivateChatListUpdate(target, serverMessage, forwardData) {
+  try {
+    console.log('💬 ForwardDialog: 发送私聊列表更新事件')
+    console.log('目标用户ID:', target.targetId)
+    console.log('消息内容:', serverMessage.content)
+    
+    // 通知私聊列表更新最新消息，格式为"我：消息内容"
+    const privateChatListUpdateEvent = new CustomEvent('private-chat-list-update', {
+      detail: {
+        userId: target.targetId,
+        message: {
+          ...serverMessage,
+          fromName: '我', // 显示为"我"
+          content: serverMessage.content
+        },
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(privateChatListUpdateEvent)
+    console.log('💬 ForwardDialog: 私聊列表更新事件已发送')
+  } catch (err) {
+    console.error('发送私聊列表更新通知失败:', err)
+  }
+}
+
+// 发送私聊Socket通知
+function emitPrivateSocketNotification(target, serverMessage, forwardData) {
+  try {
+    console.log('🔔 ForwardDialog: 发送私聊Socket通知')
+    console.log('目标用户ID:', target.targetId)
+    console.log('消息内容:', serverMessage.content)
+    
+    // 通过全局事件通知其他组件进行私聊Socket通知
+    const privateSocketEvent = new CustomEvent('private-socket-notification', {
+      detail: {
+        userId: target.targetId,
+        message: serverMessage,
+        forwardData: forwardData
+      }
+    })
+    window.dispatchEvent(privateSocketEvent)
+    console.log('🔔 ForwardDialog: 私聊Socket通知事件已发送')
+  } catch (err) {
+    console.error('发送私聊Socket通知失败:', err)
+  }
+}
+
 onMounted(() => {
-  loadRecentChats()
+  loadAllData()
 })
 </script>
 
@@ -329,11 +587,36 @@ onMounted(() => {
   }
 }
 
-.recent-chats {
+.chat-section {
+  margin-bottom: 25px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
   h4 {
     margin: 0 0 15px 0;
     font-size: 16px;
     color: #333;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 16px;
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      border-radius: 2px;
+    }
+  }
+  
+  .chat-list {
+    max-height: 200px;
+    overflow-y: auto;
   }
 }
 
@@ -345,28 +628,30 @@ onMounted(() => {
 .chat-item {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 2px solid transparent;
-  
+  position: relative;
+
   &:hover {
-    background: #f8f9fa;
+    background: rgba(0, 123, 255, 0.1);
   }
-  
+
   &.selected {
-    background: #e3f2fd;
-    border-color: #2196f3;
+    background: linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 86, 179, 0.1) 100%);
+    border-left: 3px solid #007bff;
   }
-  
-  img {
-    width: 40px;
-    height: 40px;
+
+  .avatar-img {
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     margin-right: 12px;
+    flex-shrink: 0;
+    object-fit: cover;
   }
-  
+
   .chat-info {
     flex: 1;
     

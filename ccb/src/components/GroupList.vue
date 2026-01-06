@@ -709,9 +709,32 @@ function getCurrentUserDisplayName() {
   return possibleNames.find(name => name && name.trim()) || 'User'
 }
 
+// 处理转发消息后的GroupList更新
+function handleForwardedGroupListUpdate(event) {
+  console.log('📋 GroupList: 收到转发消息更新事件', event.detail)
+  
+  const { roomId, message, forwardData } = event.detail
+  
+  console.log('需要更新的群聊ID:', roomId)
+  console.log('转发的消息:', message)
+  
+  // 更新目标群聊的最新消息显示
+  updateGroupLastMessage(roomId, {
+    content: message.content,
+    fromName: message.fromName || '转发消息',
+    messageType: message.messageType || 'text',
+    time: message.time || message.createdAt || new Date().toISOString()
+  })
+  
+  console.log('📋 GroupList: 群聊最新消息已更新')
+}
+
 onMounted(() => {
   loadGroups()
   loadFriends()
+  
+  // 监听转发消息导致的GroupList更新事件
+  window.addEventListener('group-list-message-update', handleForwardedGroupListUpdate)
   
   // 延迟初始化Socket，确保群聊列表已加载
   setTimeout(() => {
@@ -723,6 +746,9 @@ onUnmounted(() => {
   if (groupSocket) {
     groupSocket.disconnect()
   }
+  
+  // 清理转发消息更新事件监听器
+  window.removeEventListener('group-list-message-update', handleForwardedGroupListUpdate)
 })
 
 defineExpose({

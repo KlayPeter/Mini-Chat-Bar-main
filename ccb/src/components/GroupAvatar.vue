@@ -43,6 +43,8 @@ const displayCount = computed(() => {
   background: #e0e0e0;
   border-radius: 8px;
   overflow: hidden;
+  width: v-bind(size + 'px');
+  height: v-bind(size + 'px');
   
   &.members-1 {
     grid-template-columns: 1fr;
