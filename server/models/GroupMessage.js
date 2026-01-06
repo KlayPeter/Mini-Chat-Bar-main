@@ -17,6 +17,17 @@ const groupMessageSchema = new mongoose.Schema({
     fileType: String,
     fileSize: Number
   },
+  // 引用消息信息
+  quotedMessage: {
+    id: { type: String }, // 被引用消息的ID
+    content: { type: String }, // 被引用消息的内容
+    fromName: { type: String }, // 被引用消息发送者名称
+    messageType: { 
+      type: String,
+      enum: ['text', 'image', 'file', 'video', 'audio'],
+      default: 'text'
+    }
+  },
   time: { type: Date, default: Date.now, index: true },
   status: { 
     type: String, 

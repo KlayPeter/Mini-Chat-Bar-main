@@ -253,8 +253,10 @@ exports.leaveGroup = async (req, res) => {
 exports.sendGroupMessage = async (req, res) => {
   try {
     const { roomId } = req.params
-    const { content, messageType, fileInfo } = req.body
+    const { content, messageType, fileInfo, quotedMessage } = req.body
     const userId = req.user.userId
+    
+    console.log('🔍 服务器接收到的消息数据:', { content, messageType, fileInfo, quotedMessage })
 
     const room = await Room.findOne({ RoomID: roomId })
     if (!room) {
@@ -271,7 +273,7 @@ exports.sendGroupMessage = async (req, res) => {
     const userInfo = await Users.findOne({ uID: userId })
 
     // 创建消息
-    const message = new GroupMessage({
+    const messageData = {
       roomId: roomId,
       from: userId,
       fromName: userInfo.uName,
@@ -279,17 +281,49 @@ exports.sendGroupMessage = async (req, res) => {
       content: content,
       messageType: messageType || 'text',
       fileInfo: fileInfo
-    })
+    }
+
+    // 如果有引用消息，添加引用信息
+    if (quotedMessage) {
+      messageData.quotedMessage = quotedMessage
+      console.log('🔍 服务器添加引用消息到messageData:', quotedMessage)
+    } else {
+      console.log('🔍 服务器没有引用消息需要处理')
+    }
+
+    console.log('🔍 服务器最终保存的messageData:', messageData)
+    
+    const message = new GroupMessage(messageData)
 
     await message.save()
+    
+    console.log('🔍 服务器保存后的message对象:', message.toObject())
 
     // 更新群聊的最后更新时间
     room.updatedAt = new Date()
     await room.save()
 
+    // 确保返回完整的消息对象，包括引用信息
+    const responseMessage = {
+      _id: message._id,
+      roomId: message.roomId,
+      from: message.from,
+      fromName: message.fromName,
+      fromAvatar: message.fromAvatar,
+      content: message.content,
+      messageType: message.messageType,
+      fileInfo: message.fileInfo,
+      quotedMessage: message.quotedMessage,
+      time: message.time,
+      createdAt: message.time,
+      status: message.status
+    }
+    
+    console.log('🔍 服务器最终返回的消息:', responseMessage)
+    
     res.json({
       success: true,
-      message: message
+      message: responseMessage
     })
   } catch (err) {
     console.error('发送群消息失败:', err)

@@ -77,6 +77,7 @@
         @preview-file="handlePreviewFile"
         @play-voice="handlePlayVoice"
         @re-edit-message="handleReEditMessage"
+        @jump-to-quoted-message="handleJumpToQuotedMessage"
       />
     </template>
 
@@ -97,12 +98,13 @@
       @download-file="handleDownloadFile"
       @delete-message="handleDeleteMessage"
       @recall-message="handleRecallMessage"
+      @quote-reply="handleQuoteReply"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUpdated, nextTick, watch } from 'vue'
+import { ref, defineProps, defineEmits, watch, onMounted, onUnmounted, onUpdated, nextTick } from 'vue'
 import ChatMessage from './ChatMessage.vue'
 import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
 import MessageContextMenu from './MessageContextMenu.vue'
@@ -173,6 +175,8 @@ const emit = defineEmits([
   'delete-messages',
   'recall-message',
   're-edit-message',
+  'quote-reply',
+  'jump-to-quoted-message',
   'scroll-to-bottom'
 ])
 
@@ -204,6 +208,12 @@ function handleMessageClick(message, messageIndex) {
 
 // 处理右键菜单
 function handleMessageContextMenu(event, message, messageIndex) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  // 记录当前滚动位置
+  const currentScrollTop = messageListRef.value?.scrollTop || 0
+  
   contextMenu.value = {
     show: true,
     x: event.clientX,
@@ -212,6 +222,13 @@ function handleMessageContextMenu(event, message, messageIndex) {
     messageIndex
   }
   emit('message-contextmenu', event, message, messageIndex)
+  
+  // 恢复滚动位置，防止意外滚动
+  nextTick(() => {
+    if (messageListRef.value) {
+      messageListRef.value.scrollTop = currentScrollTop
+    }
+  })
 }
 
 // 隐藏右键菜单
@@ -321,6 +338,17 @@ function handleRecallMessage(messageIndex) {
 // 处理重新编辑消息
 function handleReEditMessage(message) {
   emit('re-edit-message', message)
+}
+
+// 处理引用回复消息
+function handleQuoteReply(message) {
+  emit('quote-reply', message)
+  hideContextMenu()
+}
+
+// 处理跳转到被引用的消息
+function handleJumpToQuotedMessage(quotedMessage) {
+  emit('jump-to-quoted-message', quotedMessage)
 }
 
 // 滚动到底部

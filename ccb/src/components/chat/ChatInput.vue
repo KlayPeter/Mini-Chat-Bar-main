@@ -32,6 +32,36 @@
       </div>
     </div>
 
+    <!-- 引用消息显示区域 -->
+    <div v-if="currentQuotedMessage" class="quoted-message-preview">
+      <div class="quoted-header">
+        <span class="quoted-label">回复 {{ currentQuotedMessage.fromName || '匿名用户' }}</span>
+        <button class="clear-quote-btn" @click="clearQuotedMessage" title="取消引用">
+          <Xmark class="icon" />
+        </button>
+      </div>
+      <div class="quoted-content">
+        <div v-if="currentQuotedMessage.messageType === 'text'" class="quoted-text">
+          {{ currentQuotedMessage.content }}
+        </div>
+        <div v-else-if="currentQuotedMessage.messageType === 'image'" class="quoted-media">
+          [图片]
+        </div>
+        <div v-else-if="currentQuotedMessage.messageType === 'file'" class="quoted-media">
+          [文件] {{ currentQuotedMessage.fileName || '文件' }}
+        </div>
+        <div v-else-if="currentQuotedMessage.messageType === 'audio'" class="quoted-media">
+          [语音]
+        </div>
+        <div v-else-if="currentQuotedMessage.messageType === 'video'" class="quoted-media">
+          [视频]
+        </div>
+        <div v-else class="quoted-text">
+          {{ currentQuotedMessage.content || '[消息]' }}
+        </div>
+      </div>
+    </div>
+
     <!-- 文本输入区域 -->
     <div class="input-container">
       <textarea
@@ -243,6 +273,12 @@ const props = defineProps({
     default: 100 * 1024 * 1024 // 100MB
   },
   
+  // 引用消息
+  quotedMessage: {
+    type: Object,
+    default: null
+  },
+  
   // 发送按钮
   sendButtonText: {
     type: String,
@@ -301,6 +337,9 @@ const typingTimer = ref(null)
 const showMentionList = ref(false)
 const mentionQuery = ref('')
 const mentionStartPos = ref(0)
+
+// 引用消息相关数据
+const currentQuotedMessage = ref(null)
 const selectedMentionIndex = ref(0)
 const mentionListStyle = ref({})
 
@@ -547,7 +586,8 @@ function handleSend() {
   
   const message = {
     content: inputText.value.trim(),
-    files: selectedFiles.value
+    files: selectedFiles.value,
+    quotedMessage: currentQuotedMessage.value // 包含引用消息信息
   }
   
   // 发送文件消息
@@ -567,6 +607,7 @@ function clearInput() {
   inputText.value = ''
   selectedFiles.value = []
   filePreviewUrls.value = []
+  currentQuotedMessage.value = null // 清空引用消息
   autoResizeTextarea()
 }
 
@@ -612,6 +653,15 @@ function removeFile(index) {
   
   selectedFiles.value.splice(index, 1)
   filePreviewUrls.value.splice(index, 1)
+}
+
+// 引用消息相关方法
+function setQuotedMessage(message) {
+  currentQuotedMessage.value = message
+}
+
+function clearQuotedMessage() {
+  currentQuotedMessage.value = null
 }
 
 // 表情相关方法
@@ -725,7 +775,9 @@ defineExpose({
     inputText.value = content
     nextTick(() => autoResizeTextarea())
   },
-  focusInput: () => inputRef.value?.focus()
+  focusInput: () => inputRef.value?.focus(),
+  setQuotedMessage,
+  clearQuotedMessage
 })
 </script>
 
@@ -736,6 +788,85 @@ defineExpose({
   flex-shrink: 0;
   padding: 16px;
   backdrop-filter: blur(10px);
+
+  // 引用消息预览样式
+  .quoted-message-preview {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    
+    .quoted-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      
+      .quoted-label {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+      }
+      
+      .clear-quote-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        
+        .icon {
+          width: 14px;
+          height: 14px;
+        }
+        
+        &:hover {
+          background: #dee2e6;
+          color: #495057;
+        }
+      }
+    }
+    
+    .quoted-content {
+      .quoted-text {
+        font-size: 13px;
+        color: #495057;
+        line-height: 1.4;
+        max-height: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3; // 标准属性
+        -webkit-box-orient: vertical;
+      }
+      
+      .quoted-media {
+        font-size: 13px;
+        color: #6c757d;
+        font-style: italic;
+      }
+    }
+    
+    // 左侧引用线条
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #007bff;
+      border-radius: 0 3px 3px 0;
+    }
+  }
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 
   .file-preview-inline {

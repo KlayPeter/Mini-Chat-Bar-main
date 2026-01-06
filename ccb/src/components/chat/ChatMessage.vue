@@ -55,6 +55,32 @@
             {{ getSenderName() }}
           </div>
 
+          <!-- 引用消息显示 -->
+          <div v-if="message.quotedMessage && message.quotedMessage.content" class="quoted-message-display" @click="handleQuotedMessageClick">
+            <div class="quoted-content-inline">
+              <span class="quoted-author">{{ message.quotedMessage.fromName || message.quotedMessage.senderName || '未知用户' }}</span>
+              <span class="quoted-separator">:</span>
+              <span v-if="message.quotedMessage.messageType === 'text'" class="quoted-text-inline">
+                {{ message.quotedMessage.content }}
+              </span>
+              <span v-else-if="message.quotedMessage.messageType === 'image'" class="quoted-media-inline">
+                [图片]
+              </span>
+              <span v-else-if="message.quotedMessage.messageType === 'file'" class="quoted-media-inline">
+                [文件] {{ message.quotedMessage.fileName || '文件' }}
+              </span>
+              <span v-else-if="message.quotedMessage.messageType === 'audio'" class="quoted-media-inline">
+                [语音]
+              </span>
+              <span v-else-if="message.quotedMessage.messageType === 'video'" class="quoted-media-inline">
+                [视频]
+              </span>
+              <span v-else class="quoted-text-inline">
+                {{ message.quotedMessage.content || '[消息]' }}
+              </span>
+            </div>
+          </div>
+
           <!-- 图片消息 -->
           <template v-if="message.messageType === 'image' && message.fileInfo">
             <div class="file-message">
@@ -214,7 +240,8 @@ const emit = defineEmits([
   'preview-video',
   'preview-file',
   'play-voice',
-  're-edit-message'
+  're-edit-message',
+  'jump-to-quoted-message'
 ])
 
 // 计算是否为我的消息
@@ -344,6 +371,14 @@ function formatRecordingTime(seconds) {
 // 处理图片错误
 function handleImageError(event) {
   event.target.src = '/images/icon/other.png' // 使用存在的通用图标
+}
+
+// 处理引用消息点击
+function handleQuotedMessageClick(event) {
+  event.stopPropagation() // 防止触发消息本身的点击事件
+  if (props.message && props.message.quotedMessage) {
+    emit('jump-to-quoted-message', props.message.quotedMessage)
+  }
 }
 </script>
 
@@ -686,6 +721,104 @@ function handleImageError(event) {
     .file-size {
       font-size: 12px;
       color: #666;
+    }
+  }
+}
+
+// 引用消息显示样式（仿微信样式）
+.quoted-message-display {
+  background: #b3b3b3;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  min-width: 60px;
+  
+  &:hover {
+    background: #a8a8a8;
+  }
+  
+  // 引用标识符
+  &::before {
+    content: '┃';
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: bold;
+    font-size: 14px;
+  }
+  
+  .quoted-content-inline {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    padding-left: 12px; // 为引用标识符留出空间
+    
+    .quoted-author {
+      color: white;
+      font-weight: 500;
+      flex-shrink: 0;
+      margin-right: 2px;
+    }
+    
+    .quoted-separator {
+      color: rgba(255, 255, 255, 0.8);
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+    
+    .quoted-text-inline {
+      color: white;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .quoted-media-inline {
+      color: rgba(255, 255, 255, 0.9);
+      font-style: italic;
+      flex-shrink: 0;
+    }
+  }
+
+  // 在我的消息中的引用样式调整
+  .me & {
+    background: rgba(140, 140, 140, 0.8);
+    
+    &:hover {
+      background: rgba(130, 130, 130, 0.9);
+    }
+    
+    &::before {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .quoted-content-inline {
+      .quoted-author {
+        color: rgba(255, 255, 255, 0.95);
+      }
+      
+      .quoted-separator {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      
+      .quoted-text-inline {
+        color: rgba(255, 255, 255, 0.95);
+      }
+      
+      .quoted-media-inline {
+        color: rgba(255, 255, 255, 0.9);
+      }
     }
   }
 }

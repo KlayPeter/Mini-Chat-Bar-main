@@ -61,7 +61,7 @@
           messageType="group"
           :showAvatar="true"
           :showSenderName="true"
-          :autoScroll="true"
+          :autoScroll="false"
           :highlightedMessageId="highlightedMessageId"
           @preview-image="previewImage"
           @preview-video="previewVideo"
@@ -74,6 +74,8 @@
           @delete-messages="handleDeleteMessages"
           @recall-message="handleRecallMessage"
           @re-edit-message="handleReEditMessage"
+          @quote-reply="handleQuoteReply"
+          @jump-to-quoted-message="handleJumpToQuotedMessage"
         />
 
         <!-- 输入区域 -->
@@ -321,11 +323,6 @@ function initSocket() {
   })
 
   socket.on('group-message', (data) => {
-    console.log('========== 收到群消息事件 ==========')
-    console.log('消息数据:', data)
-    console.log('当前群聊ID:', currentGroup.value?.RoomID)
-    console.log('消息来自群聊ID:', data.roomId)
-    console.log('Socket ID:', socket.id)
     
     if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
       // 检查消息数据是否存在(消息内容直接在data中)
@@ -350,7 +347,8 @@ function initSocket() {
           fromAvatar: data.fromAvatar,
           messageType: data.messageType || 'text',
           createdAt: data.createdAt || data.timestamp || new Date(),
-          mentions: data.mentions
+          mentions: data.mentions,
+          quotedMessage: data.quotedMessage // 添加引用消息信息
         };
       } else {
         console.log('❌ 无法识别的消息数据格式:', data)
@@ -365,7 +363,6 @@ function initSocket() {
       )
       
       if (!isDuplicate) {
-        console.log('✅ 添加新消息到当前群聊:', messageData)
         messages.value.push(messageData)
         
         // 滚动到底部
@@ -862,6 +859,40 @@ function handleReEditMessage(recalledMessage) {
   }
 }
 
+// 处理引用回复消息
+function handleQuoteReply(message) {
+  if (chatInputRef.value && message) {
+    // 设置引用消息到ChatInput组件
+    chatInputRef.value.setQuotedMessage(message)
+    
+    // 聚焦到输入框
+    chatInputRef.value.focusInput()
+  }
+}
+
+// 处理跳转到被引用的消息
+function handleJumpToQuotedMessage(quotedMessage) {
+  // 根据引用消息的ID查找对应的消息
+  const targetMessageId = quotedMessage.id
+  if (targetMessageId) {
+    // 查找消息在列表中的DOM元素
+    const messageElement = document.querySelector(`[data-message-id="${targetMessageId}"]`)
+    if (messageElement) {
+      // 滚动到目标消息并高亮显示
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      
+      // 高亮显示被引用的消息
+      highlightedMessageId.value = targetMessageId
+      
+      // 3秒后取消高亮
+      setTimeout(() => {
+        highlightedMessageId.value = ''
+      }, 3000)
+    }
+    // 注意：如果消息不在当前视图中，可能需要加载更多历史消息
+  }
+}
+
 async function handleDownloadFile(fileInfo) {
   try {
     const token = localStorage.getItem('token')
@@ -913,7 +944,7 @@ function handleSendMessage(messageData) {
   // messageData可能是事件对象或消息数据对象，需要判断类型
   if (typeof messageData === 'object' && messageData.content) {
     if (messageData.content && messageData.content.trim()) {
-      sendMessage(messageData.content)
+      sendMessage(messageData.content.trim(), messageData.quotedMessage)
     }
   } else if (typeof messageData === 'string') {
     // 如果直接传入字符串
@@ -1143,19 +1174,12 @@ function parseMentions(content) {
 }
 
 // 发送文本消息
-async function sendMessage(content) {
+async function sendMessage(content, quotedMessage = null) {
   if (!content.trim() || !currentGroup.value) return
 
   try {
     // 解析@提及
-    console.log('========== 开始发送消息和@提及解析 ==========')
-    console.log('消息内容:', content)
-    console.log('当前群组:', currentGroup.value)
-    console.log('群成员列表:', currentGroup.value?.Members)
-    
     const mentions = parseMentions(content)
-    console.log('解析后的@提及列表:', mentions)
-    console.log('@提及数量:', mentions.length)
     
     // 验证@全体成员权限
     const hasAllMention = mentions.some(m => m.type === 'all')
@@ -1164,14 +1188,27 @@ async function sendMessage(content) {
       return
     }
 
+    // 构建消息数据
+    const messageData = {
+      content: content,
+      messageType: 'text',
+      mentions: mentions.length > 0 ? mentions : undefined
+    }
+    
+    // 如果有引用消息，添加引用信息
+    if (quotedMessage) {
+      messageData.quotedMessage = {
+        id: quotedMessage._id || quotedMessage.id,
+        content: quotedMessage.content,
+        fromName: quotedMessage.fromName,
+        messageType: quotedMessage.messageType || 'text'
+      }
+    }
+
     const token = localStorage.getItem('token')
     const res = await axios.post(
       `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
-      {
-        content: content,
-        messageType: 'text',
-        mentions: mentions.length > 0 ? mentions : undefined
-      },
+      messageData,
       {
         headers: { Authorization: `Bearer ${token}` }
       }
@@ -1183,6 +1220,17 @@ async function sendMessage(content) {
         ...res.data.message,
         mentions: mentions.length > 0 ? mentions : undefined
       }
+      
+      // 🔧 临时修复：如果服务器没有返回引用信息，但我们有引用数据，手动添加
+      if (quotedMessage && !newMessage.quotedMessage) {
+        newMessage.quotedMessage = {
+          id: quotedMessage._id || quotedMessage.id,
+          content: quotedMessage.content,
+          fromName: quotedMessage.fromName,
+          messageType: quotedMessage.messageType || 'text'
+        }
+      }
+      
       messages.value.push(newMessage)
       
       // 滚动到底部
@@ -1204,7 +1252,7 @@ async function sendMessage(content) {
         ]
         const senderName = possibleNames.find(name => name && name.trim()) || 'Anonymous'
         
-        socket.emit('group-message', {
+        const socketMessageData = {
           roomId: currentGroup.value.RoomID,
           content: newMessage.content,
           messageType: newMessage.messageType || 'text',
@@ -1212,7 +1260,19 @@ async function sendMessage(content) {
           fromName: senderName,  // 发送真实姓名，不是"我"
           fromAvatar: localStorage.getItem('userAvatar') || '',
           time: newMessage.time
-        })
+        }
+
+        // 如果有引用消息，添加到Socket消息中
+        if (quotedMessage) {
+          socketMessageData.quotedMessage = {
+            id: quotedMessage._id || quotedMessage.id,
+            content: quotedMessage.content,
+            fromName: quotedMessage.fromName,
+            messageType: quotedMessage.messageType || 'text'
+          }
+        }
+
+        socket.emit('group-message', socketMessageData)
         console.log('📤 发送消息事件到房间:', currentGroup.value.RoomID)
         
         // 立即通知GroupList更新最新消息
