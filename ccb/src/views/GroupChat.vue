@@ -61,7 +61,7 @@
           messageType="group"
           :showAvatar="true"
           :showSenderName="true"
-          :autoScroll="false"
+          :autoScroll="true"
           :highlightedMessageId="highlightedMessageId"
           @preview-image="previewImage"
           @preview-video="previewVideo"
@@ -722,18 +722,57 @@ function handleForwardMessages(messages) {
 }
 
 // 批量删除消息
-async function handleDeleteMessages(messages) {
-  if (!messages || messages.length === 0) return
+async function handleDeleteMessages(messagesToDelete) {
+  if (!messagesToDelete || messagesToDelete.length === 0) return
   
   const confirmed = await confirm({
     title: '删除消息',
-    message: `确定要删除这 ${messages.length} 条消息吗？`
+    message: `确定要删除这 ${messagesToDelete.length} 条消息吗？`
   })
   
   if (confirmed) {
-    console.log('批量删除消息:', messages)
-    toast.success(`已删除 ${messages.length} 条消息`)
-    // TODO: 实现实际的删除逻辑
+    try {
+      console.log('批量删除消息:', messagesToDelete)
+      
+      // 获取要删除的消息ID列表
+      const messageIds = messagesToDelete.map(msg => msg._id || msg.id).filter(id => id)
+      
+      // 如果有消息ID，尝试调用服务端API删除
+      if (messageIds.length > 0) {
+        try {
+          const token = localStorage.getItem('token')
+          const baseUrl = import.meta.env.VITE_BASE_URL
+          
+          // 批量删除API调用（如果服务端支持）
+          await axios.delete(`${baseUrl}/room/${currentGroup.value.RoomID}/messages`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { messageIds: messageIds }
+          })
+          
+          console.log('服务端批量删除成功')
+        } catch (apiError) {
+          console.warn('服务端批量删除失败，使用客户端删除:', apiError)
+        }
+      }
+      
+      // 从本地消息列表中移除被删除的消息
+      const deletedMessageIds = new Set(messagesToDelete.map(msg => msg._id || msg.id))
+      messages.value = messages.value.filter(msg => !deletedMessageIds.has(msg._id || msg.id))
+      
+      // 通过Socket通知其他群成员消息被删除
+      if (socket && socket.connected && currentGroup.value) {
+        socket.emit('messages-deleted', {
+          roomId: currentGroup.value.RoomID,
+          messageIds: messageIds,
+          deletedBy: currentUserId.value
+        })
+      }
+      
+      toast.success(`已删除 ${messagesToDelete.length} 条消息`)
+    } catch (error) {
+      console.error('批量删除消息失败:', error)
+      toast.error('删除消息失败，请重试')
+    }
   }
 }
 

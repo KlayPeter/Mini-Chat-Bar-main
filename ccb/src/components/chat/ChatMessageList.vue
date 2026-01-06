@@ -183,6 +183,8 @@ const emit = defineEmits([
 const messageListRef = ref(null)
 const selectionMode = ref(false)
 const selectedMessages = ref([])
+const isShowingContextMenu = ref(false)
+const preventAutoScroll = ref(false)
 const contextMenu = ref({
   show: false,
   x: 0,
@@ -214,6 +216,10 @@ function handleMessageContextMenu(event, message, messageIndex) {
   // 记录当前滚动位置
   const currentScrollTop = messageListRef.value?.scrollTop || 0
   
+  // 标记正在显示右键菜单，阻止自动滚动
+  isShowingContextMenu.value = true
+  preventAutoScroll.value = true
+  
   contextMenu.value = {
     show: true,
     x: event.clientX,
@@ -234,24 +240,51 @@ function handleMessageContextMenu(event, message, messageIndex) {
 // 隐藏右键菜单
 function hideContextMenu() {
   contextMenu.value.show = false
+  
+  // 立即重置右键菜单显示状态
+  isShowingContextMenu.value = false
+  
+  // 延迟重置自动滚动阻止标记，防止取消菜单后立即触发滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 100) // 100ms延迟足够防止意外滚动
 }
 
 // 进入选择模式
 function enterSelectionMode() {
+  // 进入选择模式时阻止自动滚动
+  preventAutoScroll.value = true
+  
   selectionMode.value = true
   selectedMessages.value = []
   hideContextMenu()
+  
+  // 延迟恢复自动滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 50)
 }
 
 // 退出选择模式
 function exitSelectionMode() {
+  // 退出选择模式时阻止自动滚动
+  preventAutoScroll.value = true
+  
   selectionMode.value = false
   selectedMessages.value = []
   emit('selection-change', [])
+  
+  // 延迟恢复自动滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 50)
 }
 
 // 切换消息选择状态
 function handleToggleSelection(messageIndex) {
+  // 在选择操作期间阻止自动滚动
+  preventAutoScroll.value = true
+  
   const index = selectedMessages.value.indexOf(messageIndex)
   if (index > -1) {
     selectedMessages.value.splice(index, 1)
@@ -259,18 +292,39 @@ function handleToggleSelection(messageIndex) {
     selectedMessages.value.push(messageIndex)
   }
   emit('selection-change', selectedMessages.value)
+  
+  // 短暂延迟后恢复自动滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 50) // 50ms足够防止选择操作引起的滚动
 }
 
 // 全选消息
 function selectAllMessages() {
+  // 在全选操作期间阻止自动滚动
+  preventAutoScroll.value = true
+  
   selectedMessages.value = props.messages.map((_, index) => index)
   emit('selection-change', selectedMessages.value)
+  
+  // 短暂延迟后恢复自动滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 50)
 }
 
 // 清空选择
 function clearSelection() {
+  // 在清空选择操作期间阻止自动滚动
+  preventAutoScroll.value = true
+  
   selectedMessages.value = []
   emit('selection-change', [])
+  
+  // 短暂延迟后恢复自动滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 50)
 }
 
 // 转发选中的消息
@@ -353,7 +407,7 @@ function handleJumpToQuotedMessage(quotedMessage) {
 
 // 滚动到底部
 function scrollToBottom() {
-  if (!props.autoScroll || !messageListRef.value) return
+  if (!props.autoScroll || !messageListRef.value || preventAutoScroll.value) return
   
   nextTick(() => {
     if (messageListRef.value) {
@@ -377,7 +431,7 @@ function scrollToMessage(messageId) {
 
 // 监听消息变化，自动滚动
 watch(() => props.messages, () => {
-  if (props.autoScroll) {
+  if (props.autoScroll && !preventAutoScroll.value) {
     scrollToBottom()
   }
 }, { deep: true })
@@ -396,7 +450,7 @@ onMounted(() => {
 })
 
 onUpdated(() => {
-  if (props.autoScroll) {
+  if (props.autoScroll && !preventAutoScroll.value) {
     scrollToBottom()
   }
 })
