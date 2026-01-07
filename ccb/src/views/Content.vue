@@ -436,6 +436,11 @@ async function handleDeleteMessage(messageIndex) {
 async function sendMessage(content) {
   if (!content || !content.trim()) return
   
+  if (!chatstore.currentChatUser) {
+    toast.error('请选择聊天对象')
+    return
+  }
+  
   const token = localStorage.getItem('token')
   if (!token) {
     toast.error('请先登录')
@@ -457,11 +462,20 @@ async function sendMessage(content) {
     // 发送成功，刷新消息列表
     await getlists()
     
-    // 通过Socket发送实时消息
+    // 强制触发ChatMessageList重新渲染
+    await nextTick(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollToBottom()
+      }
+    })
+    
+    // 发送Socket事件通知其他客户端
     socket.emit('private-message', {
+      from: localStorage.getItem('userId'),
       to: chatstore.currentChatUser,
       content: content,
-      messageType: 'text'
+      messageType: 'text',
+      timestamp: new Date().toISOString()
     })
   } catch (error) {
     console.error('发送消息失败:', error)
@@ -471,34 +485,26 @@ async function sendMessage(content) {
 
 // 获取消息列表
 async function getlists() {
-  console.log('=== 开始获取消息列表 ===')
-  console.log('chatstore.currentChatUser:', chatstore.currentChatUser)
-  
   if (!chatstore.currentChatUser) {
-    console.warn('没有设置currentChatUser，无法获取消息')
     return
   }
-  
+
   const token = localStorage.getItem('token')
   if (!token) {
-    console.warn('没有token，无法获取消息')
+    toast.error('请先登录')
     return
   }
 
   try {
-    const url = `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`
-    console.log('请求URL:', url)
-    
-    const res = await axios.get(url, { 
-      headers: { Authorization: `Bearer ${token}` } 
+    const res = await axios.get(`${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
     
-    messages.value = res.data || []
-    console.log('获取到的消息数量:', messages.value.length)
-    console.log('消息列表:', messages.value)
+    // 不要reverse，保持正确的时间顺序（最新消息在底部）
+    messages.value = [...res.data]
   } catch (error) {
-    console.error('获取消息列表失败:', error)
-    console.error('错误详情:', error.response?.data)
+    console.error('获取消息失败:', error)
+    toast.error('获取消息失败: ' + (error.response?.data?.message || error.message))
   }
 }
 
@@ -511,7 +517,6 @@ async function getavatar() {
       `${baseUrl}/api/user/friend_avatar/${chatstore.currentChatUser}`
     )
     avatar.value = res.data.avatar || '/images/avatar/default-avatar.webp'
-    console.log('获取到对方头像:', avatar.value)
   } catch (error) {
     console.error('获取头像失败:', error)
     // 设置默认头像
@@ -522,13 +527,7 @@ async function getavatar() {
 // 获取自己的头像
 async function getMyAvatar() {
   const token = localStorage.getItem('token')
-  console.log('=== 获取自己的头像 ===')
-  console.log('Token:', token ? '存在' : '不存在')
-  
-  if (!token) {
-    console.warn('没有token，无法获取头像')
-    return
-  }
+  if (!token) return
 
   try {
     const response = await axios.get(
@@ -537,20 +536,14 @@ async function getMyAvatar() {
         headers: { Authorization: `Bearer ${token}` }
       }
     )
-
-    console.log('用户信息响应:', response.data)
     
-    // 后端返回的是 { id, name, ava }，没有success字段
     if (response.data && response.data.ava) {
       myAvatar.value = response.data.ava
-      console.log('设置的myAvatar:', myAvatar.value)
     } else {
-      console.warn('响应中没有头像数据')
       myAvatar.value = '/images/avatar/default-avatar.webp'
     }
   } catch (error) {
     console.error('获取自己头像失败:', error)
-    console.error('错误详情:', error.response?.data)
     myAvatar.value = '/images/avatar/default-avatar.webp'
   }
 }
@@ -623,10 +616,6 @@ function handleForwardedPrivateMessage(event) {
 }
 
 onMounted(() => {
-  console.log('=== Content组件挂载 ===')
-  console.log('当前聊天用户 (chatstore):', chatstore.currentChatUser)
-  console.log('URL参数:', route.query)
-  
   // 监听私聊转发消息事件
   window.addEventListener('private-message-forwarded', handleForwardedPrivateMessage)
   
@@ -636,20 +625,17 @@ onMounted(() => {
   // 页面刷新时从URL参数恢复用户状态
   const urlUserId = route.query.userId
   if (urlUserId && !chatstore.currentChatUser) {
-    console.log('从URL参数恢复用户状态:', urlUserId)
     chatstore.switchChatUser(urlUserId)
   }
 
   // 发送Socket登录事件
   const currentUserId = localStorage.getItem('userId')
-  console.log('当前登录用户ID:', currentUserId)
   if (currentUserId) {
     socket.emit('login', currentUserId)
   }
 
   // 确保有聊天用户后再获取数据
   const targetUserId = chatstore.currentChatUser || urlUserId
-  console.log('目标聊天用户ID:', targetUserId)
   
   if (targetUserId) {
     //这里获取对方头像

@@ -26,7 +26,7 @@
     <!-- 普通消息 -->
     <template v-else-if="message">
       <!-- 消息时间头部 -->
-      <div class="message-time-header">
+      <div v-if="!hideTime" class="message-time-header">
         {{ formatTime(message.time) }}
       </div>
 
@@ -227,6 +227,10 @@ const props = defineProps({
     default: false
   },
   isHighlighted: {
+    type: Boolean,
+    default: false
+  },
+  hideTime: {
     type: Boolean,
     default: false
   }

@@ -620,9 +620,11 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
   const senderIndex = friends.value.findIndex(
     (friend) => friend.id === fromUserId
   )
+  
   if (senderIndex !== -1) {
     try {
       const token = localStorage.getItem('token')
+      
       const msgRes = await axios.get(
         `${import.meta.env.VITE_BASE_URL}/api/chat/last_message/${fromUserId}`,
         {
@@ -634,6 +636,9 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
 
       friends.value[senderIndex].lastMessage = msgRes.data.content || ''
       friends.value[senderIndex].lastTime = msgRes.data.time || ''
+      
+      // 重新排序好友列表
+      friends.value.sort((a, b) => new Date(b.lastTime || 0) - new Date(a.lastTime || 0))
 
       // 获取未读消息数量
       if (
@@ -650,11 +655,6 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
         )
         friends.value[senderIndex].unreadCount = unreadRes.data.count
       }
-
-      console.log(`更新 ${friends.value[senderIndex].name} 的最后消息`, {
-        lastMessage: msgRes.data.content,
-        unreadCount: friends.value[senderIndex].unreadCount,
-      })
 
       // 重新按时间排序
       friends.value.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime))
@@ -675,12 +675,7 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
 
 // 处理私聊转发消息更新
 function handlePrivateChatListUpdate(event) {
-  console.log('💬 LastChats: 收到私聊转发消息更新事件', event.detail)
-  
   const { userId, message, forwardData } = event.detail
-  
-  console.log('需要更新的用户ID:', userId)
-  console.log('转发的消息:', message)
   
   // 查找对应的好友并更新最新消息
   const friendIndex = friends.value.findIndex(friend => friend.id.toString() === userId.toString())
@@ -691,10 +686,7 @@ function handlePrivateChatListUpdate(event) {
     
     // 重新按时间排序，将刚更新的好友移到顶部
     friends.value.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime))
-    
-    console.log('💬 LastChats: 私聊列表已更新', friends.value[friendIndex].name)
   } else {
-    console.log('💬 LastChats: 未找到对应的好友，刷新好友列表')
     // 如果找不到对应好友，重新获取好友列表
     getfriends()
   }
@@ -707,12 +699,11 @@ onMounted(async () => {
   
   // 监听登录成功事件，强制更新在线状态
   window.addEventListener('user-login-success', (event) => {
-    console.log('LastChats: 收到登录成功事件，强制更新在线状态')
     const { userId } = event.detail
     if (userId) {
       // 触发在线状态的响应式更新
       setTimeout(() => {
-        console.log('LastChats: 强制触发在线状态重新检查')
+        // 静默处理在线状态更新
       }, 100)
     }
   })
@@ -720,15 +711,15 @@ onMounted(async () => {
   await getinfo()
   await getfriends()
 
-  socket.on('private-message', ({ from, to }) => {
+  socket.on('private-message', (data) => {
+    const { from, to, content, timestamp } = data
     From.value = from
-    console.log('收到消息通知:', { from, to, currentUser: userid.value })
 
     // 确保消息是发给当前用户的，或者是当前用户发送的
-    if (to.toString() === userid.value.toString()) {
+    if (to?.toString() === userid.value?.toString()) {
       // 收到别人发来的消息，显示小红点
       updateFriendMessage(from)
-    } else if (from.toString() === userid.value.toString()) {
+    } else if (from?.toString() === userid.value?.toString()) {
       // 自己发送的消息，更新lastChat但不显示小红点
       updateFriendMessage(to, false)
     }

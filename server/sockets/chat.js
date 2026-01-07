@@ -45,32 +45,33 @@ module.exports = function(socket, io) {
     }
   })
 
-  socket.on("private-message", ({to, from}) => {
+  socket.on("private-message", (data) => {
+    const { to, from, content, messageType, timestamp } = data;
     const senderId = from || socket.userId;
-    const targetSockets = users.get(to);
     
+    const messageData = {
+      from: senderId,
+      to: to,
+      content: content,
+      messageType: messageType,
+      timestamp: timestamp
+    };
+    
+    console.log(`转发消息通知: ${senderId} -> ${to}`, messageData);
+    
+    const targetSockets = users.get(to);
     if (targetSockets && targetSockets.size > 0) {
-      console.log(`转发消息通知: ${senderId} -> ${to}`);
-      // 向该用户的所有连接发送消息
+      // 向接收者的所有连接发送消息
       targetSockets.forEach(socketId => {
-        io.to(socketId).emit('private-message', {
-          from: senderId,
-          to: to
-        });
+        io.to(socketId).emit('private-message', messageData);
       });
     }
     
-    // 同时通知发送者自己的其他设备
+    // 同时通知发送者自己的所有连接（包括当前连接，用于更新LastChats）
     const senderSockets = users.get(senderId);
     if (senderSockets && senderSockets.size > 0) {
       senderSockets.forEach(socketId => {
-        // 不要发给当前socket
-        if (socketId !== socket.id) {
-          io.to(socketId).emit('private-message', {
-            from: senderId,
-            to: to
-          });
-        }
+        io.to(socketId).emit('private-message', messageData);
       });
     }
   })

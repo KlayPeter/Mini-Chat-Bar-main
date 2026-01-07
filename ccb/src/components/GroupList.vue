@@ -28,6 +28,7 @@
           <div class="group-name-row">
             <span class="group-name">{{ group.RoomName }}</span>
             <span class="member-count">({{ group.Members.length }})</span>
+            <span class="last-time">{{ getLastTime(group) }}</span>
           </div>
           <div class="last-message">{{ getLastMessage(group) }}</div>
         </div>
@@ -357,6 +358,25 @@ function getLastMessage(group) {
   const result = `${lastMsg.fromName}: ${displayContent}`
   console.log(`最新消息显示: ${result}`)
   return result
+}
+
+// 获取最后一条消息的时间（仿照私聊列表的时间格式）
+function getLastTime(group) {
+  const lastMsg = groupLastMessages.value[group.RoomID]
+  if (!lastMsg || !lastMsg.time) return ''
+  
+  return formatDate(lastMsg.time)
+}
+
+// 时间格式化函数（与LastChats.vue保持一致）
+function formatDate(dateStr) {
+  const date = new Date(dateStr)
+  const current_date = new Date()
+  if (date.toLocaleDateString() === current_date.toLocaleDateString()) {
+    return isNaN(date.getTime()) ? '' : date.toLocaleTimeString().slice(0, 5)
+  } else {
+    return isNaN(date.getTime()) ? '' : date.toLocaleDateString().slice(0, 10)
+  }
 }
 
 
@@ -928,6 +948,13 @@ defineExpose({
         font-size: 12px;
         color: #999;
         flex-shrink: 0;
+      }
+
+      .last-time {
+        font-size: 12px;
+        color: #999;
+        flex-shrink: 0;
+        margin-left: auto;
       }
     }
 

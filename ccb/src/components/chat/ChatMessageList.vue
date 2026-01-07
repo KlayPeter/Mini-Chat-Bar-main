@@ -69,6 +69,7 @@
         :showSelectionMode="selectionMode"
         :isSelected="selectedMessages.includes(index)"
         :isHighlighted="message && highlightedMessageId === (message._id || message.id)"
+        :hideTime="shouldHideTime(message, index)"
         @click="handleMessageClick"
         @contextmenu="handleMessageContextMenu"
         @toggle-selection="handleToggleSelection"
@@ -197,6 +198,33 @@ const contextMenu = ref({
 function getMessageKey(message, index) {
   if (!message) return `msg-${index}`
   return message._id || message.id || `msg-${index}`
+}
+
+// 判断是否应该隐藏时间显示（类似微信的时间合并功能）
+function shouldHideTime(message, index) {
+  if (!message || index === 0) return false // 第一条消息总是显示时间
+  
+  const previousMessage = props.messages[index - 1]
+  if (!previousMessage || !previousMessage.time || !message.time) return false
+  
+  const currentTime = new Date(message.time).getTime()
+  const previousTime = new Date(previousMessage.time).getTime()
+  
+  // 如果两条消息时间间隔小于2分钟（120000毫秒），则隐藏当前消息的时间
+  const timeDiff = currentTime - previousTime
+  
+  // 临时调试信息
+  console.log(`时间合并检查 - 索引${index}:`, {
+    currentTime: message.time,
+    previousTime: previousMessage.time,
+    currentTimeMs: currentTime,
+    previousTimeMs: previousTime,
+    timeDiff: timeDiff,
+    timeDiffMinutes: timeDiff / 60000,
+    shouldHide: timeDiff < 120000 && timeDiff >= 0
+  })
+  
+  return timeDiff < 120000 && timeDiff >= 0 // 2分钟 = 120000毫秒，且时间差为正数
 }
 
 // 处理消息点击
