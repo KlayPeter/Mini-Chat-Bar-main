@@ -1,6 +1,8 @@
 const Users = require("../models/Users");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const EmailService = require("../services/emailService");
+const PasswordValidator = require("../utils/passwordValidator");
 
 const SECRET_KEY = "MORTALKOMBAT";
 const saltRounds = 10;
@@ -28,6 +30,7 @@ class UserController {
         uID: uid,
         uAvatar: "/images/avatar/default-avatar.webp",
         uName: uName,
+        uEmail: uEmail || `user${uid}@temp.com`, // 临时邮箱
         Password: hashedPassword,
         Friends: [],
       });
@@ -40,7 +43,196 @@ class UserController {
     }
   }
 
-  // 用户登录
+  // 发送验证码邮件
+  static async sendVerificationCode(req, res) {
+    const { email, type = 'register' } = req.body;
+    
+    try {
+      // 验证邮箱格式
+      if (!email || !PasswordValidator.validateEmail(email)) {
+        return res.status(400).json({ message: "请输入有效的邮箱地址" });
+      }
+
+      // 如果是注册，检查邮箱是否已存在
+      if (type === 'register') {
+        const existingUser = await Users.findOne({ uEmail: email });
+        if (existingUser) {
+          return res.status(409).json({ message: "邮箱已被注册" });
+        }
+      } else if (type === 'login') {
+        // 如果是登录，检查邮箱是否存在
+        const existingUser = await Users.findOne({ uEmail: email });
+        if (!existingUser) {
+          return res.status(404).json({ message: "邮箱未注册" });
+        }
+      }
+
+      const result = await EmailService.sendVerificationCode(email, type);
+      if (result.success) {
+        res.status(200).json({ message: result.message });
+      } else {
+        res.status(500).json({ message: result.message });
+      }
+    } catch (err) {
+      console.error("发送验证码失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 邮箱验证码注册
+  static async registerWithEmail(req, res) {
+    const { uName, uEmail, uPassword, verificationCode } = req.body;
+    
+    try {
+      // 验证必填字段
+      if (!uName || !uEmail || !uPassword || !verificationCode) {
+        return res.status(400).json({ message: "所有字段都不能为空" });
+      }
+
+      // 验证邮箱格式
+      if (!PasswordValidator.validateEmail(uEmail)) {
+        return res.status(400).json({ message: "请输入有效的邮箱地址" });
+      }
+
+      // 验证密码强度
+      const passwordValidation = PasswordValidator.validate(uPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ 
+          message: "密码不符合要求", 
+          errors: passwordValidation.errors 
+        });
+      }
+
+      // 验证验证码
+      const codeVerification = EmailService.verifyCode(uEmail, verificationCode, 'register');
+      if (!codeVerification.success) {
+        return res.status(400).json({ message: codeVerification.message });
+      }
+
+      // 检查用户名是否已存在
+      const existingUserByName = await Users.findOne({ uName: uName });
+      if (existingUserByName) {
+        return res.status(409).json({ message: "用户名已存在" });
+      }
+
+      // 检查邮箱是否已存在
+      const existingUserByEmail = await Users.findOne({ uEmail: uEmail });
+      if (existingUserByEmail) {
+        return res.status(409).json({ message: "邮箱已被注册" });
+      }
+
+      const uid = Date.now().toString();
+      const hashedPassword = await bcrypt.hash(uPassword, saltRounds);
+      
+      const newUser = new Users({
+        uID: uid,
+        uAvatar: "/images/avatar/default-avatar.webp",
+        uName: uName,
+        uEmail: uEmail,
+        Password: hashedPassword,
+        Friends: [],
+      });
+
+      await newUser.save();
+      res.status(200).json({ message: `用户 ${uName} 注册成功！` });
+    } catch (err) {
+      console.error("注册失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 邮箱密码登录
+  static async loginWithEmail(req, res) {
+    const { email, password } = req.body;
+    
+    try {
+      // 验证邮箱格式
+      if (!PasswordValidator.validateEmail(email)) {
+        return res.status(400).json({ message: "请输入有效的邮箱地址" });
+      }
+
+      const user = await Users.findOne({ uEmail: email });
+
+      if (user) {
+        const isMatch = await bcrypt.compare(password, user.Password);
+        if (isMatch) {
+          const token = jwt.sign(
+            { userId: user.uID, username: user.uName, email: user.uEmail },
+            SECRET_KEY,
+            { expiresIn: "24h" }
+          );
+          res.status(200).json({
+            message: "登录成功",
+            token: token,
+            user: {
+              id: user.uID,
+              name: user.uName,
+              email: user.uEmail,
+              ava: user.uAvatar,
+            },
+          });
+        } else {
+          res.status(401).json({ message: "密码错误" });
+        }
+      } else {
+        res.status(404).json({ message: "邮箱未注册" });
+      }
+    } catch (err) {
+      console.error("登录失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 邮箱验证码登录
+  static async loginWithVerificationCode(req, res) {
+    const { email, verificationCode } = req.body;
+    
+    try {
+      // 验证必填字段
+      if (!email || !verificationCode) {
+        return res.status(400).json({ message: "邮箱和验证码不能为空" });
+      }
+
+      // 验证邮箱格式
+      if (!PasswordValidator.validateEmail(email)) {
+        return res.status(400).json({ message: "请输入有效的邮箱地址" });
+      }
+
+      // 验证验证码
+      const codeVerification = EmailService.verifyCode(email, verificationCode, 'login');
+      if (!codeVerification.success) {
+        return res.status(400).json({ message: codeVerification.message });
+      }
+
+      // 查找用户
+      const user = await Users.findOne({ uEmail: email });
+      if (!user) {
+        return res.status(404).json({ message: "邮箱未注册" });
+      }
+
+      const token = jwt.sign(
+        { userId: user.uID, username: user.uName, email: user.uEmail },
+        SECRET_KEY,
+        { expiresIn: "24h" }
+      );
+
+      res.status(200).json({
+        message: "登录成功",
+        token: token,
+        user: {
+          id: user.uID,
+          name: user.uName,
+          email: user.uEmail,
+          ava: user.uAvatar,
+        },
+      });
+    } catch (err) {
+      console.error("验证码登录失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
+  // 保留原有登录方法（向后兼容）
   static async login(req, res) {
     const { username, password } = req.body;
     

@@ -4,6 +4,14 @@ import router from './router'
 import { createPinia } from 'pinia'
 import axios from 'axios'
 
+// FontAwesome 配置
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { fas } from '@fortawesome/free-solid-svg-icons'
+
+// 添加所有 solid 图标到库中
+library.add(fas)
+
 // 配置 axios 全局默认设置
 axios.defaults.withCredentials = true
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL
@@ -32,5 +40,8 @@ axios.interceptors.response.use(
 const app = createApp(App)
 
 const pinia = createPinia()
+
+// 注册 FontAwesome 组件
+app.component('font-awesome-icon', FontAwesomeIcon)
 
 app.use(router).use(pinia).mount('#app')

@@ -28,15 +28,16 @@ async function main() {
     await Contacts.deleteMany({});
     console.log("🧹 数据已清空");
 
-    // 加密密码
-    const pwdAlice = await bcrypt.hash("123456", 10);
-    const pwdBob = await bcrypt.hash("654321", 10);
+    // 加密密码 - 符合规范：8位+数字+英文+特殊符号
+    const pwdAlice = await bcrypt.hash("Alice123!", 10);
+    const pwdBob = await bcrypt.hash("Bob123!", 10);
 
     // 插入用户
     await Users.insertMany([
       {
         uID: "u1",
         uName: "Alice",
+        uEmail: "alice@test.com",
         Password: pwdAlice,
         uAvatar: avatarAlice,
         Friends: [{ uID: "u2" }],
@@ -44,6 +45,7 @@ async function main() {
       {
         uID: "u2",
         uName: "Bob",
+        uEmail: "bob@test.com",
         Password: pwdBob,
         uAvatar: avatarBob,
         Friends: [{ uID: "u1" }],
@@ -54,8 +56,10 @@ async function main() {
     // 插入房间（聊天群组）
     await Room.insertMany([
       {
-        RoomID: 1,
+        RoomID: "1",
         RoomName: "Coffee Lovers ☕",
+        Creator: "u1",
+        Admins: ["u1"],
         Members: [
           { Nickname: "Alice", Avatar: avatarAlice, userID: "u1" },
           { Nickname: "Bob", Avatar: avatarBob, userID: "u2" },

@@ -11,10 +11,20 @@ const router = express.Router();
 const auth = require("../middlewares/auth");
 const UserController = require("../controllers/UserController");
 
-// 注册
-router.post("/register", UserController.register);
+// 发送验证码邮件
+router.post("/send-verification", UserController.sendVerificationCode);
 
-// 登录
+// 邮箱验证码注册
+router.post("/register-email", UserController.registerWithEmail);
+
+// 邮箱密码登录
+router.post("/login-email", UserController.loginWithEmail);
+
+// 邮箱验证码登录
+router.post("/login-code", UserController.loginWithVerificationCode);
+
+// 保留原有注册和登录（向后兼容）
+router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 
 //获取当前用户基本信息
