@@ -197,6 +197,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
+import { socket, waitForSocketConnection } from '../../utils/socket'
 import { PasswordValidator } from '../utils/passwordValidator'
 import CryptoJS from 'crypto-js'
 
@@ -391,6 +392,12 @@ const loginWithPassword = async () => {
     localStorage.setItem('userEmail', res.data.user.email)
     localStorage.setItem('avatar', res.data.user.ava)
 
+    // 确保socket连接后发送登录事件
+    waitForSocketConnection(() => {
+      socket.emit('login', res.data.user.id)
+      console.log('密码登录成功，用户上线事件已发送:', res.data.user.id)
+    })
+
     toast.success('登录成功')
     router.push('/')
   } catch (err) {
@@ -427,6 +434,12 @@ const loginWithCode = async () => {
     localStorage.setItem('username', res.data.user.name)
     localStorage.setItem('userEmail', res.data.user.email)
     localStorage.setItem('avatar', res.data.user.ava)
+
+    // 确保socket连接后发送登录事件
+    waitForSocketConnection(() => {
+      socket.emit('login', res.data.user.id)
+      console.log('验证码登录成功，用户上线事件已发送:', res.data.user.id)
+    })
 
     toast.success('登录成功')
     router.push('/')

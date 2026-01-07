@@ -324,6 +324,54 @@ class UserController {
     }
   }
 
+  // 搜索用户（按用户名或邮箱模糊搜索）
+  static async searchUsers(req, res) {
+    try {
+      const { query } = req.query;
+      const currentUserId = req.user.userId;
+
+      if (!query || query.trim().length < 1) {
+        return res.status(400).json({ message: "搜索关键词至少需要1个字符" });
+      }
+
+      // 构建搜索条件：用户名或邮箱包含关键词（不区分大小写）
+      const searchCondition = {
+        $and: [
+          { uID: { $ne: currentUserId } }, // 排除自己
+          {
+            $or: [
+              { uName: { $regex: query, $options: 'i' } }, // 用户名模糊搜索
+              { uEmail: { $regex: query, $options: 'i' } } // 邮箱模糊搜索
+            ]
+          }
+        ]
+      };
+
+      // 搜索用户，只返回必要字段
+      const users = await Users.find(
+        searchCondition,
+        { uID: 1, uName: 1, uEmail: 1, uAvatar: 1, _id: 0 }
+      ).limit(10); // 限制返回10个结果
+
+      // 获取当前用户的好友列表，标记已是好友的用户
+      const currentUser = await Users.findOne({ uID: currentUserId });
+      const friendIds = currentUser ? currentUser.Friends.map(friend => friend.uID) : [];
+
+      const usersWithFriendStatus = users.map(user => ({
+        ...user.toObject(),
+        isFriend: friendIds.includes(user.uID)
+      }));
+
+      res.status(200).json({
+        users: usersWithFriendStatus,
+        total: users.length
+      });
+    } catch (err) {
+      console.error("搜索用户失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
   // 添加好友
   static async addFriend(req, res) {
     try {

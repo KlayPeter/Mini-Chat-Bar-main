@@ -4,9 +4,6 @@
       <div class="top_child">
         <input type="button" value="◁" @click="back" id="button" />
         <span>通讯录</span>
-        <div class="friend_request">
-          <button @click="show_request">+</button>
-        </div>
       </div>
     </div>
     <div class="bottom">
@@ -14,23 +11,11 @@
       <div class="contact-search">
         <input
           type="text"
-          placeholder="搜索联系人..."
+          placeholder="搜索联系人或添加新好友..."
           v-model="searchKeyword"
           @input="handleSearch"
           class="search-input"
         />
-      </div>
-      
-      <div class="search" v-if="newfriend">
-        <input
-          type="text"
-          name=""
-          id=""
-          placeholder="Search"
-          v-model="friend_name"
-          autocomplete="off"
-        />
-        <input type="button" value="添加♂好友" @click="friend_request" />
       </div>
       
       <!-- 显示搜索结果或好友列表 -->
@@ -66,7 +51,7 @@
         <div v-else class="empty-state">
           <div class="empty-icon"><Group class="empty-community-icon" /></div>
           <p class="empty-text">暂无好友</p>
-          <p class="empty-subtext">点击右上角"+"按钮添加好友</p>
+          <p class="empty-subtext">在上方搜索框输入用户名或邮箱添加好友</p>
         </div>
       </div>
       
@@ -193,13 +178,10 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const friends = ref([]);
-const friend_name = ref("");
 const searchKeyword = ref("");
 const filteredFriends = ref([]);
 const searchResults = ref([]);
 const isSearching = ref(false);
-
-const newfriend = ref(false);
 const showAddFriendModal = ref(false);
 const selectedUser = ref(null);
 const isAddingFriend = ref(false);
@@ -219,36 +201,6 @@ function back() {
   emit("hidecontacts", "关掉聊天");
 }
 
-function show_request() {
-  newfriend.value = true;
-}
-
-//添加好友
-async function friend_request() {
-  const token = localStorage.getItem("token");
-  if (!friend_name.value) {
-    friend_name.value = "";
-    toast.warning("请输入合法的用户名");
-    return;
-  } else {
-    const name = friend_name.value;
-    friend_name.value = "";
-    const res = await axios.post(
-      `${import.meta.env.VITE_BASE_URL}/api/user/add`,
-      {
-        friendId: name,
-      },
-      {
-        headers: {
-          authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    toast.success(res.data.message);
-    location.reload();
-  }
-}
 
 // 搜索联系人功能
 let searchTimeout = null;
@@ -275,28 +227,25 @@ async function handleSearch() {
       const token = localStorage.getItem("token");
       
       // 调用用户搜索接口
-      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/chat/search/users`, {
+      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/search`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
-          keyword: searchKeyword.value,
-          page: 1,
-          limit: 20
+          query: searchKeyword.value
         }
       });
       
       console.log("用户搜索响应:", response.data);
       
-      if (response.data && response.data.success) {
-        const userResults = response.data.data.results || [];
+      if (response.data && response.data.users) {
+        const userResults = response.data.users || [];
         
-        // 检测哪些用户已经是好友
-        const currentFriendIds = new Set(friends.value.map(friend => friend.id));
-        
-        // 为用户结果添加类型标识和好友状态
+        // 为用户结果添加类型标识和高亮名称
         searchResults.value = userResults.map(user => ({
           ...user,
           resultType: 'user',
-          isAlreadyFriend: currentFriendIds.has(user._id || user.id)
+          isAlreadyFriend: user.isFriend,
+          highlightedName: highlightSearchTerm(user.uName, searchKeyword.value),
+          name: user.uName // 保持兼容性
         }));
       } else {
         console.error("搜索失败:", response.data?.message || "未知错误");
@@ -325,6 +274,14 @@ function closeAddFriendDialog() {
   isAddingFriend.value = false;
 }
 
+// 高亮搜索关键词
+function highlightSearchTerm(text, term) {
+  if (!text || !term) return text;
+  
+  const regex = new RegExp(`(${term})`, 'gi');
+  return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+}
+
 // 确认添加好友
 async function confirmAddFriend() {
   if (!selectedUser.value || isAddingFriend.value) return;
@@ -337,7 +294,7 @@ async function confirmAddFriend() {
     // 调试：打印用户信息
     console.log("添加好友用户信息:", selectedUser.value);
     
-    // 确保friendId是数字类型
+    // 获取用户ID
     const friendId = selectedUser.value.uID || selectedUser.value.id;
     
     if (!friendId) {
@@ -347,7 +304,7 @@ async function confirmAddFriend() {
     const res = await axios.post(
       `${import.meta.env.VITE_BASE_URL}/api/user/add`,
       {
-        friendId: Number(friendId) // 确保是数字类型
+        friendId: friendId // 保持字符串格式
       },
       {
         headers: {
@@ -1285,6 +1242,88 @@ onBeforeUnmount(() => {
       transform: scale(0.9);
     }
   }
+}
+
+/* 搜索高亮样式 */
+.search-highlight {
+  background-color: rgba(165, 42, 42, 0.2);
+  color: rgba(165, 42, 42, 1);
+  font-weight: 600;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+
+/* 搜索结果样式 */
+.search-results-container {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.search-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(240, 240, 240, 0.8);
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+}
+
+.search-results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover:not(.already-friend-item) {
+    background-color: rgba(165, 42, 42, 0.05);
+  }
+
+  &.already-friend-item {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: rgba(240, 240, 240, 0.3);
+  }
+
+  .detail {
+    flex: 1;
+    margin-left: 12px;
+
+    .name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 2px;
+    }
+
+    .email {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .friend-status {
+      font-size: 11px;
+      color: #999;
+      font-style: italic;
+    }
+  }
+}
+
+.search-status {
+  padding: 40px 16px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
 }
 
 /* 空状态样式 */

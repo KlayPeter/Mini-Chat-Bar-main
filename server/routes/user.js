@@ -36,6 +36,9 @@ router.get("/friend_avatar/:id", UserController.getFriendAvatar);
 //获取好友列表
 router.get("/friends", auth, UserController.getFriends);
 
+//搜索用户
+router.get("/search", auth, UserController.searchUsers);
+
 //添加好友
 router.post("/add", auth, UserController.addFriend);
 
