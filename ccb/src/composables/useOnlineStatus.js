@@ -9,10 +9,23 @@ export function useOnlineStatus() {
 
   // 初始化在线状态
   function initOnlineStatus() {
+    // 更新当前用户ID（可能登录后有变化）
+    currentUserId.value = localStorage.getItem('userId') || ''
+    
     if (!currentUserId.value) return
+
+    // 先清理旧的监听器，避免重复注册
+    cleanup()
 
     // 用户上线
     socket.emit('user-online', currentUserId.value)
+
+    // 立即将当前用户添加到在线列表（乐观更新）
+    onlineUsers.value.add(currentUserId.value)
+    
+    // 强制触发响应式更新
+    onlineUsers.value = new Set(onlineUsers.value)
+    console.log('乐观更新：当前用户已标记为在线:', currentUserId.value)
 
     // 监听在线用户列表更新
     socket.on('online-users-update', (users) => {
@@ -58,11 +71,17 @@ export function useOnlineStatus() {
 
   // 清理
   function cleanup() {
+    // 只清理事件监听器，但不发送离线事件（除非真正退出）
     socket.off('online-users-update')
     socket.off('user-online-notification')
     socket.off('user-offline-notification')
     document.removeEventListener('visibilitychange', handleVisibilityChange)
     window.removeEventListener('beforeunload', handleBeforeUnload)
+  }
+  
+  // 真正的用户离线清理（退出应用时调用）
+  function fullCleanup() {
+    cleanup()
     
     // 用户离线
     if (currentUserId.value) {
@@ -85,6 +104,7 @@ export function useOnlineStatus() {
     currentUserId,
     initOnlineStatus,
     cleanup,
+    fullCleanup,
     isUserOnline,
     getOnlineCount
   }

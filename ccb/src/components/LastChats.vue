@@ -4,7 +4,7 @@
     <div class="theme-modal" v-if="issetting" @click.self="issetting = false">
       <div class="theme-container">
         <div class="theme-header">
-          <h2>🎨 选择主题配色</h2>
+          <h2><Palette class="palette-icon" /> 选择主题配色</h2>
           <button class="close-btn" @click="issetting = false">
             <Xmark class="close-icon" />
           </button>
@@ -338,13 +338,13 @@ import axios from 'axios'
 import { onBeforeUnmount, ref, nextTick, computed } from 'vue'
 import { defineEmits } from 'vue'
 import { onMounted } from 'vue'
+import { Palette, Xmark, Trash } from '@iconoir/vue'
 import { useChatStore } from '../stores/useChatStore'
 import { socket } from '../../utils/socket'
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
-import { Xmark, Trash } from '@iconoir/vue'
 import ThemeSelector from './ThemeSelector.vue'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 
@@ -372,9 +372,8 @@ function toggleAddMenu() {
 // 加好友功能
 function addFriend() {
   showAddMenu.value = false
-  // TODO: 实现加好友功能
-  console.log('加好友功能')
-  toast.info('加好友功能开发中...')
+  // 跳转到通讯录页面进行添加好友
+  router.push('/contacts')
 }
 
 // 新建群聊功能
@@ -705,7 +704,19 @@ onMounted(async () => {
   // 检测屏幕尺寸
   checkScreen()
   window.addEventListener('resize', checkScreen)
-
+  
+  // 监听登录成功事件，强制更新在线状态
+  window.addEventListener('user-login-success', (event) => {
+    console.log('LastChats: 收到登录成功事件，强制更新在线状态')
+    const { userId } = event.detail
+    if (userId) {
+      // 触发在线状态的响应式更新
+      setTimeout(() => {
+        console.log('LastChats: 强制触发在线状态重新检查')
+      }, 100)
+    }
+  })
+  
   await getinfo()
   await getfriends()
 
@@ -2024,6 +2035,15 @@ onBeforeUnmount(() => {
 
   .theme-header h2 {
     font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .palette-icon {
+      width: 24px;
+      height: 24px;
+      stroke-width: 1.5;
+    }
   }
 
   .theme-card {

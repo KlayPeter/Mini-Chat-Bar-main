@@ -25,7 +25,9 @@
               style="width: 16px; height: 16px"
             />
           </button>
-          <button class="off" @click="offmessage">✖</button>
+          <button class="off" @click="offmessage">
+            <Xmark class="close-icon" />
+          </button>
         </div>
       </div>
       
@@ -86,6 +88,7 @@ import { useRoute } from 'vue-router'
 import { useChatStore } from '../stores/useChatStore'
 import axios from 'axios'
 import { watch } from 'vue'
+import { Xmark } from '@iconoir/vue'
 import { socket } from '../../utils/socket'
 import { onBeforeUnmount } from 'vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'

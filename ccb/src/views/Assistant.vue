@@ -32,7 +32,9 @@
               style="width: 16px; height: 16px"
             />
           </button>
-          <button class="off" @click="offmessage">✖</button>
+          <button class="off" @click="offmessage">
+            <Xmark class="close-icon" />
+          </button>
         </div>
       </div>
 
@@ -73,6 +75,7 @@
 <script setup>
 import { ref, nextTick, onMounted, computed } from "vue";
 import axios from "axios";
+import { Xmark } from '@iconoir/vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast';

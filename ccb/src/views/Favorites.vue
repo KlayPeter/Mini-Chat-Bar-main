@@ -29,12 +29,15 @@
         </div>
       </div>
     </div>
+    <!-- 移动端底部导航栏 -->
+    <BottomNavbar />
   </div>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
+import BottomNavbar from '../components/BottomNavbar.vue'
 import { Star } from '@iconoir/vue'
 
 const router = useRouter()
@@ -245,6 +248,8 @@ function showAI() {
     border-radius: 0;
     margin: 0;
     height: 100vh;
+    flex-direction: column;
+    padding-bottom: 70px;
   }
 
   .section1 {
@@ -261,6 +266,7 @@ function showAI() {
 
   .main {
     border-radius: 0;
+    height: calc(100vh - 70px);
   }
 
   .development-notice {

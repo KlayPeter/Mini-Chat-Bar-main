@@ -274,8 +274,11 @@ ul {
     }
 
     &:hover:not(.active) {
-      background: #f5f5f5;
-      color: #666;
+      background: var(--hover-bg, rgba(165, 42, 42, 0.05));
+      
+      svg {
+        color: var(--primary-color, rgb(165, 42, 42));
+      }
     }
 
     svg {

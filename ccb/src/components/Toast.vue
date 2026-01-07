@@ -141,31 +141,31 @@ defineExpose({ show, close })
 /* Toast类型样式 */
 .toast-success {
   .toast-icon {
-    color: #52c41a;
+    color: var(--success-color, #52c41a);
   }
 
   .toast-content {
-    border-left: 4px solid #52c41a;
+    border-left: 4px solid var(--success-color, #52c41a);
   }
 }
 
 .toast-error {
   .toast-icon {
-    color: #ff4d4f;
+    color: var(--error-color, #ff4d4f);
   }
 
   .toast-content {
-    border-left: 4px solid #ff4d4f;
+    border-left: 4px solid var(--error-color, #ff4d4f);
   }
 }
 
 .toast-warning {
   .toast-icon {
-    color: #faad14;
+    color: var(--warning-color, #faad14);
   }
 
   .toast-content {
-    border-left: 4px solid #faad14;
+    border-left: 4px solid var(--warning-color, #faad14);
   }
 }
 

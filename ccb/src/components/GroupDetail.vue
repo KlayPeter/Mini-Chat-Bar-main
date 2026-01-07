@@ -10,7 +10,7 @@
         <!-- 群基本信息 -->
         <div class="section">
           <div class="group-avatar-large">
-            <GroupAvatar :members="group.Members" :size="60" />
+            <GroupAvatar :members="group.Members" :size="48" />
           </div>
           <div class="group-name-edit">
             <input
@@ -78,7 +78,8 @@
             <p class="announcement-text">
               {{ group.Announcement || '暂无群公告' }}
             </p>
-            <button v-if="isAdmin" @click="startEditAnnouncement" class="edit-btn">
+            <button v-if="isAdmin" @click="startEditAnnouncement" class="edit-announcement-btn">
+              <EditPencil class="edit-icon" />
               编辑公告
             </button>
           </div>
@@ -478,8 +479,8 @@ onMounted(() => {
       }
 
       img {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         margin-right: 10px;
       }
@@ -535,6 +536,38 @@ onMounted(() => {
     line-height: 1.6;
   }
 
+  .edit-announcement-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+    color: var(--text-inverse, white);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-primary, 0 2px 8px rgba(165, 42, 42, 0.3));
+    
+    .edit-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 1.5;
+    }
+    
+    &:hover {
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(145, 32, 32, 1) 0%, rgba(120, 25, 25, 1) 100%));
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: var(--shadow-primary, 0 4px 15px rgba(165, 42, 42, 0.4));
+    }
+    
+    &:active {
+      transform: translateY(0) scale(1);
+    }
+  }
+
   textarea {
     width: 100%;
     padding: 10px;
@@ -588,16 +621,25 @@ onMounted(() => {
   &.actions {
     .leave-btn {
       width: 100%;
-      padding: 12px;
-      background: #ff4d4f;
-      color: white;
+      padding: 14px 20px;
+      background: var(--error-color, linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%));
+      color: var(--text-inverse, white);
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(255, 77, 79, 0.3);
 
       &:hover {
-        background: #ff7875;
+        background: var(--error-dark, linear-gradient(135deg, #ff1f23 0%, #d4001a 100%));
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 77, 79, 0.4);
+      }
+      
+      &:active {
+        transform: translateY(0);
       }
     }
   }

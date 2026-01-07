@@ -197,12 +197,14 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
+import { useOnlineStatus } from '../composables/useOnlineStatus'
 import { socket, waitForSocketConnection } from '../../utils/socket'
 import { PasswordValidator } from '../utils/passwordValidator'
 import CryptoJS from 'crypto-js'
 
 const toast = useToast()
 const router = useRouter()
+const { initOnlineStatus } = useOnlineStatus()
 
 // 视频相关
 const video = ref(null)
@@ -392,10 +394,29 @@ const loginWithPassword = async () => {
     localStorage.setItem('userEmail', res.data.user.email)
     localStorage.setItem('avatar', res.data.user.ava)
 
-    // 确保socket连接后发送登录事件
+    // 确保socket连接后发送登录事件和在线状态事件
     waitForSocketConnection(() => {
       socket.emit('login', res.data.user.id)
+      socket.emit('user-online', res.data.user.id)
       console.log('密码登录成功，用户上线事件已发送:', res.data.user.id)
+      
+      // 重新初始化在线状态管理系统
+      setTimeout(() => {
+        initOnlineStatus()
+        console.log('在线状态管理系统已重新初始化')
+        
+        // 额外延迟确保UI更新
+        setTimeout(() => {
+          // 强制触发响应式更新
+          const currentUserId = localStorage.getItem('userId')
+          console.log('强制更新在线状态，当前用户ID:', currentUserId)
+          
+          // 发送自定义事件通知UI组件更新
+          window.dispatchEvent(new CustomEvent('user-login-success', {
+            detail: { userId: currentUserId }
+          }))
+        }, 200)
+      }, 500)
     })
 
     toast.success('登录成功')
@@ -435,10 +456,29 @@ const loginWithCode = async () => {
     localStorage.setItem('userEmail', res.data.user.email)
     localStorage.setItem('avatar', res.data.user.ava)
 
-    // 确保socket连接后发送登录事件
+    // 确保socket连接后发送登录事件和在线状态事件
     waitForSocketConnection(() => {
       socket.emit('login', res.data.user.id)
+      socket.emit('user-online', res.data.user.id)
       console.log('验证码登录成功，用户上线事件已发送:', res.data.user.id)
+      
+      // 重新初始化在线状态管理系统
+      setTimeout(() => {
+        initOnlineStatus()
+        console.log('在线状态管理系统已重新初始化')
+        
+        // 额外延迟确保UI更新
+        setTimeout(() => {
+          // 强制触发响应式更新
+          const currentUserId = localStorage.getItem('userId')
+          console.log('强制更新在线状态，当前用户ID:', currentUserId)
+          
+          // 发送自定义事件通知UI组件更新
+          window.dispatchEvent(new CustomEvent('user-login-success', {
+            detail: { userId: currentUserId }
+          }))
+        }, 200)
+      }, 500)
     })
 
     toast.success('登录成功')
@@ -636,14 +676,14 @@ canvas {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     
     &:focus {
-      border-color: rgba(165, 42, 42, 0.6);
-      box-shadow: 0 0 0 3px rgba(165, 42, 42, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-color: var(--primary-color, rgba(165, 42, 42, 0.6));
+      box-shadow: 0 0 0 3px var(--hover-bg, rgba(165, 42, 42, 0.1)), 0 4px 12px rgba(0, 0, 0, 0.1);
       background: rgba(255, 255, 255, 1);
       transform: translateY(-1px);
     }
     
     &:hover:not(:focus) {
-      border-color: rgba(165, 42, 42, 0.3);
+      border-color: var(--primary-color, rgba(165, 42, 42, 0.3));
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
     }
     
@@ -655,15 +695,15 @@ canvas {
 
   button {
     padding: 12px 20px;
-    background: linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%);
-    color: #fff;
+    background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+    color: var(--text-inverse, #fff);
     border: none;
     border-radius: 10px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 15px rgba(165, 42, 42, 0.3);
+    box-shadow: var(--shadow-primary, 0 4px 15px rgba(165, 42, 42, 0.3));
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     margin: 5px auto 0;
     display: block;
@@ -686,9 +726,9 @@ canvas {
     }
 
     &:hover {
-      background: linear-gradient(135deg, rgba(165, 42, 42, 1) 0%, rgba(140, 35, 35, 1) 100%);
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 1) 0%, rgba(140, 35, 35, 1) 100%));
       transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 8px 25px rgba(165, 42, 42, 0.4);
+      box-shadow: var(--shadow-primary, 0 8px 25px rgba(165, 42, 42, 0.4));
 
       &::before {
         left: 100%;
@@ -743,8 +783,8 @@ canvas {
     }
 
     &:hover {
-      background: rgba(165, 42, 42, 0.1) !important;
-      color: rgba(165, 42, 42, 0.8) !important;
+      background: var(--hover-bg, rgba(165, 42, 42, 0.1)) !important;
+      color: var(--primary-color, rgba(165, 42, 42, 0.8)) !important;
       transform: translateY(-50%) scale(1.05) !important;
       box-shadow: none !important;
     }
@@ -770,7 +810,7 @@ canvas {
   transition: all 0.2s ease;
   
   &:hover {
-    color: rgba(165, 42, 42, 0.8);
+    color: var(--primary-color, rgba(165, 42, 42, 0.8));
     transform: scale(1.02);
   }
 }
@@ -799,15 +839,15 @@ canvas {
     position: relative;
 
     &.active {
-      background: rgba(165, 42, 42, 0.9);
-      color: white;
-      box-shadow: 0 3px 8px rgba(165, 42, 42, 0.4);
+      background: var(--primary-color, rgba(165, 42, 42, 0.9));
+      color: var(--text-inverse, white);
+      box-shadow: var(--shadow-primary, 0 3px 8px rgba(165, 42, 42, 0.4));
       transform: translateY(-0.5px);
     }
 
     &:not(.active):hover {
-      background: rgba(165, 42, 42, 0.1);
-      color: rgba(165, 42, 42, 0.8);
+      background: var(--hover-bg, rgba(165, 42, 42, 0.1));
+      color: var(--primary-color, rgba(165, 42, 42, 0.8));
       transform: translateY(-0.3px);
     }
 
@@ -839,15 +879,15 @@ canvas {
     flex: 0 0 auto;
     width: 100px;
     border-radius: 10px !important;
-    background-color: rgba(165, 42, 42, 0.85) !important;
-    color: #fff !important;
+    background-color: var(--primary-color, rgba(165, 42, 42, 0.85)) !important;
+    color: var(--text-inverse, #fff) !important;
     border: none !important;
     transition: all 0.3s ease !important;
     
     &:hover:not(:disabled) {
-      background-color: rgba(165, 42, 42, 1) !important;
+      background-color: var(--primary-dark, rgba(145, 32, 32, 1)) !important;
       transform: scale(1.02) !important;
-      box-shadow: 0 4px 12px rgba(165, 42, 42, 0.3) !important;
+      box-shadow: var(--shadow-primary, 0 4px 12px rgba(165, 42, 42, 0.3)) !important;
     }
     
     &:active:not(:disabled) {
@@ -855,13 +895,13 @@ canvas {
     }
     
     &:disabled {
-      background-color: rgba(165, 42, 42, 0.4) !important;
+      background-color: var(--text-tertiary, rgba(165, 42, 42, 0.4)) !important;
       cursor: not-allowed !important;
       transform: none !important;
       box-shadow: none !important;
       
       &:hover {
-        background-color: rgba(165, 42, 42, 0.4) !important;
+        background-color: var(--text-tertiary, rgba(165, 42, 42, 0.4)) !important;
         transform: none !important;
       }
     }

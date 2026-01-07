@@ -958,13 +958,13 @@ defineExpose({
     transition: all 0.3s ease;
     
     &:hover {
-      border-color: rgba(0, 123, 255, 0.3);
-      box-shadow: 0 4px 15px rgba(0, 123, 255, 0.1);
+      border-color: var(--primary-color, rgba(165, 42, 42, 0.3));
+      box-shadow: 0 4px 15px var(--hover-bg, rgba(165, 42, 42, 0.1));
     }
     
     &:focus-within {
-      border-color: #007bff;
-      box-shadow: 0 4px 20px rgba(0, 123, 255, 0.15);
+      border-color: var(--primary-color, rgba(165, 42, 42, 1));
+      box-shadow: 0 4px 20px var(--hover-bg, rgba(165, 42, 42, 0.15));
       transform: translateY(-1px);
     }
 
@@ -1073,24 +1073,24 @@ defineExpose({
         }
 
         &.send-btn {
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-          color: white;
+          background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+          color: var(--text-inverse, white);
           font-weight: 600;
-          box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+          box-shadow: var(--shadow-primary, 0 4px 15px rgba(165, 42, 42, 0.3));
           
           &:hover:not(:disabled) {
-            background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+            background: var(--primary-gradient, linear-gradient(135deg, rgba(145, 32, 32, 1) 0%, rgba(120, 25, 25, 1) 100%));
             transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4);
+            box-shadow: var(--shadow-primary, 0 8px 25px rgba(165, 42, 42, 0.4));
           }
           
           &:disabled {
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            background: var(--text-tertiary, linear-gradient(135deg, #6c757d 0%, #5a6268 100%));
             box-shadow: none;
           }
           
           &.active:not(:disabled) {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: var(--success-color, linear-gradient(135deg, #28a745 0%, #20c997 100%));
             animation: pulse 0.6s ease-in-out;
           }
         }

@@ -13,7 +13,7 @@
       @click="contacts"
       :class="{ active: activeTab === 'contacts' }"
     >
-      <font-awesome-icon icon="users" />
+      <font-awesome-icon icon="address-book" />
       <span>通讯录</span>
     </div>
     <div 
@@ -21,7 +21,7 @@
       @click="toGroupChat" 
       :class="{ active: activeTab === 'group' }"
     >
-      <font-awesome-icon :icon="['fas', 'users']" />
+      <font-awesome-icon icon="users" />
       <span>群聊</span>
     </div>
     <div
@@ -215,17 +215,17 @@ onBeforeUnmount(() => {
     }
 
     &.active {
-      background: linear-gradient(135deg, rgba(255, 127, 80, 0.1) 0%, rgba(255, 140, 100, 0.15) 100%);
+      background: var(--active-bg, rgba(165, 42, 42, 0.1));
       transform: translateY(-2px);
 
       svg,
       .ai-icon {
-        color: rgb(255, 127, 80);
-        filter: drop-shadow(0 0 8px rgba(255, 127, 80, 0.3));
+        color: var(--primary-color, rgb(165, 42, 42));
+        filter: drop-shadow(0 0 8px var(--primary-color, rgb(165, 42, 42)) 0.3);
       }
 
       span {
-        color: rgb(255, 127, 80);
+        color: var(--primary-color, rgb(165, 42, 42));
         font-weight: 600;
       }
     }
@@ -272,26 +272,26 @@ onBeforeUnmount(() => {
     }
 
     &:hover:not(.active) {
-      background: rgba(255, 127, 80, 0.05);
+      background: var(--hover-bg, rgba(165, 42, 42, 0.05));
 
       svg,
       .ai-icon {
         transform: scale(1.1);
-        color: rgb(255, 127, 80);
+        color: var(--primary-color, rgb(165, 42, 42));
       }
 
       .avatar-wrapper {
         transform: scale(1.1);
-        border-color: rgb(255, 127, 80);
+        border-color: var(--primary-color, rgb(165, 42, 42));
       }
 
       span {
-        color: rgb(255, 127, 80);
+        color: var(--primary-color, rgb(165, 42, 42));
       }
     }
 
     &.active .avatar-wrapper {
-      border-color: rgb(255, 127, 80);
+      border-color: var(--primary-color, rgb(165, 42, 42));
     }
   }
 }
@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
       }
 
       &.active {
-        background: linear-gradient(135deg, rgba(255, 127, 80, 0.12) 0%, rgba(255, 140, 100, 0.18) 100%);
+        background: var(--active-bg, rgba(165, 42, 42, 0.1));
       }
     }
   }

@@ -9,7 +9,7 @@ import { useOnlineStatus } from './composables/useOnlineStatus'
 import { onMounted, onUnmounted } from 'vue'
 
 const themeStore = useThemeStore()
-const { initOnlineStatus, cleanup } = useOnlineStatus()
+const { initOnlineStatus, fullCleanup } = useOnlineStatus()
 
 onMounted(() => {
   themeStore.initTheme()
@@ -19,7 +19,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   // 清理在线状态
-  cleanup()
+  fullCleanup()
 })
 </script>
 

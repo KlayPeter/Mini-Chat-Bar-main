@@ -135,23 +135,23 @@ defineExpose({
   }
   
   .cancel-btn {
-    background: #f8f9fa;
-    color: #6c757d;
-    border: 1px solid #dee2e6;
+    background: var(--bg-secondary, #f8f9fa);
+    color: var(--text-secondary, #6c757d);
+    border: 1px solid var(--border-color-light, #dee2e6);
     
     &:hover {
-      background: #e9ecef;
+      background: var(--hover-bg, #e9ecef);
     }
   }
   
   .confirm-btn {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    color: white;
+    background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+    color: var(--text-inverse, white);
     
     &:hover {
-      background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(140, 35, 35, 1) 0%, rgba(120, 25, 25, 1) 100%));
       transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+      box-shadow: var(--shadow-primary, 0 2px 8px rgba(165, 42, 42, 0.3));
     }
   }
 }

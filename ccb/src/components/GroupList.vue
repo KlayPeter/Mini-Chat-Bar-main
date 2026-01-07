@@ -3,7 +3,7 @@
     <div class="header">
       <h3>群聊</h3>
       <button class="create-btn" @click="showCreateDialog = true">
-        <i>➕</i> 创建群聊
+        <Plus class="create-icon" /> 创建群聊
       </button>
     </div>
 
@@ -82,6 +82,7 @@
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
+import { Plus } from '@iconoir/vue'
 import GroupAvatar from './GroupAvatar.vue'
 import { useToast } from '../composables/useToast'
 
@@ -784,21 +785,34 @@ defineExpose({
   }
 
   .create-btn {
-    padding: 6px 12px;
-    background: #07c160;
-    color: white;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+    color: var(--text-inverse, white);
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    font-size: 13px;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-primary, 0 2px 6px rgba(165, 42, 42, 0.25));
 
     &:hover {
-      background: #06ad56;
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(145, 32, 32, 1) 0%, rgba(120, 25, 25, 1) 100%));
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-primary, 0 4px 12px rgba(165, 42, 42, 0.35));
+    }
+    
+    &:active {
+      transform: translateY(0);
     }
 
-    i {
-      margin-right: 4px;
+    .create-icon {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2;
     }
   }
 }
@@ -819,11 +833,11 @@ defineExpose({
   transition: background 0.2s;
 
   &:hover {
-    background: #f5f5f5;
+    background: var(--hover-bg, rgba(165, 42, 42, 0.02));
   }
 
   &.active {
-    background: #e6f7ff;
+    background: var(--active-bg, rgba(165, 42, 42, 0.1));
   }
 
   .group-avatar {
@@ -839,9 +853,9 @@ defineExpose({
       right: 0;
       width: 12px;
       height: 12px;
-      background: #ff4757;
+      background: var(--error-color, #ff4757);
       border-radius: 50%;
-      border: 2px solid white;
+      border: 2px solid var(--bg-tertiary, white);
     }
 
     .mention-badge {
@@ -850,10 +864,10 @@ defineExpose({
       right: -8px;
       min-width: 50px;
       height: 20px;
-      background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
-      color: white;
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+      color: var(--text-inverse, white);
       border-radius: 10px;
-      border: 2px solid white;
+      border: 2px solid var(--bg-tertiary, white);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -872,10 +886,10 @@ defineExpose({
       right: -4px;
       min-width: 18px;
       height: 18px;
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-      color: white;
+      background: var(--error-color, linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%));
+      color: var(--text-inverse, white);
       border-radius: 10px;
-      border: 2px solid white;
+      border: 2px solid var(--bg-tertiary, white);
       display: flex;
       align-items: center;
       justify-content: center;

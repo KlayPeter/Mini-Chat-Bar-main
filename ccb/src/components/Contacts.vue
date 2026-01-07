@@ -547,16 +547,16 @@ onBeforeUnmount(() => {
   .search-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--border-color-light, #e0e0e0);
     border-radius: 20px;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--bg-secondary, rgba(0, 0, 0, 0.05));
     font-size: 0.9rem;
     transition: all 0.3s ease;
     
     &:focus {
       outline: none;
-      border-color: #007bff;
-      background-color: white;
+      border-color: var(--primary-color, #007bff);
+      background-color: var(--bg-tertiary, white);
     }
   }
 }
@@ -602,14 +602,14 @@ onBeforeUnmount(() => {
       align-items: center;
       /* background-color:rgba(165, 42, 42, 0.485);
          */
-      background-color: rgba(120, 25, 25, 0.6);
-      color: white;
+      background-color: var(--primary-dark, rgba(120, 25, 25, 0.6));
+      color: var(--text-inverse, white);
       cursor: pointer;
       transition: all 0.7s ease;
 
       &:hover {
         transform: translateX(5px);
-        background-color: rgba(165, 42, 42, 0.85);
+        background-color: var(--primary-color, rgba(165, 42, 42, 0.85));
       }
     }
   }
@@ -684,7 +684,7 @@ onBeforeUnmount(() => {
   /* flex: 0 0 25%; */
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: var(--hover-bg, rgba(165, 42, 42, 0.02));
   }
 }
 
@@ -711,14 +711,14 @@ onBeforeUnmount(() => {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: #d0d0d0; /* 离线：灰色 */
-    border: 2px solid white;
+    background-color: var(--text-light, #d0d0d0); /* 离线：灰色 */
+    border: 2px solid var(--bg-tertiary, white);
     box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease;
     
     &.online {
-      background-color: #52c41a; /* 在线：绿色 */
-      box-shadow: 0 0 6px rgba(82, 196, 26, 0.5);
+      background-color: var(--success-color, #52c41a); /* 在线：绿色 */
+      box-shadow: 0 0 6px var(--success-color, rgba(82, 196, 26, 0.5));
     }
   }
 }
@@ -1286,13 +1286,13 @@ onBeforeUnmount(() => {
   transition: all 0.2s ease;
 
   &:hover:not(.already-friend-item) {
-    background-color: rgba(165, 42, 42, 0.05);
+    background-color: var(--hover-bg, rgba(165, 42, 42, 0.05));
   }
 
   &.already-friend-item {
     opacity: 0.6;
     cursor: not-allowed;
-    background-color: rgba(240, 240, 240, 0.3);
+    background-color: var(--bg-secondary, rgba(240, 240, 240, 0.3));
   }
 
   .detail {
