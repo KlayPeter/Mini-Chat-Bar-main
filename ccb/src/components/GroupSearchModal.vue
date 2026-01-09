@@ -150,16 +150,10 @@ async function loadGroups() {
 // 加载所有历史消息
 async function loadAllMessages() {
   try {
-    const token = localStorage.getItem('token')
-    console.log('开始加载历史消息...')
-    const res = await axios.get(`${baseUrl}/room/search/messages`, {
+    const token = localStorage.getItem('token')    const res = await axios.get(`${baseUrl}/room/search/messages`, {
       headers: { Authorization: `Bearer ${token}` }
-    })
-    console.log('历史消息响应:', res.data)
-    if (res.data.success) {
-      allMessages.value = res.data.messages
-      console.log('加载了', allMessages.value.length, '条历史消息')
-    }
+    })    if (res.data.success) {
+      allMessages.value = res.data.messages    }
   } catch (err) {
     console.error('加载历史消息失败:', err)
     console.error('错误详情:', err.response?.data || err.message)
@@ -186,11 +180,7 @@ const filteredGroups = computed(() => {
 const filteredMessages = computed(() => {
   if (!searchQuery.value.trim()) return []
   
-  const query = searchQuery.value.toLowerCase()
-  console.log('搜索关键词:', query)
-  console.log('总消息数:', allMessages.value.length)
-  
-  // 过滤并排序消息
+  const query = searchQuery.value.toLowerCase()  // 过滤并排序消息
   const filtered = allMessages.value.filter(message => {
     // 只搜索文本消息
     if (message.messageType !== 'text') return false
@@ -206,11 +196,7 @@ const filteredMessages = computed(() => {
     }
     
     return false
-  })
-  
-  console.log('过滤后消息数:', filtered.length)
-  
-  // 按时间倒序排序（最新的在前）
+  })  // 按时间倒序排序（最新的在前）
   return filtered
     .sort((a, b) => new Date(b.time) - new Date(a.time))
     .slice(0, 50) // 限制结果数量

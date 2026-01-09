@@ -165,9 +165,7 @@ onMounted(async () => {
       // 如果是当前用户的头像更新，则更新本地头像
       const currentUserId = localStorage.getItem('userId')
       if (data.userId.toString() === currentUserId.toString()) {
-        avatar.value = data.newAvatarUrl
-        console.log('底部导航栏头像已更新:', data.newAvatarUrl)
-      }
+        avatar.value = data.newAvatarUrl      }
     })
   } catch (err) {
     console.error('用户头像获取失败：', err)

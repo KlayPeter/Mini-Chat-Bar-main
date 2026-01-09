@@ -271,14 +271,27 @@ class UserController {
   // 获取用户信息
   static async getUserInfo(req, res) {
     try {
+      console.log('=== getUserInfo被调用 ===');
+      console.log('用户ID:', req.user.userId);
+      
       const user = await Users.findOne({ uID: req.user.userId });
+      console.log('查找到的用户:', user ? user.uName : '未找到');
+      
       if (user) {
-        res.status(200).json({
-          id: user.uID,
-          name: user.uName,
-          ava: user.uAvatar,
-        });
+        const userInfo = {
+          user: {
+            uID: user.uID,
+            uName: user.uName,
+            uAvatar: user.uAvatar,
+            uEmail: user.uEmail,
+            provider: user.provider || 'local',
+            isEmailVerified: user.isEmailVerified || false
+          }
+        };
+        console.log('返回用户信息:', userInfo);
+        res.status(200).json(userInfo);
       } else {
+        console.log('用户不存在, userId:', req.user.userId);
         res.status(404).json({ message: "用户不存在" });
       }
     } catch (err) {

@@ -15,7 +15,6 @@
       style="display: none"
     ></video>
 
-
     <div class="flip-wrapper" :class="{ flipped: isFlipped }">
       <div class="login-box front"
       @mouseenter="onLoginBoxEnter"
@@ -88,6 +87,30 @@
             </button>
           </div>
           <button @click="loginWithCode">登录</button>
+        </div>
+
+        <!-- OAuth 登录分割线 -->
+        <div class="oauth-divider">
+          <span>或者使用以下方式登录</span>
+        </div>
+
+        <!-- OAuth 登录按钮 -->
+        <div class="oauth-buttons">
+          <button @click="loginWithGoogle" class="oauth-btn google-btn">
+            <svg class="oauth-icon" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google 登录
+          </button>
+          <button @click="loginWithGitHub" class="oauth-btn github-btn">
+            <svg class="oauth-icon" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            GitHub 登录
+          </button>
         </div>
 
         <div class="flip-link" @click="toggleFlip">还没有账号？点击注册</div>
@@ -398,19 +421,13 @@ const loginWithPassword = async () => {
     waitForSocketConnection(() => {
       socket.emit('login', res.data.user.id)
       socket.emit('user-online', res.data.user.id)
-      console.log('密码登录成功，用户上线事件已发送:', res.data.user.id)
-      
       // 重新初始化在线状态管理系统
       setTimeout(() => {
         initOnlineStatus()
-        console.log('在线状态管理系统已重新初始化')
-        
         // 额外延迟确保UI更新
         setTimeout(() => {
           // 强制触发响应式更新
           const currentUserId = localStorage.getItem('userId')
-          console.log('强制更新在线状态，当前用户ID:', currentUserId)
-          
           // 发送自定义事件通知UI组件更新
           window.dispatchEvent(new CustomEvent('user-login-success', {
             detail: { userId: currentUserId }
@@ -460,19 +477,13 @@ const loginWithCode = async () => {
     waitForSocketConnection(() => {
       socket.emit('login', res.data.user.id)
       socket.emit('user-online', res.data.user.id)
-      console.log('验证码登录成功，用户上线事件已发送:', res.data.user.id)
-      
       // 重新初始化在线状态管理系统
       setTimeout(() => {
         initOnlineStatus()
-        console.log('在线状态管理系统已重新初始化')
-        
         // 额外延迟确保UI更新
         setTimeout(() => {
           // 强制触发响应式更新
           const currentUserId = localStorage.getItem('userId')
-          console.log('强制更新在线状态，当前用户ID:', currentUserId)
-          
           // 发送自定义事件通知UI组件更新
           window.dispatchEvent(new CustomEvent('user-login-success', {
             detail: { userId: currentUserId }
@@ -551,6 +562,84 @@ const registerWithEmail = async () => {
     }
   }
 }
+
+// Google OAuth 登录
+const loginWithGoogle = () => {
+  window.location.href = `${import.meta.env.VITE_BASE_URL}/auth/google`
+}
+
+// GitHub OAuth 登录
+const loginWithGitHub = () => {
+  window.location.href = `${import.meta.env.VITE_BASE_URL}/auth/github`
+}
+
+// 检查URL参数中的OAuth回调结果
+const checkOAuthCallback = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  const provider = urlParams.get('provider')
+  const success = urlParams.get('success')
+  const error = urlParams.get('error')
+
+  if (success && token) {
+    // OAuth登录成功
+    localStorage.setItem('token', token)
+    
+    // 立即获取用户信息并初始化在线状态
+    setTimeout(async () => {
+      try {
+        const userRes = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/user/info`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        
+        const currentUserId = userRes.data.user.uID
+        localStorage.setItem('userId', currentUserId)
+        localStorage.setItem('userEmail', userRes.data.user.uEmail || '')
+        localStorage.setItem('userName', userRes.data.user.uName || '')
+
+        // 初始化在线状态和Socket连接
+        await waitForSocketConnection()
+        initOnlineStatus()
+        
+        // 发送自定义事件通知UI组件更新
+        window.dispatchEvent(new CustomEvent('user-login-success', {
+          detail: { userId: currentUserId }
+        }))
+
+        // OAuth登录完成后跳转到首页
+        router.push('/')
+      } catch (error) {
+        console.error('获取用户信息失败:', error)
+        // 如果获取用户信息失败，清除token并保持在登录页
+        localStorage.removeItem('token')
+        toast.error(`${provider} 登录失败：无法获取用户信息`)
+      }
+    }, 500)
+
+    toast.success(`${provider === 'google' ? 'Google' : 'GitHub'} 登录成功`)
+    
+    // 清理URL参数
+    window.history.replaceState({}, document.title, window.location.pathname)
+  } else if (error) {
+    // OAuth登录失败
+    const errorMessages = {
+      google_auth_failed: 'Google登录失败，请重试',
+      github_auth_failed: 'GitHub登录失败，请重试',
+      callback_processing_failed: '登录回调处理失败，请重试'
+    }
+    
+    toast.error(errorMessages[error] || 'OAuth登录失败')
+    
+    // 清理URL参数
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
+}
+
+// 在组件挂载时检查OAuth回调
+onMounted(() => {
+  ctx = canvas.value.getContext('2d')
+  checkOAuthCallback()
+})
 
 </script>
 
@@ -706,7 +795,8 @@ canvas {
     box-shadow: var(--shadow-primary, 0 4px 15px rgba(165, 42, 42, 0.3));
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     margin: 5px auto 0;
-    display: block;
+    display: flex;
+    justify-content: center;
     width: 100%;
     position: relative;
     overflow: hidden;
@@ -973,6 +1063,109 @@ canvas {
         margin-bottom: 0;
       }
     }
+  }
+}
+
+/* OAuth 登录分割线 */
+.oauth-divider {
+  margin: 20px 0 16px;
+  text-align: center;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(165, 42, 42, 0.3), transparent);
+  }
+  
+  span {
+    background: rgba(255, 255, 255, 0.94);
+    padding: 0 16px;
+    font-size: 12px;
+    color: rgba(165, 42, 42, 0.7);
+    font-weight: 500;
+  }
+}
+
+/* OAuth 登录按钮容器 */
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* OAuth 登录按钮样式 */
+.oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border: 1px solid rgba(165, 42, 42, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(165, 42, 42, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    &::before {
+      left: 100%;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .oauth-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+}
+
+/* Google 按钮特殊样式 */
+.google-btn {
+  &:hover {
+    background: rgba(66, 133, 244, 0.05);
+    border-color: rgba(66, 133, 244, 0.3);
+    color: #4285f4;
+  }
+}
+
+/* GitHub 按钮特殊样式 */
+.github-btn {
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.3);
+    color: #333;
   }
 }
 </style>

@@ -482,10 +482,7 @@ async function switchChat(friend) {
       )
 
       // 清除未读标记
-      friend.unreadCount = 0
-
-      console.log(`已标记与 ${friend.name} 的消息为已读`)
-    } catch (err) {
+      friend.unreadCount = 0    } catch (err) {
       console.error('标记消息为已读失败:', err)
     }
   }
@@ -513,15 +510,18 @@ async function getinfo() {
           authorization: `Bearer ${token}`,
         },
       }
-    )
+    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar, ... } }
+    if (res.data && res.data.user) {
+      userava.value = res.data.user.uAvatar
+      avatarKey.value = Date.now() // 使用时间戳强制刷新头像显示
+      userid.value = res.data.user.uID
+      username.value = res.data.user.uName
 
-    userava.value = res.data.ava
-    avatarKey.value = Date.now() // 使用时间戳强制刷新头像显示
-    userid.value = res.data.id
-    username.value = res.data.name
-
-    // 发送登录事件
-    socket.emit('login', res.data.id)
+      // 发送登录事件
+      socket.emit('login', res.data.user.uID)
+    } else {
+      console.error('用户信息格式不正确:', res.data)
+    }
   } catch (err) {
     console.error('用户名获取失败：', err)
   }
@@ -601,10 +601,7 @@ async function getfriends() {
       const unreadCounts = unreadRes.data
       transformedFriends.forEach((friend) => {
         friend.unreadCount = unreadCounts[friend.id] || 0
-      })
-
-      console.log('未读消息数量:', unreadCounts)
-    } catch (err) {
+      })    } catch (err) {
       console.error('获取未读消息数量失败:', err)
     }
 
@@ -1014,11 +1011,7 @@ async function handleSearch() {
             limit: 20,
           },
         }
-      )
-
-      console.log('用户搜索响应:', response.data)
-
-      if (response.data && response.data.success) {
+      )      if (response.data && response.data.success) {
         const userResults = response.data.data.results || []
         // 为用户结果添加类型标识
         searchResults.value = userResults.map((user) => ({
@@ -1067,9 +1060,7 @@ function jumpToUserChat(user) {
     // 切换到对应的聊天
     switchChat(friend)
   } else {
-    // 如果好友列表中没有，可能需要添加到好友列表或直接开始聊天
-    console.log('用户不在好友列表中:', user)
-  }
+    // 如果好友列表中没有，可能需要添加到好友列表或直接开始聊天  }
 
   // 清空搜索
   searchKeyword.value = ''

@@ -117,8 +117,12 @@ async function fetchUserAvatar() {
           authorization: `Bearer ${token}`,
         },
       }
-    )
-    avatar.value = res.data.ava
+    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
+    if (res.data && res.data.user) {
+      avatar.value = res.data.user.uAvatar
+    } else {
+      console.error('用户信息格式不正确:', res.data)
+    }
   } catch (err) {
     console.error('用户头像获取失败：', err)
   }

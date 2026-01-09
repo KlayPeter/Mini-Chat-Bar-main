@@ -212,19 +212,13 @@ function handlePlayVoice(fileInfo) {
   })
 }
 
-function handleForwardMessage(message) {
-  console.log('转发单条消息:', message)
-  forwardMessages.value = [message]
+function handleForwardMessage(message) {  forwardMessages.value = [message]
   showForwardDialog.value = true
 }
 
 // 批量转发消息 - 模仿微信逻辑
 function handleForwardMessages(messages) {
-  if (!messages || messages.length === 0) return
-  
-  console.log('批量转发消息:', messages)
-  
-  // 检查转发消息数量限制（微信通常限制30条）
+  if (!messages || messages.length === 0) return  // 检查转发消息数量限制（微信通常限制30条）
   if (messages.length > 30) {
     toast.error('一次最多转发30条消息')
     return
@@ -256,10 +250,7 @@ async function handleDeleteMessages(messagesToDelete) {
   })
   
   if (confirmed) {
-    try {
-      console.log('批量删除消息:', messagesToDelete)
-      
-      // 获取要删除的消息ID列表
+    try {      // 获取要删除的消息ID列表
       const messageIds = messagesToDelete.map(msg => msg._id || msg.id).filter(id => id)
       
       // 如果有消息ID，尝试调用服务端API删除
@@ -275,10 +266,7 @@ async function handleDeleteMessages(messagesToDelete) {
               messageIds: messageIds,
               chatUserId: chatstore.currentChatUser
             }
-          })
-          
-          console.log('服务端批量删除成功')
-        } catch (apiError) {
+          })        } catch (apiError) {
           console.warn('服务端批量删除失败，使用客户端删除:', apiError)
         }
       }
@@ -306,9 +294,7 @@ async function handleDeleteMessages(messagesToDelete) {
 
 // 处理转发完成
 function handleForwardComplete() {
-  // 转发完成后的处理
-  console.log('转发完成')
-}
+  // 转发完成后的处理}
 
 // 处理撤回消息
 async function handleRecallMessage(messageIndex) {
@@ -535,11 +521,11 @@ async function getMyAvatar() {
       {
         headers: { Authorization: `Bearer ${token}` }
       }
-    )
-    
-    if (response.data && response.data.ava) {
-      myAvatar.value = response.data.ava
+    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
+    if (response.data && response.data.user && response.data.user.uAvatar) {
+      myAvatar.value = response.data.user.uAvatar
     } else {
+      console.warn('用户头像数据不存在，使用默认头像')
       myAvatar.value = '/images/avatar/default-avatar.webp'
     }
   } catch (error) {
@@ -700,9 +686,7 @@ onMounted(() => {
     'private-file-message',
     async ({ from, fileUrl, fileName, fileType, messageType }) => {
       // 只有当消息来自当前聊天用户时才刷新消息列表
-      if (from === chatstore.currentChatUser) {
-        console.log('收到私聊文件消息，刷新消息列表')
-        await getlists()
+      if (from === chatstore.currentChatUser) {        await getlists()
       }
     }
   )
@@ -736,11 +720,7 @@ onMounted(() => {
 
 watch(
   () => chatstore.currentChatUser,
-  async (newUser, oldUser) => {
-    console.log('聊天用户变化:', { newUser, oldUser })
-    if (newUser !== oldUser && newUser) {
-      console.log('开始加载聊天内容，用户ID:', newUser)
-      // 当聊天用户切换时，更新用户名和头像
+  async (newUser, oldUser) => {    if (newUser !== oldUser && newUser) {      // 当聊天用户切换时，更新用户名和头像
       if (route.query.uname) {
         uname.value = route.query.uname
       }

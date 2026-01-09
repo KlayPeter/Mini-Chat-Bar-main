@@ -11,6 +11,14 @@ const router = express.Router();
 const auth = require("../middlewares/auth");
 const UserController = require("../controllers/UserController");
 
+console.log('=== User路由模块已加载 ===');
+
+// 测试路由 - 验证user路由是否工作
+router.get('/test', (req, res) => {
+  console.log('User测试路由被访问');
+  res.json({ message: 'User路由正常工作', timestamp: new Date().toISOString() });
+});
+
 // 发送验证码邮件
 router.post("/send-verification", UserController.sendVerificationCode);
 
@@ -28,7 +36,14 @@ router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 
 //获取当前用户基本信息
-router.get("/info", auth, UserController.getUserInfo);
+router.get("/info", (req, res, next) => {
+  console.log('=== /api/user/info 路由被访问 ===');
+  console.log('请求头:', req.headers.authorization);
+  next();
+}, auth, (req, res, next) => {
+  console.log('=== Auth中间件通过，用户信息:', req.user);
+  next();
+}, UserController.getUserInfo);
 
 //获取好友头像
 router.get("/friend_avatar/:id", UserController.getFriendAvatar);

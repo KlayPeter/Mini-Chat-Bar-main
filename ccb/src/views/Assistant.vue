@@ -267,9 +267,7 @@ const send = async (content) => {
     from: "user",
     content: content,
     time: new Date().toISOString()
-  };
-  console.log('发送用户消息:', userMessage);
-  messages.value.push(userMessage);
+  };  messages.value.push(userMessage);
   
   // 清空输入框
   if (chatInputRef.value) {

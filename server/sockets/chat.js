@@ -4,6 +4,12 @@ const onlineUsers = new Set() // 在线用户ID集合
 
 module.exports = function(socket, io) {
   socket.on("login", (userId) => {
+    // 验证userId是否有效
+    if (!userId || userId === 'null' || userId === 'undefined' || userId.trim() === '') {
+      console.log(`收到无效的登录请求:${userId}，忽略`)
+      return
+    }
+    
     socket.userId = userId
     console.log(`收到登录请求:${userId}`)
     
@@ -29,7 +35,7 @@ module.exports = function(socket, io) {
   
   // 用户主动上线
   socket.on('user-online', (userId) => {
-    if (userId && !onlineUsers.has(userId)) {
+    if (userId && userId !== 'null' && userId !== 'undefined' && userId.trim() !== '' && !onlineUsers.has(userId)) {
       onlineUsers.add(userId)
       console.log(`用户 ${userId} 上线`)
       io.emit('user-online-notification', userId)
@@ -38,7 +44,7 @@ module.exports = function(socket, io) {
   
   // 用户主动离线
   socket.on('user-offline', (userId) => {
-    if (userId && onlineUsers.has(userId)) {
+    if (userId && userId !== 'null' && userId !== 'undefined' && userId.trim() !== '' && onlineUsers.has(userId)) {
       onlineUsers.delete(userId)
       console.log(`用户 ${userId} 离线`)
       io.emit('user-offline-notification', userId)

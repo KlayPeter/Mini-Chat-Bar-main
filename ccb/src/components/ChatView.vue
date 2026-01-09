@@ -107,8 +107,6 @@ function setcolor(data) {
 
 //显示聊天内容
 function showdetail({ uname, img, userId }) {
-  console.log('显示聊天详情:', { uname, img, userId })
-
   showcontent.value = true
 
   // 设置当前聊天用户

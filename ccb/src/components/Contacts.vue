@@ -232,11 +232,7 @@ async function handleSearch() {
         params: {
           query: searchKeyword.value
         }
-      });
-      
-      console.log("用户搜索响应:", response.data);
-      
-      if (response.data && response.data.users) {
+      });      if (response.data && response.data.users) {
         const userResults = response.data.users || [];
         
         // 为用户结果添加类型标识和高亮名称
@@ -291,10 +287,7 @@ async function confirmAddFriend() {
   try {
     const token = localStorage.getItem("token");
     
-    // 调试：打印用户信息
-    console.log("添加好友用户信息:", selectedUser.value);
-    
-    // 获取用户ID
+    // 调试：打印用户信息    // 获取用户ID
     const friendId = selectedUser.value.uID || selectedUser.value.id;
     
     if (!friendId) {

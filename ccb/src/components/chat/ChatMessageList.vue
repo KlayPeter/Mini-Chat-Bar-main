@@ -213,17 +213,6 @@ function shouldHideTime(message, index) {
   // 如果两条消息时间间隔小于2分钟（120000毫秒），则隐藏当前消息的时间
   const timeDiff = currentTime - previousTime
   
-  // 临时调试信息
-  console.log(`时间合并检查 - 索引${index}:`, {
-    currentTime: message.time,
-    previousTime: previousMessage.time,
-    currentTimeMs: currentTime,
-    previousTimeMs: previousTime,
-    timeDiff: timeDiff,
-    timeDiffMinutes: timeDiff / 60000,
-    shouldHide: timeDiff < 120000 && timeDiff >= 0
-  })
-  
   return timeDiff < 120000 && timeDiff >= 0 // 2分钟 = 120000毫秒，且时间差为正数
 }
 

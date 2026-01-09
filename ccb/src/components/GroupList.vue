@@ -119,9 +119,7 @@ async function loadGroups() {
         loadLastMessage(group.RoomID)
       }
       
-      // 关键修复：加载完群聊后立即通知GroupChat加入所有Socket房间
-      console.log('📋 群聊列表加载完成，准备加入所有Socket房间...')
-      joinAllGroupRooms()
+      // 关键修复：加载完群聊后立即通知GroupChat加入所有Socket房间      joinAllGroupRooms()
     }
   } catch (err) {
     console.error('获取群聊列表失败:', err)
@@ -199,70 +197,30 @@ function hasMentionAlert(roomId) {
 }
 
 // 标记群聊有新消息（可以从socket事件调用）
-function markGroupAsUnread(roomId, messageContent, senderName) {
-  console.log('========== markGroupAsUnread 被调用 ==========')
-  console.log('房间ID:', roomId)
-  console.log('当前群聊ID:', currentGroupId.value)
-  console.log('消息内容:', messageContent)
-  console.log('发送者:', senderName)
-  console.log('是否为其他群聊:', roomId !== currentGroupId.value)
-  
-  if (roomId !== currentGroupId.value) {
-    console.log('📌 开始更新未读状态...')
-    
-    // 添加未读群组
+function markGroupAsUnread(roomId, messageContent, senderName) {  if (roomId !== currentGroupId.value) {    // 添加未读群组
     unreadGroups.value.add(roomId)
     console.log('未读群组列表:', Array.from(unreadGroups.value))
     
     // 增加未读消息数量
     const oldCount = unreadCounts.value[roomId] || 0
-    unreadCounts.value[roomId] = oldCount + 1
-    console.log(`未读数量: ${oldCount} -> ${unreadCounts.value[roomId]}`)
-    
-    // 更新群聊列表中的最新消息显示
+    unreadCounts.value[roomId] = oldCount + 1    // 更新群聊列表中的最新消息显示
     if (messageContent && senderName) {
       groupLastMessages.value[roomId] = {
         content: messageContent,
         fromName: senderName,
         messageType: 'text',
         createdAt: new Date()
-      }
-      console.log('✅ 已更新最新消息:', groupLastMessages.value[roomId])
-    } else {
-      console.log('⚠️ 消息内容或发送者为空，跳过消息更新')
-    }
-    
-    console.log('未读数量对象:', unreadCounts.value)
-    console.log('最新消息对象:', groupLastMessages.value)
-    console.log('=============================================')
-  } else {
-    console.log('⚠️ 是当前群聊，跳过未读标记')
-  }
+      }    } else {    }  } else {  }
 }
 
 // 标记群聊有@提醒
-function markGroupAsMentioned(roomId) {
-  console.log('========== markGroupAsMentioned 被调用 ==========')
-  console.log('房间ID:', roomId)
-  console.log('当前群聊ID:', currentGroupId.value)
-  console.log('是否为其他群聊:', roomId !== currentGroupId.value)
-  
-  if (roomId !== currentGroupId.value) {
-    console.log('📌 开始标记@提醒...')
-    
-    // 添加@提醒标记
+function markGroupAsMentioned(roomId) {  if (roomId !== currentGroupId.value) {    // 添加@提醒标记
     mentionAlerts.value.add(roomId)
     console.log('@提醒列表:', Array.from(mentionAlerts.value))
     
     // 也添加到未读群组列表
     unreadGroups.value.add(roomId)
-    console.log('未读群组列表:', Array.from(unreadGroups.value))
-    
-    console.log('✅ @提醒标记完成')
-    console.log('===============================================')
-  } else {
-    console.log('⚠️ 是当前群聊，跳过@提醒标记')
-  }
+    console.log('未读群组列表:', Array.from(unreadGroups.value))  } else {  }
 }
 
 // 切换好友选择
@@ -355,9 +313,7 @@ function getLastMessage(group) {
       break
   }
   
-  const result = `${lastMsg.fromName}: ${displayContent}`
-  console.log(`最新消息显示: ${result}`)
-  return result
+  const result = `${lastMsg.fromName}: ${displayContent}`  return result
 }
 
 // 获取最后一条消息的时间（仿照私聊列表的时间格式）
@@ -381,15 +337,10 @@ function formatDate(dateStr) {
 
 
 // 加入所有群聊Socket房间
-function joinAllGroupRooms() {
-  console.log('🚪 GroupList通知：准备加入所有群聊Socket房间')
-  console.log('当前群聊列表:', groups.value.map(g => ({id: g.RoomID, name: g.RoomName})))
+function joinAllGroupRooms() {  console.log('当前群聊列表:', groups.value.map(g => ({id: g.RoomID, name: g.RoomName})))
   
   // 从localStorage获取当前用户ID
-  const userId = localStorage.getItem('userId')
-  console.log('👤 当前用户ID:', userId)
-  
-  // 发出自定义事件通知父组件GroupChat
+  const userId = localStorage.getItem('userId')  // 发出自定义事件通知父组件GroupChat
   const event = new CustomEvent('joinAllRooms', {
     detail: {
       groups: groups.value,
@@ -398,10 +349,7 @@ function joinAllGroupRooms() {
   })
   
   // 通过window分发事件给GroupChat监听
-  window.dispatchEvent(event)
-  
-  console.log('📡 已发送加入所有房间的事件通知')
-}
+  window.dispatchEvent(event)}
 
 // 给GroupList添加独立的Socket监听，就像私聊一样！
 let groupSocket = null
@@ -419,15 +367,7 @@ function initGroupSocket() {
     forceNew: false
   })
   
-  groupSocket.on('connect', () => {
-    console.log('🎯 GroupList独立Socket连接成功:', groupSocket.id)
-    console.log('👤 用户ID:', localStorage.getItem('userId'))
-    console.log('🔄 Socket连接状态:', {
-      connected: groupSocket.connected,
-      id: groupSocket.id
-    })
-    
-    // 发送用户登录事件，就像私聊那样
+  groupSocket.on('connect', () => {    console.log('👤 用户ID:', localStorage.getItem('userId'))    // 发送用户登录事件，就像私聊那样
     groupSocket.emit('login', localStorage.getItem('userId'))
     
     // 延迟加入房间，确保连接稳定
@@ -437,21 +377,14 @@ function initGroupSocket() {
   })
   
   // 专门的房间加入函数
-  function joinAllRooms() {
-    console.log('🚪 开始加入所有群聊房间，当前群聊数量:', groups.value.length)
-    
-    groups.value.forEach(group => {
+  function joinAllRooms() {    groups.value.forEach(group => {
       // 发送多种房间加入事件，确保兼容性
       groupSocket.emit('join-group', {
         roomId: group.RoomID,
         userId: localStorage.getItem('userId')
       })
       groupSocket.emit('join-room', group.RoomID)
-      groupSocket.emit('join', group.RoomID)
-      
-      console.log('🏠 GroupList加入房间:', group.RoomID, group.RoomName)
-      
-      // 验证房间加入状态
+      groupSocket.emit('join', group.RoomID)      // 验证房间加入状态
       setTimeout(() => {
         groupSocket.emit('room-status', group.RoomID)
       }, 1000)
@@ -459,9 +392,7 @@ function initGroupSocket() {
   }
   
   // 重连时重新加入所有房间
-  groupSocket.on('reconnect', () => {
-    console.log('🔄 GroupList Socket重连成功，重新加入房间')
-    setTimeout(() => {
+  groupSocket.on('reconnect', () => {    setTimeout(() => {
       joinAllRooms()
     }, 1000)
   })
@@ -518,84 +449,43 @@ function initGroupSocket() {
   })
   
   // 监听@提及通知事件
-  groupSocket.on('mention-notification', (data) => {
-    console.log('🔔🔔🔔 GroupList收到@提及通知 🔔🔔🔔')
-    console.log('完整数据:', JSON.stringify(data, null, 2))
-    console.log('当前用户ID:', localStorage.getItem('userId'))
-    console.log('当前群聊ID:', currentGroupId.value)
-    console.log('消息来源群聊ID:', data.roomId)
-    
-    // 先强制测试，无论什么情况都标记@提醒
-    if (data.roomId && data.roomId !== currentGroupId.value) {
-      console.log('🧪 强制测试：直接标记@提醒')
-      markGroupAsMentioned(data.roomId)
+  groupSocket.on('mention-notification', (data) => {    console.log('完整数据:', JSON.stringify(data, null, 2))
+    console.log('当前用户ID:', localStorage.getItem('userId'))    // 先强制测试，无论什么情况都标记@提醒
+    if (data.roomId && data.roomId !== currentGroupId.value) {      markGroupAsMentioned(data.roomId)
       return
     }
     
     const currentUserId = localStorage.getItem('userId')
     
     // 检查是否有mentions数组
-    if (!data.mentions) {
-      console.log('❌ 没有mentions数组')
-      return
-    }
-    
-    console.log('📋 提及信息数组:', data.mentions)
-    
-    // 详细检查是否@了当前用户
-    const isMentioned = data.mentions.some(mention => {
-      console.log('🔍 检查单个提及:', mention)
-      console.log('提及类型:', mention.type)
-      console.log('提及用户ID:', mention.userId)
-      console.log('当前用户ID:', currentUserId)
-      
-      if (mention.type === 'all') {
-        console.log('✅ @全体成员匹配')
-        return true
+    if (!data.mentions) {      return
+    }    // 详细检查是否@了当前用户
+    const isMentioned = data.mentions.some(mention => {      if (mention.type === 'all') {        return true
       }
       
       if (mention.type === 'user') {
         // 确保字符串比较
         const mentionId = String(mention.userId)
         const currentId = String(currentUserId)
-        const isMatch = mentionId === currentId
-        console.log(`🔍 用户ID比较: "${mentionId}" === "${currentId}" = ${isMatch}`)
-        return isMatch
+        const isMatch = mentionId === currentId        return isMatch
       }
       
       return false
-    })
-    
-    console.log('📊 最终@提及结果:', isMentioned)
-    console.log('📊 是否为其他群聊:', data.roomId !== currentGroupId.value)
-    
-    if (isMentioned && data.roomId !== currentGroupId.value) {
-      console.log('✅✅✅ 当前用户被@提及，标记群聊:', data.roomId)
-      markGroupAsMentioned(data.roomId)
+    })    if (isMentioned && data.roomId !== currentGroupId.value) {      markGroupAsMentioned(data.roomId)
       
       // 播放提示音
       try {
         const audio = new Audio('/sounds/mention-notification.mp3')
         audio.volume = 0.3
-        audio.play().catch(() => {
-          console.log('提示音播放失败')
-        })
-      } catch (err) {
-        console.log('提示音加载失败:', err)
-      }
+        audio.play().catch(() => {        })
+      } catch (err) {      }
     } else {
-      if (!isMentioned) {
-        console.log('❌ 当前用户未被@提及')
-      }
-      if (data.roomId === currentGroupId.value) {
-        console.log('❌ 是当前群聊，不显示@提醒')
-      }
+      if (!isMentioned) {      }
+      if (data.roomId === currentGroupId.value) {      }
     }
   })
   
-  groupSocket.on('disconnect', () => {
-    console.log('🎯 GroupList Socket断开连接')
-  })
+  groupSocket.on('disconnect', () => {  })
   
   groupSocket.on('connect_error', (error) => {
     console.error('🎯 GroupList Socket连接错误:', error)
@@ -603,10 +493,7 @@ function initGroupSocket() {
 }
 
 // 实现群聊的updateGroupMessage函数，就像私聊的updateFriendMessage
-async function updateGroupMessage(roomId) {
-  console.log('🔄 开始更新群聊消息:', roomId)
-  
-  try {
+async function updateGroupMessage(roomId) {  try {
     const token = localStorage.getItem('token')
     
     // 获取群聊最新消息
@@ -620,28 +507,12 @@ async function updateGroupMessage(roomId) {
       // 🔧 修复：应用"自己的消息显示我"的逻辑
       const currentUserId = localStorage.getItem('userId')
       const isMyMessage = String(lastMsg.from) === String(currentUserId)
-      const displayName = isMyMessage ? '我' : lastMsg.fromName
-      
-      console.log('🔄 更新消息显示名称:', {
-        roomId: roomId,
-        from: lastMsg.from,
-        currentUserId: currentUserId,
-        isMyMessage: isMyMessage,
-        originalFromName: lastMsg.fromName,
-        displayName: displayName
-      })
-      
-      // 更新数据，应用显示逻辑
+      const displayName = isMyMessage ? '我' : lastMsg.fromName      // 更新数据，应用显示逻辑
       groupLastMessages.value[roomId] = {
         ...lastMsg,
         fromName: displayName  // 应用显示逻辑
-      }
-      console.log('✅ 更新群聊最新消息:', roomId, lastMsg.content)
-      
-      // 🔧 修复：通过markGroupAsUnread统一处理，避免重复计数
-      if (roomId !== currentGroupId.value) {
-        console.log('📞 调用markGroupAsUnread统一处理未读状态')
-        markGroupAsUnread(roomId, lastMsg.content, displayName)
+      }      // 🔧 修复：通过markGroupAsUnread统一处理，避免重复计数
+      if (roomId !== currentGroupId.value) {        markGroupAsUnread(roomId, lastMsg.content, displayName)
       }
       
       // 关键修复：重新排序群聊列表，有新消息的群聊排到最前面
@@ -653,9 +524,7 @@ async function updateGroupMessage(roomId) {
 }
 
 // 按活跃度排序群聊列表（有新消息的排前面）
-function sortGroupsByActivity() {
-  console.log('🔄 开始群聊排序...')
-  console.log('排序前群聊顺序:', groups.value.map(g => ({
+function sortGroupsByActivity() {  console.log('排序前群聊顺序:', groups.value.map(g => ({
     id: g.RoomID,
     name: g.RoomName,
     hasUnread: unreadGroups.value.has(g.RoomID),
@@ -675,11 +544,7 @@ function sortGroupsByActivity() {
     
     // 有未读消息的群聊优先级更高
     const aHasUnread = unreadGroups.value.has(a.RoomID) || mentionAlerts.value.has(a.RoomID)
-    const bHasUnread = unreadGroups.value.has(b.RoomID) || mentionAlerts.value.has(b.RoomID)
-    
-    console.log(`${a.RoomName}未读:${aHasUnread}, ${b.RoomName}未读:${bHasUnread}`)
-    
-    if (aHasUnread && !bHasUnread) return -1
+    const bHasUnread = unreadGroups.value.has(b.RoomID) || mentionAlerts.value.has(b.RoomID)    if (aHasUnread && !bHasUnread) return -1
     if (!aHasUnread && bHasUnread) return 1
     
     // 按最新消息时间降序排序
@@ -689,25 +554,11 @@ function sortGroupsByActivity() {
   console.log('排序后群聊顺序:', groups.value.map(g => ({
     id: g.RoomID,
     name: g.RoomName
-  })))
-  console.log('✅ 群聊列表重新排序完成')
-}
+  })))}
 
 // 直接更新群聊最新消息（由GroupChat直接调用）
-function updateGroupLastMessage(roomId, messageData) {
-  console.log('🔄 GroupList收到直接消息更新:', roomId, messageData)
-  console.log('📊 更新前群聊消息状态:', groupLastMessages.value)
-  
-  // 更新最新消息
-  groupLastMessages.value[roomId] = messageData
-  console.log('📊 更新后群聊消息状态:', groupLastMessages.value)
-  
-  // 触发排序
-  console.log('🔄 开始群聊排序...')
-  sortGroupsByActivity()
-  
-  console.log('✅ GroupList直接更新完成')
-}
+function updateGroupLastMessage(roomId, messageData) {  // 更新最新消息
+  groupLastMessages.value[roomId] = messageData  // 触发排序  sortGroupsByActivity()}
 
 // 获取当前用户的显示名称
 function getCurrentUserDisplayName() {
@@ -731,24 +582,13 @@ function getCurrentUserDisplayName() {
 }
 
 // 处理转发消息后的GroupList更新
-function handleForwardedGroupListUpdate(event) {
-  console.log('📋 GroupList: 收到转发消息更新事件', event.detail)
-  
-  const { roomId, message, forwardData } = event.detail
-  
-  console.log('需要更新的群聊ID:', roomId)
-  console.log('转发的消息:', message)
-  
-  // 更新目标群聊的最新消息显示
+function handleForwardedGroupListUpdate(event) {  const { roomId, message, forwardData } = event.detail  // 更新目标群聊的最新消息显示
   updateGroupLastMessage(roomId, {
     content: message.content,
     fromName: message.fromName || '转发消息',
     messageType: message.messageType || 'text',
     time: message.time || message.createdAt || new Date().toISOString()
-  })
-  
-  console.log('📋 GroupList: 群聊最新消息已更新')
-}
+  })}
 
 onMounted(() => {
   loadGroups()
