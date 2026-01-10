@@ -207,24 +207,19 @@
     </div>
 
     <!-- 表情选择器 -->
-    <div v-if="showEmojiPicker" class="emoji-picker-container">
-      <div class="emoji-grid">
-        <button
-          v-for="emoji in commonEmojis"
-          :key="emoji"
-          @click="insertEmoji(emoji)"
-          class="emoji-item"
-        >
-          {{ emoji }}
-        </button>
-      </div>
-    </div>
+    <EmojiPicker 
+      :show="showEmojiPicker"
+      @select="insertEmoji"
+      @select-sticker="handleSelectSticker"
+      @close="showEmojiPicker = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
 import { Emoji, Folder, Microphone, Pause, Xmark, Search } from '@iconoir/vue'
+import EmojiPicker from '../EmojiPicker.vue'
 
 const props = defineProps({
   // 基础配置
@@ -315,6 +310,7 @@ const emit = defineEmits([
   'send-message',
   'send-file',
   'send-voice',
+  'send-sticker',
   'start-recording',
   'stop-recording',
   'cancel-recording',
@@ -342,18 +338,6 @@ const mentionStartPos = ref(0)
 const currentQuotedMessage = ref(null)
 const selectedMentionIndex = ref(0)
 const mentionListStyle = ref({})
-
-// 常用表情
-const commonEmojis = [
-  '😀', '😂', '🤣', '😊', '😍', '🥰', '😘', '😗', '😚', '😙',
-  '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
-  '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖',
-  '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯',
-  '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔',
-  '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉',
-  '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋', '🤏', '💪',
-  '🙏', '✍️', '💅', '🤳', '💃', '🕺', '👫', '👭', '👬', '💑'
-]
 
 // 计算属性
 const canSend = computed(() => {
@@ -684,6 +668,15 @@ function insertEmoji(emoji) {
     textarea.focus()
     textarea.setSelectionRange(start + emoji.length, start + emoji.length)
   })
+  
+  // 关闭表情选择器
+  showEmojiPicker.value = false
+}
+
+// 处理表情包选择
+function handleSelectSticker(sticker) {
+  emit('send-sticker', sticker)
+  showEmojiPicker.value = false
 }
 
 // 录音相关方法
@@ -788,6 +781,7 @@ defineExpose({
   flex-shrink: 0;
   padding: 16px;
   backdrop-filter: blur(10px);
+  position: relative; // 为 EmojiPicker 提供定位上下文
 
   // 引用消息预览样式
   .quoted-message-preview {
