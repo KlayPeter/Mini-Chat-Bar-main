@@ -2,24 +2,27 @@
   <div
     ref="container"
     class="video-container"
-    @mouseenter="onContainerEnter"
-    @mouseleave="onContainerLeave"
   >
-    <canvas ref="canvas" width="1280" height="720"></canvas>
-    <video
-      ref="video"
-      src="/videos/Walking_girl.mp4"
-      muted
-      loop
-      playsinline
-      style="display: none"
-    ></video>
+    <!-- 背景动画 Canvas -->
+    <canvas ref="bgCanvas" class="bg-canvas"></canvas>
+    
+    <!-- 装饰符号 - 更多 -->
+    <div class="deco-symbols">
+      <span class="symbol symbol-1">{}</span>
+      <span class="symbol symbol-2">{}</span>
+      <span class="symbol symbol-3">//</span>
+      <span class="symbol symbol-4">01</span>
+      <span class="symbol symbol-5">&lt;/&gt;</span>
+      <span class="symbol symbol-6">[ ]</span>
+      <span class="symbol symbol-7">( )</span>
+      <span class="symbol symbol-8">=&gt;</span>
+      <span class="symbol symbol-9">**</span>
+      <span class="symbol symbol-10">;</span>
+    </div>
 
     <div class="flip-wrapper" :class="{ flipped: isFlipped }">
-      <div class="login-box front"
-      @mouseenter="onLoginBoxEnter"
-      @mouseleave="onLoginBoxLeave">
-        <h1 style="text-align: center;">MINI CHAT BAR</h1>
+      <div class="login-box front">
+        <h1>MINI CHAT BAR</h1>
         <h2>登录</h2>
         
         <!-- 登录方式切换 -->
@@ -43,7 +46,7 @@
         <!-- 密码登录 -->
         <div v-if="loginMode === 'password'">
           <label for="login-email">邮箱</label>
-          <input id="login-email" v-model="loginEmail" type="email" placeholder="请输入邮箱" autocomplete="off"/>
+          <input id="login-email" v-model="loginEmail" type="email" placeholder="请输入邮箱" autocomplete="off" @keyup.enter="loginWithPassword"/>
           <label for="login-password">密码</label>
           <div class="password-input-wrapper">
             <input 
@@ -52,6 +55,7 @@
               :type="showLoginPassword ? 'text' : 'password'" 
               placeholder="请输入密码" 
               autocomplete="off"
+              @keyup.enter="loginWithPassword"
             />
             <button 
               type="button"
@@ -74,10 +78,10 @@
         <!-- 验证码登录 -->
         <div v-if="loginMode === 'code'">
           <label for="login-email-code">邮箱</label>
-          <input id="login-email-code" v-model="loginEmailCode" type="email" placeholder="请输入邮箱" autocomplete="off"/>
+          <input id="login-email-code" v-model="loginEmailCode" type="email" placeholder="请输入邮箱" autocomplete="off" @keyup.enter="loginWithCode"/>
           <label for="verification-code">验证码</label>
           <div class="verification-input">
-            <input id="verification-code" v-model="verificationCode" type="text" placeholder="请输入验证码" autocomplete="off"/>
+            <input id="verification-code" v-model="verificationCode" type="text" placeholder="请输入验证码" autocomplete="off" @keyup.enter="loginWithCode"/>
             <button 
               @click="sendLoginCode" 
               :disabled="codeCooldown > 0" 
@@ -115,11 +119,8 @@
 
         <div class="flip-link" @click="toggleFlip">还没有账号？点击注册</div>
       </div>
-      <div
-      class="login-box back"
-      @mouseenter="onLoginBoxEnter"
-      @mouseleave="onLoginBoxLeave">
-      <h1 style="text-align: center;">MINI CHAT BAR</h1>
+      <div class="login-box back">
+        <h1>MINI CHAT BAR</h1>
         <h2>注册</h2>
         <label for="register-email">邮箱</label>
         <input id="register-email" v-model="regEmail" type="email" placeholder="请输入邮箱" autocomplete="off"/>
@@ -216,27 +217,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import { socket, waitForSocketConnection } from '../../utils/socket'
 import { PasswordValidator } from '../utils/passwordValidator'
-import CryptoJS from 'crypto-js'
 
 const toast = useToast()
 const router = useRouter()
 const { initOnlineStatus } = useOnlineStatus()
 
-// 视频相关
-const video = ref(null)
-const canvas = ref(null)
-let ctx = null
-let animationFrameId = null
-
-const isInContainer = ref(false)
-const isInLoginBox = ref(false)
+// 背景动画相关
+const bgCanvas = ref(null)
+let bgCtx = null
+let bgAnimationId = null
+let codeDrops = []
+let nodeLines = []
 
 // 登录相关
 const loginMode = ref('password') // 'password' 或 'code'
@@ -262,48 +260,124 @@ const showRegConfirmPassword = ref(false)
 // 其他
 const isFlipped = ref(false)
 
-const drawFrame = () => {
-  if (video.value && ctx) {
-    ctx.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height)
-    animationFrameId = requestAnimationFrame(drawFrame)
+// 初始化背景动画
+const initBgAnimation = () => {
+  if (!bgCanvas.value) return
+  
+  const canvas = bgCanvas.value
+  const dpr = window.devicePixelRatio || 1
+  canvas.width = window.innerWidth * dpr
+  canvas.height = window.innerHeight * dpr
+  canvas.style.width = window.innerWidth + 'px'
+  canvas.style.height = window.innerHeight + 'px'
+  
+  bgCtx = canvas.getContext('2d')
+  bgCtx.scale(dpr, dpr)
+  
+  // 初始化代码雨 - 更密集更多
+  const chars = '01{}[]<>//;:=+-*&|()=>function const let var'
+  const columns = Math.floor(window.innerWidth / 14) // 更密集的列
+  codeDrops = []
+  for (let i = 0; i < columns; i++) {
+    codeDrops.push({
+      x: i * 14 + Math.random() * 6,
+      y: Math.random() * -1000,
+      speed: 0.15 + Math.random() * 0.35,
+      chars: [],
+      length: 12 + Math.floor(Math.random() * 25)
+    })
+    // 为每列生成字符
+    for (let j = 0; j < codeDrops[i].length; j++) {
+      codeDrops[i].chars.push(chars[Math.floor(Math.random() * chars.length)])
+    }
   }
-}
-
-const playVideo = () => {
-  if (video.value.paused) {
-    video.value.play()
-    drawFrame()
+  
+  // 初始化右下角连接线 - 更多线条
+  nodeLines = []
+  for (let i = 0; i < 35; i++) {
+    const angle = (Math.PI / 2) + (Math.random() - 0.5) * Math.PI * 0.95
+    const length = 60 + Math.random() * 320
+    nodeLines.push({
+      angle,
+      length,
+      opacity: 0.25 + Math.random() * 0.45 // 更深的颜色
+    })
   }
+  
+  drawBgFrame()
 }
 
-const pauseVideo = () => {
-  video.value.pause()
-  cancelAnimationFrame(animationFrameId)
+const drawBgFrame = () => {
+  if (!bgCtx) return
+  
+  const width = window.innerWidth
+  const height = window.innerHeight
+  
+  // 白色/浅灰渐变背景
+  const gradient = bgCtx.createLinearGradient(0, 0, width, height)
+  gradient.addColorStop(0, '#f9fafb')
+  gradient.addColorStop(0.5, '#f3f4f6')
+  gradient.addColorStop(1, '#e8eaed')
+  bgCtx.fillStyle = gradient
+  bgCtx.fillRect(0, 0, width, height)
+  
+  // 绘制代码雨 - 覆盖整个屏幕高度
+  bgCtx.font = '12px Courier New'
+  codeDrops.forEach(drop => {
+    drop.chars.forEach((char, idx) => {
+      const y = drop.y + idx * 16
+      if (y > 0 && y < height) {
+        const alpha = Math.max(0, 0.25 - (idx / drop.length) * 0.12)
+        bgCtx.fillStyle = `rgba(120, 30, 30, ${alpha})`
+        bgCtx.fillText(char, drop.x, y)
+      }
+    })
+    
+    drop.y += drop.speed
+    if (drop.y > height + 100) {
+      drop.y = Math.random() * -600
+    }
+  })
+  
+  // 绘制一些柔和的圆形装饰
+  const circles = [
+    { x: width * 0.85, y: height * 0.75, r: 80, alpha: 0.03 },
+    { x: width * 0.9, y: height * 0.85, r: 50, alpha: 0.04 },
+    { x: width * 0.1, y: height * 0.8, r: 60, alpha: 0.03 },
+    { x: width * 0.15, y: height * 0.65, r: 40, alpha: 0.025 },
+    { x: width * 0.08, y: height * 0.3, r: 70, alpha: 0.02 },
+    { x: width * 0.92, y: height * 0.2, r: 55, alpha: 0.025 },
+  ]
+  
+  circles.forEach(c => {
+    bgCtx.beginPath()
+    bgCtx.arc(c.x, c.y, c.r, 0, Math.PI * 2)
+    bgCtx.fillStyle = `rgba(165, 42, 42, ${c.alpha})`
+    bgCtx.fill()
+  })
+  
+  // 绘制一些细线条装饰
+  bgCtx.strokeStyle = 'rgba(165, 42, 42, 0.04)'
+  bgCtx.lineWidth = 1
+  
+  // 右下角斜线
+  for (let i = 0; i < 5; i++) {
+    bgCtx.beginPath()
+    bgCtx.moveTo(width - 50 - i * 30, height)
+    bgCtx.lineTo(width, height - 50 - i * 30)
+    bgCtx.stroke()
+  }
+  
+  // 左下角斜线
+  for (let i = 0; i < 4; i++) {
+    bgCtx.beginPath()
+    bgCtx.moveTo(0, height - 80 - i * 25)
+    bgCtx.lineTo(80 + i * 25, height)
+    bgCtx.stroke()
+  }
+  
+  bgAnimationId = requestAnimationFrame(drawBgFrame)
 }
-
-const onContainerEnter = () => {
-  isInContainer.value = true
-  if (!isInLoginBox.value) playVideo()
-}
-
-const onContainerLeave = () => {
-  isInContainer.value = false
-  pauseVideo()
-}
-
-const onLoginBoxEnter = () => {
-  isInLoginBox.value = true
-  pauseVideo()
-}
-
-const onLoginBoxLeave = () => {
-  isInLoginBox.value = false
-  if (isInContainer.value) playVideo()
-}
-
-onMounted(() => {
-  ctx = canvas.value.getContext('2d')
-})
 
 const toggleFlip = () => {
   isFlipped.value = !isFlipped.value
@@ -637,8 +711,16 @@ const checkOAuthCallback = () => {
 
 // 在组件挂载时检查OAuth回调
 onMounted(() => {
-  ctx = canvas.value.getContext('2d')
+  initBgAnimation()
+  window.addEventListener('resize', initBgAnimation)
   checkOAuthCallback()
+})
+
+onUnmounted(() => {
+  if (bgAnimationId) {
+    cancelAnimationFrame(bgAnimationId)
+  }
+  window.removeEventListener('resize', initBgAnimation)
 })
 
 </script>
@@ -657,16 +739,94 @@ html, body {
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: rgb(252, 255, 252);
+  overflow: hidden;
 }
 
-canvas {
+.bg-canvas {
   position: absolute;
-  width: 100%;
-  height: 100%;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
+}
+
+/* 装饰符号 */
+.deco-symbols {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  
+  .symbol {
+    position: absolute;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: rgba(120, 30, 30, 0.22);
+  }
+  
+  .symbol-1 {
+    top: 12%;
+    right: 8%;
+    font-size: 80px;
+  }
+  
+  .symbol-2 {
+    top: 50%;
+    right: 5%;
+    font-size: 60px;
+  }
+  
+  .symbol-3 {
+    top: 5%;
+    left: 3%;
+    font-size: 50px;
+  }
+  
+  .symbol-4 {
+    top: 8%;
+    left: 15%;
+    font-size: 45px;
+  }
+  
+  .symbol-5 {
+    top: 30%;
+    left: 5%;
+    font-size: 40px;
+  }
+  
+  .symbol-6 {
+    bottom: 25%;
+    right: 12%;
+    font-size: 55px;
+  }
+  
+  .symbol-7 {
+    bottom: 15%;
+    left: 8%;
+    font-size: 45px;
+  }
+  
+  .symbol-8 {
+    top: 25%;
+    right: 15%;
+    font-size: 35px;
+  }
+  
+  .symbol-9 {
+    bottom: 35%;
+    left: 2%;
+    font-size: 50px;
+  }
+  
+  .symbol-10 {
+    top: 40%;
+    left: 12%;
+    font-size: 60px;
+  }
 }
 
 /* 外层包裹容器 */
@@ -681,8 +841,8 @@ canvas {
   transition: transform 0.4s ease;
   transform: translate(-50%, -50%);
   perspective: 1600px;
-  z-index: 2;
-  -webkit-app-region: no-drag
+  z-index: 10;
+  -webkit-app-region: no-drag;
 }
 
 .flipped {
@@ -697,28 +857,33 @@ canvas {
   min-height: 100%;
   padding: 35px 40px 40px;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.94);
+  background: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 20px 60px rgba(165, 42, 42, 0.1),
+    0 8px 25px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(165, 42, 42, 0.03);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   backface-visibility: hidden;
-  backdrop-filter: blur(8px);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  position: relative;
   overflow-y: auto;
 
-  h1{
-    position: absolute;
-    top: 0;
-    width: 100%;
-    left: 0;
+  h1 {
+    margin: 0 0 5px 0;
+    padding: 0;
+    font-size: 22px;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
   }
 
   &:hover {
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4);
-    transform: scale(1.02);
+    box-shadow: 
+      0 25px 70px rgba(165, 42, 42, 0.12),
+      0 10px 30px rgba(0, 0, 0, 0.1);
+    transform: scale(1.01);
   }
 
   &.front {
