@@ -40,7 +40,7 @@ const displayCount = computed(() => {
 .group-avatar {
   display: grid;
   gap: 1px;
-  background: #e0e0e0;
+  background: var(--border-color, #e0e0e0);
   border-radius: 8px;
   overflow: hidden;
   width: v-bind(size + 'px');
@@ -65,7 +65,7 @@ const displayCount = computed(() => {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: white;
+    background: var(--bg-tertiary, white);
     
     img {
       width: 100%;

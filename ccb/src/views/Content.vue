@@ -212,13 +212,15 @@ function handlePlayVoice(fileInfo) {
   })
 }
 
-function handleForwardMessage(message) {  forwardMessages.value = [message]
+function handleForwardMessage(message) {
+  forwardMessages.value = [message]
   showForwardDialog.value = true
 }
 
 // 批量转发消息 - 模仿微信逻辑
 function handleForwardMessages(messages) {
-  if (!messages || messages.length === 0) return  // 检查转发消息数量限制（微信通常限制30条）
+  if (!messages || messages.length === 0) return
+  // 检查转发消息数量限制（微信通常限制30条）
   if (messages.length > 30) {
     toast.error('一次最多转发30条消息')
     return
@@ -250,7 +252,8 @@ async function handleDeleteMessages(messagesToDelete) {
   })
   
   if (confirmed) {
-    try {      // 获取要删除的消息ID列表
+    try {
+      // 获取要删除的消息ID列表
       const messageIds = messagesToDelete.map(msg => msg._id || msg.id).filter(id => id)
       
       // 如果有消息ID，尝试调用服务端API删除
@@ -266,7 +269,8 @@ async function handleDeleteMessages(messagesToDelete) {
               messageIds: messageIds,
               chatUserId: chatstore.currentChatUser
             }
-          })        } catch (apiError) {
+          })
+        } catch (apiError) {
           console.warn('服务端批量删除失败，使用客户端删除:', apiError)
         }
       }
@@ -294,7 +298,8 @@ async function handleDeleteMessages(messagesToDelete) {
 
 // 处理转发完成
 function handleForwardComplete() {
-  // 转发完成后的处理}
+  // 转发完成后的处理
+}
 
 // 处理撤回消息
 async function handleRecallMessage(messageIndex) {
@@ -521,7 +526,8 @@ async function getMyAvatar() {
       {
         headers: { Authorization: `Bearer ${token}` }
       }
-    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
+    )
+    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
     if (response.data && response.data.user && response.data.user.uAvatar) {
       myAvatar.value = response.data.user.uAvatar
     } else {
@@ -686,7 +692,8 @@ onMounted(() => {
     'private-file-message',
     async ({ from, fileUrl, fileName, fileType, messageType }) => {
       // 只有当消息来自当前聊天用户时才刷新消息列表
-      if (from === chatstore.currentChatUser) {        await getlists()
+      if (from === chatstore.currentChatUser) {
+        await getlists()
       }
     }
   )
@@ -720,7 +727,9 @@ onMounted(() => {
 
 watch(
   () => chatstore.currentChatUser,
-  async (newUser, oldUser) => {    if (newUser !== oldUser && newUser) {      // 当聊天用户切换时，更新用户名和头像
+  async (newUser, oldUser) => {
+    if (newUser !== oldUser && newUser) {
+      // 当聊天用户切换时，更新用户名和头像
       if (route.query.uname) {
         uname.value = route.query.uname
       }
@@ -771,6 +780,7 @@ onBeforeUnmount(() => {
   height: 100%;
   padding: 2% 1%;
   padding-top: 1%;
+  background-color: var(--bg-primary, #f9f9f9);
   /* height: 100vh; */
 }
 
@@ -779,7 +789,7 @@ onBeforeUnmount(() => {
   height: 100%;
   border: none;
   border-radius: 24px;
-  background-color: #ffffff;
+  background-color: var(--bg-tertiary, #ffffff);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
@@ -793,8 +803,8 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     padding: 12px 24px;
-    background-color: #ffffff;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background-color: var(--bg-tertiary, #ffffff);
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
     height: 60px;
 
     .header-left {
@@ -805,7 +815,7 @@ onBeforeUnmount(() => {
         margin: 0;
         font-size: 19px;
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-primary, #2c3e50);
         display: flex;
         align-items: center;
         gap: 10px;
@@ -942,8 +952,8 @@ onBeforeUnmount(() => {
 
   .content {
     display: inline-block;
-    background-color: #ffffff;
-    color: #2c3e50;
+    background-color: var(--message-bg-other, #ffffff);
+    color: var(--message-text-other, #2c3e50);
     padding: 0.75rem 1.2rem;
     margin: 0 1vw 0.4rem;
     border-radius: 18px 18px 18px 4px;
@@ -981,9 +991,9 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 10px 20px 15px;
   -webkit-app-region: no-drag;
-  background-color: #fafafa;
+  background-color: var(--bg-secondary, #fafafa);
   border-radius: 0 0 1rem 1rem;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color, #f0f0f0);
 
   button {
     height: 36px;
@@ -1111,7 +1121,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     width: 48px;
     height: 48px;
-    background-color: #f8f9fa;
+    background-color: var(--bg-secondary, #f8f9fa);
     border-radius: 8px;
     flex-shrink: 0;
 
@@ -1132,7 +1142,7 @@ onBeforeUnmount(() => {
 
     .file-name {
       font-weight: 500;
-      color: #333;
+      color: var(--text-primary, #333);
       margin-bottom: 4px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1141,7 +1151,7 @@ onBeforeUnmount(() => {
 
     .file-size {
       font-size: 12px;
-      color: #666;
+      color: var(--text-secondary, #666);
     }
   }
 }
@@ -1508,8 +1518,8 @@ onBeforeUnmount(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: #f8f9fa;
-  border-top: 1px solid #dee2e6;
+  background: var(--bg-secondary, #f8f9fa);
+  border-top: 1px solid var(--border-color, #dee2e6);
   padding: 1rem;
   display: flex;
   justify-content: space-between;
@@ -1574,8 +1584,8 @@ onBeforeUnmount(() => {
 /* 消息右键菜单样式 */
 .message-context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #dee2e6;
+  background: var(--bg-tertiary, white);
+  border: 1px solid var(--border-color, #dee2e6);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   z-index: 1001;
@@ -1592,14 +1602,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-size: 0.9rem;
-  border-bottom: 1px solid #f8f9fa;
+  border-bottom: 1px solid var(--border-color, #f8f9fa);
 
   &:last-child {
     border-bottom: none;
   }
 
   &:hover {
-    background: #f8f9fa;
+    background: var(--hover-bg, #f8f9fa);
   }
 }
 
@@ -1626,7 +1636,7 @@ onBeforeUnmount(() => {
 }
 
 .forward-dialog-content {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -1658,14 +1668,14 @@ onBeforeUnmount(() => {
   padding: 1rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f8f9fa;
+  border-bottom: 1px solid var(--border-color, #f8f9fa);
 
   &:last-child {
     border-bottom: none;
   }
 
   &:hover {
-    background: #f8f9fa;
+    background: var(--hover-bg, #f8f9fa);
   }
 
   &.selected {
@@ -1745,7 +1755,7 @@ onBeforeUnmount(() => {
 }
 
 .preview-dialog-content {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   max-width: 90vw;
@@ -1762,8 +1772,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #dee2e6;
-  background: #f8f9fa;
+  border-bottom: 1px solid var(--border-color, #dee2e6);
+  background: var(--bg-secondary, #f8f9fa);
 
   h3 {
     margin: 0;
@@ -1853,7 +1863,7 @@ onBeforeUnmount(() => {
   overflow: auto;
 
   pre {
-    background: #f8f9fa;
+    background: var(--bg-secondary, #f8f9fa);
     padding: 1rem;
     border-radius: 8px;
     border: 1px solid #dee2e6;
@@ -2106,8 +2116,8 @@ onBeforeUnmount(() => {
   .top {
     flex: 0 0 auto;
     padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-    background: #fff;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-tertiary, #fff);
     z-index: 10;
 
     .top_child {

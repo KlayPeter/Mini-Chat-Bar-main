@@ -552,8 +552,8 @@ function handleQuotedMessageClick(event) {
 
   .content {
     display: inline-block;
-    background-color: #ffffff;
-    color: #2c3e50;
+    background-color: var(--message-bg-other, #ffffff);
+    color: var(--message-text-other, #2c3e50);
     padding: 0.75rem 1.2rem;
     margin: 0 1vw 0.4rem;
     border-radius: 18px 18px 18px 4px;

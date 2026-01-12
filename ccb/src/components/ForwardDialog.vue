@@ -289,9 +289,11 @@ async function handleForward() {
           // 转发给好友
           const res = await axios.post(`${baseUrl}/api/chat/messages/${target.targetId}`, forwardData, {
             headers: { Authorization: `Bearer ${token}` }
-          })          // 转发成功后，通知私聊界面更新消息
+          })
+          // 转发成功后，通知私聊界面更新消息
           if (res.data.success || res.data) {
-            const messageData = res.data.message || res.data            // 构建正确的消息对象
+            const messageData = res.data.message || res.data
+            // 构建正确的消息对象
             const correctMessage = {
               content: forwardData.content, // 使用原始转发内容
               messageType: forwardData.messageType || 'text',
@@ -335,7 +337,8 @@ async function handleForward() {
 
 // 发送群聊消息更新通知
 function emitGroupMessageUpdate(target, serverMessage, forwardData) {
-  try {    // 通过全局事件总线通知群聊界面更新消息
+  try {
+    // 通过全局事件总线通知群聊界面更新消息
     const messageUpdateEvent = new CustomEvent('group-message-forwarded', {
       detail: {
         roomId: target.targetId,
@@ -343,7 +346,8 @@ function emitGroupMessageUpdate(target, serverMessage, forwardData) {
         forwardData: forwardData
       }
     })
-    window.dispatchEvent(messageUpdateEvent)  } catch (err) {
+    window.dispatchEvent(messageUpdateEvent)
+  } catch (err) {
     console.error('发送群聊消息更新通知失败:', err)
   }
 }
@@ -367,7 +371,8 @@ function emitPrivateMessageUpdate(target, serverMessage, forwardData) {
 
 // 发送GroupList更新通知
 function emitGroupListUpdate(target, serverMessage, forwardData) {
-  try {    // 通知GroupList更新目标群聊的最新消息，格式为"我：消息内容"
+  try {
+    // 通知GroupList更新目标群聊的最新消息，格式为"我：消息内容"
     const groupListUpdateEvent = new CustomEvent('group-list-message-update', {
       detail: {
         roomId: target.targetId,
@@ -379,14 +384,16 @@ function emitGroupListUpdate(target, serverMessage, forwardData) {
         forwardData: forwardData
       }
     })
-    window.dispatchEvent(groupListUpdateEvent)  } catch (err) {
+    window.dispatchEvent(groupListUpdateEvent)
+  } catch (err) {
     console.error('发送GroupList更新通知失败:', err)
   }
 }
 
 // 发送群聊Socket广播
 function emitGroupSocketBroadcast(target, serverMessage, forwardData) {
-  try {    // 通过全局事件通知其他组件进行Socket广播
+  try {
+    // 通过全局事件通知其他组件进行Socket广播
     const socketBroadcastEvent = new CustomEvent('group-socket-broadcast', {
       detail: {
         roomId: target.targetId,
@@ -394,14 +401,16 @@ function emitGroupSocketBroadcast(target, serverMessage, forwardData) {
         forwardData: forwardData
       }
     })
-    window.dispatchEvent(socketBroadcastEvent)  } catch (err) {
+    window.dispatchEvent(socketBroadcastEvent)
+  } catch (err) {
     console.error('发送Socket广播失败:', err)
   }
 }
 
 // 发送私聊列表更新通知
 function emitPrivateChatListUpdate(target, serverMessage, forwardData) {
-  try {    // 通知私聊列表更新最新消息，格式为"我：消息内容"
+  try {
+    // 通知私聊列表更新最新消息，格式为"我：消息内容"
     const privateChatListUpdateEvent = new CustomEvent('private-chat-list-update', {
       detail: {
         userId: target.targetId,
@@ -413,14 +422,16 @@ function emitPrivateChatListUpdate(target, serverMessage, forwardData) {
         forwardData: forwardData
       }
     })
-    window.dispatchEvent(privateChatListUpdateEvent)  } catch (err) {
+    window.dispatchEvent(privateChatListUpdateEvent)
+  } catch (err) {
     console.error('发送私聊列表更新通知失败:', err)
   }
 }
 
 // 发送私聊Socket通知
 function emitPrivateSocketNotification(target, serverMessage, forwardData) {
-  try {    // 通过全局事件通知其他组件进行私聊Socket通知
+  try {
+    // 通过全局事件通知其他组件进行私聊Socket通知
     const privateSocketEvent = new CustomEvent('private-socket-notification', {
       detail: {
         userId: target.targetId,
@@ -428,7 +439,8 @@ function emitPrivateSocketNotification(target, serverMessage, forwardData) {
         forwardData: forwardData
       }
     })
-    window.dispatchEvent(privateSocketEvent)  } catch (err) {
+    window.dispatchEvent(privateSocketEvent)
+  } catch (err) {
     console.error('发送私聊Socket通知失败:', err)
   }
 }
@@ -453,7 +465,7 @@ onMounted(() => {
 }
 
 .forward-dialog {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;

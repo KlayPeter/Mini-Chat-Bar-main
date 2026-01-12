@@ -342,7 +342,7 @@ watch(searchScope, () => {
 }
 
 .search-modal {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   width: 90%;
   max-width: 600px;

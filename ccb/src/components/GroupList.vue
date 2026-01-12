@@ -119,7 +119,8 @@ async function loadGroups() {
         loadLastMessage(group.RoomID)
       }
       
-      // 关键修复：加载完群聊后立即通知GroupChat加入所有Socket房间      joinAllGroupRooms()
+      // 关键修复：加载完群聊后立即通知GroupChat加入所有Socket房间
+      joinAllGroupRooms()
     }
   } catch (err) {
     console.error('获取群聊列表失败:', err)
@@ -197,30 +198,41 @@ function hasMentionAlert(roomId) {
 }
 
 // 标记群聊有新消息（可以从socket事件调用）
-function markGroupAsUnread(roomId, messageContent, senderName) {  if (roomId !== currentGroupId.value) {    // 添加未读群组
+function markGroupAsUnread(roomId, messageContent, senderName) {
+  if (roomId !== currentGroupId.value) {
+    // 添加未读群组
     unreadGroups.value.add(roomId)
     console.log('未读群组列表:', Array.from(unreadGroups.value))
     
     // 增加未读消息数量
     const oldCount = unreadCounts.value[roomId] || 0
-    unreadCounts.value[roomId] = oldCount + 1    // 更新群聊列表中的最新消息显示
+    unreadCounts.value[roomId] = oldCount + 1
+    // 更新群聊列表中的最新消息显示
     if (messageContent && senderName) {
       groupLastMessages.value[roomId] = {
         content: messageContent,
         fromName: senderName,
         messageType: 'text',
         createdAt: new Date()
-      }    } else {    }  } else {  }
+      }
+    } else {
+    }
+  } else {
+  }
 }
 
 // 标记群聊有@提醒
-function markGroupAsMentioned(roomId) {  if (roomId !== currentGroupId.value) {    // 添加@提醒标记
+function markGroupAsMentioned(roomId) {
+  if (roomId !== currentGroupId.value) {
+    // 添加@提醒标记
     mentionAlerts.value.add(roomId)
     console.log('@提醒列表:', Array.from(mentionAlerts.value))
     
     // 也添加到未读群组列表
     unreadGroups.value.add(roomId)
-    console.log('未读群组列表:', Array.from(unreadGroups.value))  } else {  }
+    console.log('未读群组列表:', Array.from(unreadGroups.value))
+  } else {
+  }
 }
 
 // 切换好友选择
@@ -313,7 +325,8 @@ function getLastMessage(group) {
       break
   }
   
-  const result = `${lastMsg.fromName}: ${displayContent}`  return result
+  const result = `${lastMsg.fromName}: ${displayContent}`
+  return result
 }
 
 // 获取最后一条消息的时间（仿照私聊列表的时间格式）
@@ -337,10 +350,12 @@ function formatDate(dateStr) {
 
 
 // 加入所有群聊Socket房间
-function joinAllGroupRooms() {  console.log('当前群聊列表:', groups.value.map(g => ({id: g.RoomID, name: g.RoomName})))
+function joinAllGroupRooms() {
+  console.log('当前群聊列表:', groups.value.map(g => ({id: g.RoomID, name: g.RoomName})))
   
   // 从localStorage获取当前用户ID
-  const userId = localStorage.getItem('userId')  // 发出自定义事件通知父组件GroupChat
+  const userId = localStorage.getItem('userId')
+  // 发出自定义事件通知父组件GroupChat
   const event = new CustomEvent('joinAllRooms', {
     detail: {
       groups: groups.value,
@@ -349,7 +364,8 @@ function joinAllGroupRooms() {  console.log('当前群聊列表:', groups.value
   })
   
   // 通过window分发事件给GroupChat监听
-  window.dispatchEvent(event)}
+  window.dispatchEvent(event)
+}
 
 // 给GroupList添加独立的Socket监听，就像私聊一样！
 let groupSocket = null
@@ -367,7 +383,9 @@ function initGroupSocket() {
     forceNew: false
   })
   
-  groupSocket.on('connect', () => {    console.log('👤 用户ID:', localStorage.getItem('userId'))    // 发送用户登录事件，就像私聊那样
+  groupSocket.on('connect', () => {
+    console.log('👤 用户ID:', localStorage.getItem('userId'))
+    // 发送用户登录事件，就像私聊那样
     groupSocket.emit('login', localStorage.getItem('userId'))
     
     // 延迟加入房间，确保连接稳定
@@ -377,14 +395,16 @@ function initGroupSocket() {
   })
   
   // 专门的房间加入函数
-  function joinAllRooms() {    groups.value.forEach(group => {
+  function joinAllRooms() {
+    groups.value.forEach(group => {
       // 发送多种房间加入事件，确保兼容性
       groupSocket.emit('join-group', {
         roomId: group.RoomID,
         userId: localStorage.getItem('userId')
       })
       groupSocket.emit('join-room', group.RoomID)
-      groupSocket.emit('join', group.RoomID)      // 验证房间加入状态
+      groupSocket.emit('join', group.RoomID)
+      // 验证房间加入状态
       setTimeout(() => {
         groupSocket.emit('room-status', group.RoomID)
       }, 1000)
@@ -392,7 +412,8 @@ function initGroupSocket() {
   }
   
   // 重连时重新加入所有房间
-  groupSocket.on('reconnect', () => {    setTimeout(() => {
+  groupSocket.on('reconnect', () => {
+    setTimeout(() => {
       joinAllRooms()
     }, 1000)
   })
@@ -449,43 +470,58 @@ function initGroupSocket() {
   })
   
   // 监听@提及通知事件
-  groupSocket.on('mention-notification', (data) => {    console.log('完整数据:', JSON.stringify(data, null, 2))
-    console.log('当前用户ID:', localStorage.getItem('userId'))    // 先强制测试，无论什么情况都标记@提醒
-    if (data.roomId && data.roomId !== currentGroupId.value) {      markGroupAsMentioned(data.roomId)
+  groupSocket.on('mention-notification', (data) => {
+    console.log('完整数据:', JSON.stringify(data, null, 2))
+    console.log('当前用户ID:', localStorage.getItem('userId'))
+    // 先强制测试，无论什么情况都标记@提醒
+    if (data.roomId && data.roomId !== currentGroupId.value) {
+      markGroupAsMentioned(data.roomId)
       return
     }
     
     const currentUserId = localStorage.getItem('userId')
     
     // 检查是否有mentions数组
-    if (!data.mentions) {      return
-    }    // 详细检查是否@了当前用户
-    const isMentioned = data.mentions.some(mention => {      if (mention.type === 'all') {        return true
+    if (!data.mentions) {
+      return
+    }
+    // 详细检查是否@了当前用户
+    const isMentioned = data.mentions.some(mention => {
+      if (mention.type === 'all') {
+        return true
       }
       
       if (mention.type === 'user') {
         // 确保字符串比较
         const mentionId = String(mention.userId)
         const currentId = String(currentUserId)
-        const isMatch = mentionId === currentId        return isMatch
+        const isMatch = mentionId === currentId
+        return isMatch
       }
       
       return false
-    })    if (isMentioned && data.roomId !== currentGroupId.value) {      markGroupAsMentioned(data.roomId)
+    })
+    if (isMentioned && data.roomId !== currentGroupId.value) {
+      markGroupAsMentioned(data.roomId)
       
       // 播放提示音
       try {
         const audio = new Audio('/sounds/mention-notification.mp3')
         audio.volume = 0.3
-        audio.play().catch(() => {        })
-      } catch (err) {      }
+        audio.play().catch(() => {
+        })
+      } catch (err) {
+      }
     } else {
-      if (!isMentioned) {      }
-      if (data.roomId === currentGroupId.value) {      }
+      if (!isMentioned) {
+      }
+      if (data.roomId === currentGroupId.value) {
+      }
     }
   })
   
-  groupSocket.on('disconnect', () => {  })
+  groupSocket.on('disconnect', () => {
+  })
   
   groupSocket.on('connect_error', (error) => {
     console.error('🎯 GroupList Socket连接错误:', error)
@@ -493,7 +529,8 @@ function initGroupSocket() {
 }
 
 // 实现群聊的updateGroupMessage函数，就像私聊的updateFriendMessage
-async function updateGroupMessage(roomId) {  try {
+async function updateGroupMessage(roomId) {
+  try {
     const token = localStorage.getItem('token')
     
     // 获取群聊最新消息
@@ -507,12 +544,15 @@ async function updateGroupMessage(roomId) {  try {
       // 🔧 修复：应用"自己的消息显示我"的逻辑
       const currentUserId = localStorage.getItem('userId')
       const isMyMessage = String(lastMsg.from) === String(currentUserId)
-      const displayName = isMyMessage ? '我' : lastMsg.fromName      // 更新数据，应用显示逻辑
+      const displayName = isMyMessage ? '我' : lastMsg.fromName
+      // 更新数据，应用显示逻辑
       groupLastMessages.value[roomId] = {
         ...lastMsg,
         fromName: displayName  // 应用显示逻辑
-      }      // 🔧 修复：通过markGroupAsUnread统一处理，避免重复计数
-      if (roomId !== currentGroupId.value) {        markGroupAsUnread(roomId, lastMsg.content, displayName)
+      }
+      // 🔧 修复：通过markGroupAsUnread统一处理，避免重复计数
+      if (roomId !== currentGroupId.value) {
+        markGroupAsUnread(roomId, lastMsg.content, displayName)
       }
       
       // 关键修复：重新排序群聊列表，有新消息的群聊排到最前面
@@ -524,7 +564,8 @@ async function updateGroupMessage(roomId) {  try {
 }
 
 // 按活跃度排序群聊列表（有新消息的排前面）
-function sortGroupsByActivity() {  console.log('排序前群聊顺序:', groups.value.map(g => ({
+function sortGroupsByActivity() {
+  console.log('排序前群聊顺序:', groups.value.map(g => ({
     id: g.RoomID,
     name: g.RoomName,
     hasUnread: unreadGroups.value.has(g.RoomID),
@@ -544,7 +585,8 @@ function sortGroupsByActivity() {  console.log('排序前群聊顺序:', groups
     
     // 有未读消息的群聊优先级更高
     const aHasUnread = unreadGroups.value.has(a.RoomID) || mentionAlerts.value.has(a.RoomID)
-    const bHasUnread = unreadGroups.value.has(b.RoomID) || mentionAlerts.value.has(b.RoomID)    if (aHasUnread && !bHasUnread) return -1
+    const bHasUnread = unreadGroups.value.has(b.RoomID) || mentionAlerts.value.has(b.RoomID)
+    if (aHasUnread && !bHasUnread) return -1
     if (!aHasUnread && bHasUnread) return 1
     
     // 按最新消息时间降序排序
@@ -554,11 +596,16 @@ function sortGroupsByActivity() {  console.log('排序前群聊顺序:', groups
   console.log('排序后群聊顺序:', groups.value.map(g => ({
     id: g.RoomID,
     name: g.RoomName
-  })))}
+  })))
+}
 
 // 直接更新群聊最新消息（由GroupChat直接调用）
-function updateGroupLastMessage(roomId, messageData) {  // 更新最新消息
-  groupLastMessages.value[roomId] = messageData  // 触发排序  sortGroupsByActivity()}
+function updateGroupLastMessage(roomId, messageData) {
+  // 更新最新消息
+  groupLastMessages.value[roomId] = messageData
+  // 触发排序
+  sortGroupsByActivity()
+}
 
 // 获取当前用户的显示名称
 function getCurrentUserDisplayName() {
@@ -582,13 +629,16 @@ function getCurrentUserDisplayName() {
 }
 
 // 处理转发消息后的GroupList更新
-function handleForwardedGroupListUpdate(event) {  const { roomId, message, forwardData } = event.detail  // 更新目标群聊的最新消息显示
+function handleForwardedGroupListUpdate(event) {
+  const { roomId, message, forwardData } = event.detail
+  // 更新目标群聊的最新消息显示
   updateGroupLastMessage(roomId, {
     content: message.content,
     fromName: message.fromName || '转发消息',
     messageType: message.messageType || 'text',
     time: message.time || message.createdAt || new Date().toISOString()
-  })}
+  })
+}
 
 onMounted(() => {
   loadGroups()
@@ -626,13 +676,13 @@ defineExpose({
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--bg-tertiary, white);
 }
 
 .header {
   padding: 15px;
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--bg-tertiary, white);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -642,6 +692,7 @@ defineExpose({
     margin: 0;
     font-size: 18px;
     font-weight: 600;
+    color: var(--text-primary);
   }
 
   .create-btn {
@@ -680,13 +731,14 @@ defineExpose({
 .groups {
   flex: 1;
   overflow-y: auto;
-  background: white;
+  background: var(--bg-tertiary, white);
+  padding-right: 5px;
 }
 
 .group-item {
   padding: 12px 15px;
-  background: white;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--bg-tertiary, white);
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -706,16 +758,18 @@ defineExpose({
     flex-shrink: 0;
     width: 45px;
     height: 45px;
+    overflow: visible;
 
     .unread-badge {
       position: absolute;
-      top: 0;
-      right: 0;
+      top: -2px;
+      right: -2px;
       width: 12px;
       height: 12px;
       background: var(--error-color, #ff4757);
       border-radius: 50%;
       border: 2px solid var(--bg-tertiary, white);
+      z-index: 10;
     }
 
     .mention-badge {
@@ -727,6 +781,7 @@ defineExpose({
       background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
       color: var(--text-inverse, white);
       border-radius: 10px;
+      z-index: 10;
       border: 2px solid var(--bg-tertiary, white);
       display: flex;
       align-items: center;
@@ -822,7 +877,7 @@ defineExpose({
 }
 
 .dialog {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 8px;
   width: 500px;
   max-width: 90%;
@@ -833,7 +888,7 @@ defineExpose({
 
 .dialog-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -923,7 +978,7 @@ defineExpose({
 
 .dialog-footer {
   padding: 15px 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color, #e0e0e0);
   display: flex;
   justify-content: flex-end;
   gap: 10px;
@@ -940,7 +995,7 @@ defineExpose({
       color: #333;
 
       &:hover {
-        background: #e0e0e0;
+        background: var(--active-bg, #e0e0e0);
       }
     }
 

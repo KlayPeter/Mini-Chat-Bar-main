@@ -173,8 +173,8 @@ async function copyText() {
 <style scoped lang="scss">
 .message-context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-tertiary, white);
+  border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10000;

@@ -117,7 +117,8 @@ async function fetchUserAvatar() {
           authorization: `Bearer ${token}`,
         },
       }
-    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
+    )
+    // 后端返回的数据结构是 { user: { uID, uName, uAvatar } }
     if (res.data && res.data.user) {
       avatar.value = res.data.user.uAvatar
     } else {
@@ -161,7 +162,7 @@ onBeforeUnmount(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--bg-tertiary, #ffffff);
   border-radius: 24px;
   padding: 0px 2px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);

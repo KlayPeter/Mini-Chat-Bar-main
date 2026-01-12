@@ -239,6 +239,10 @@
               {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
             </div>
             <img :src="friend.avatar" alt="avatar" />
+            <span 
+              class="online-dot" 
+              :class="{ online: isUserOnline(friend.id) }"
+            ></span>
           </div>
           <div class="chat-details">
             <div class="chat-name">{{ friend.name }}</div>
@@ -482,7 +486,8 @@ async function switchChat(friend) {
       )
 
       // 清除未读标记
-      friend.unreadCount = 0    } catch (err) {
+      friend.unreadCount = 0
+    } catch (err) {
       console.error('标记消息为已读失败:', err)
     }
   }
@@ -510,7 +515,8 @@ async function getinfo() {
           authorization: `Bearer ${token}`,
         },
       }
-    )    // 后端返回的数据结构是 { user: { uID, uName, uAvatar, ... } }
+    )
+    // 后端返回的数据结构是 { user: { uID, uName, uAvatar, ... } }
     if (res.data && res.data.user) {
       userava.value = res.data.user.uAvatar
       avatarKey.value = Date.now() // 使用时间戳强制刷新头像显示
@@ -601,7 +607,8 @@ async function getfriends() {
       const unreadCounts = unreadRes.data
       transformedFriends.forEach((friend) => {
         friend.unreadCount = unreadCounts[friend.id] || 0
-      })    } catch (err) {
+      })
+    } catch (err) {
       console.error('获取未读消息数量失败:', err)
     }
 
@@ -1011,7 +1018,8 @@ async function handleSearch() {
             limit: 20,
           },
         }
-      )      if (response.data && response.data.success) {
+      )
+      if (response.data && response.data.success) {
         const userResults = response.data.data.results || []
         // 为用户结果添加类型标识
         searchResults.value = userResults.map((user) => ({
@@ -1060,7 +1068,8 @@ function jumpToUserChat(user) {
     // 切换到对应的聊天
     switchChat(friend)
   } else {
-    // 如果好友列表中没有，可能需要添加到好友列表或直接开始聊天  }
+    // 如果好友列表中没有，可能需要添加到好友列表或直接开始聊天
+  }
 
   // 清空搜索
   searchKeyword.value = ''
@@ -1081,7 +1090,7 @@ onBeforeUnmount(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: var(--bg-tertiary, #ffffff);
   border-radius: 24px;
   overflow: hidden;
   padding: 20px 24px;
@@ -1100,7 +1109,7 @@ onBeforeUnmount(() => {
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 1px;
-    color: #95a5a6;
+    color: var(--text-tertiary, #95a5a6);
     text-transform: uppercase;
   }
 
@@ -1112,7 +1121,7 @@ onBeforeUnmount(() => {
     background: none;
     border: none;
     font-size: 24px;
-    color: #666;
+    color: var(--text-secondary, #666);
     cursor: pointer;
     padding: 8px;
     border-radius: 50%;
@@ -1128,8 +1137,8 @@ onBeforeUnmount(() => {
     }
 
     &:hover {
-      background: rgba(0, 0, 0, 0.1);
-      color: #333;
+      background: var(--hover-bg, rgba(0, 0, 0, 0.1));
+      color: var(--text-primary, #333);
     }
   }
 
@@ -1137,7 +1146,7 @@ onBeforeUnmount(() => {
     background: transparent;
     border: none;
     font-size: 24px;
-    color: #95a5a6;
+    color: var(--text-tertiary, #95a5a6);
     cursor: pointer;
     padding: 0;
     line-height: 1;
@@ -1152,9 +1161,9 @@ onBeforeUnmount(() => {
     position: absolute;
     right: 0;
     top: 35px;
-    background: white;
+    background: var(--bg-tertiary, white);
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md, 0 4px 20px rgba(0, 0, 0, 0.15));
     padding: 8px;
     min-width: 140px;
     z-index: 1000;
@@ -1180,7 +1189,7 @@ onBeforeUnmount(() => {
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    color: #666;
+    color: var(--text-secondary, #666);
     font-size: 14px;
 
     svg {
@@ -1190,13 +1199,13 @@ onBeforeUnmount(() => {
 
     &:hover {
       background: var(--active-bg);
-      color: #333;
+      color: var(--text-primary, #333);
     }
   }
 
   .back-btn {
     cursor: pointer;
-    color: #95a5a6;
+    color: var(--text-tertiary, #95a5a6);
     font-size: 18px;
   }
 }
@@ -1218,11 +1227,12 @@ onBeforeUnmount(() => {
       height: 80px;
       border-radius: 50%;
       padding: 4px;
-      background: white;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      background: var(--bg-tertiary, white);
+      box-shadow: var(--shadow-sm, 0 4px 15px rgba(0, 0, 0, 0.05));
       cursor: pointer;
       position: relative;
-      border: 2px solid #f0f0f0;
+      border: 2px solid var(--border-color, #f0f0f0);
+      overflow: visible;
 
       img {
         width: 100%;
@@ -1233,16 +1243,17 @@ onBeforeUnmount(() => {
 
       .status-indicator-ring {
         position: absolute;
-        bottom: 0;
-        right: 0;
+        bottom: 2px;
+        right: 2px;
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: #95a5a6; /* Offline gray */
-        border: 3px solid white;
+        background: var(--text-tertiary, #95a5a6); /* Offline gray */
+        border: 3px solid var(--bg-tertiary, white);
+        z-index: 10;
 
         &.online {
-          background: #2ecc71; /* Online green */
+          background: var(--success-color, #2ecc71); /* Online green */
         }
       }
     }
@@ -1251,12 +1262,12 @@ onBeforeUnmount(() => {
       position: absolute;
       top: 0;
       right: -30px;
-      color: #bdc3c7;
+      color: var(--text-light, #bdc3c7);
       cursor: pointer;
       transition: color 0.2s;
 
       &:hover {
-        color: #7f8c8d;
+        color: var(--text-secondary, #7f8c8d);
       }
     }
   }
@@ -1267,7 +1278,7 @@ onBeforeUnmount(() => {
     .username {
       font-size: 20px;
       font-weight: 700;
-      color: #2c3e50;
+      color: var(--text-primary, #2c3e50);
       margin-bottom: 6px;
     }
 
@@ -1275,18 +1286,18 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #f0f2f5;
+      background: var(--bg-secondary, #f0f2f5);
       padding: 4px 12px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
-      color: #95a5a6;
+      color: var(--text-tertiary, #95a5a6);
 
       .status-dot {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background-color: #95a5a6;
+        background-color: var(--text-tertiary, #95a5a6);
         margin-right: 6px;
 
         &.online {
@@ -1295,7 +1306,7 @@ onBeforeUnmount(() => {
       }
 
       .status-text {
-        color: #95a5a6;
+        color: var(--text-tertiary, #95a5a6);
       }
     }
   }
@@ -1308,7 +1319,7 @@ onBeforeUnmount(() => {
 
   .search-input-wrapper {
     position: relative;
-    background: #f8f9fa;
+    background: var(--bg-secondary, #f8f9fa);
     border-radius: 12px;
     padding: 10px 16px;
     display: flex;
@@ -1319,11 +1330,11 @@ onBeforeUnmount(() => {
       background: transparent;
       width: 100%;
       font-size: 14px;
-      color: #2c3e50;
+      color: var(--text-primary, #2c3e50);
       outline: none;
 
       &::placeholder {
-        color: #bdc3c7;
+        color: var(--text-tertiary, #bdc3c7);
       }
     }
   }
@@ -1346,7 +1357,7 @@ onBeforeUnmount(() => {
     .list-title {
       font-size: 12px;
       font-weight: 600;
-      color: #95a5a6;
+      color: var(--text-tertiary, #95a5a6);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -1375,7 +1386,7 @@ onBeforeUnmount(() => {
     }
 
     &::-webkit-scrollbar-thumb {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: var(--border-color, rgba(0, 0, 0, 0.1));
       border-radius: 4px;
     }
 
@@ -1389,7 +1400,7 @@ onBeforeUnmount(() => {
       margin-bottom: 4px;
 
       &:hover {
-        background: #f8f9fa;
+        background: var(--hover-bg, #f8f9fa);
       }
 
       .chat-avatar {
@@ -1404,6 +1415,24 @@ onBeforeUnmount(() => {
           object-fit: cover;
         }
 
+        .online-dot {
+          position: absolute;
+          bottom: 2px;
+          right: 2px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #bdc3c7;
+          border: 2px solid var(--bg-tertiary, white);
+          z-index: 1;
+          transition: background 0.3s ease;
+
+          &.online {
+            background: #2ecc71;
+            box-shadow: 0 0 6px rgba(46, 204, 113, 0.5);
+          }
+        }
+
         .unread-count-badge {
           position: absolute;
           top: -4px;
@@ -1413,7 +1442,7 @@ onBeforeUnmount(() => {
           background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
           color: white;
           border-radius: 10px;
-          border: 2px solid white;
+          border: 2px solid var(--bg-tertiary, white);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1432,7 +1461,7 @@ onBeforeUnmount(() => {
         .chat-name {
           font-size: 15px;
           font-weight: 600;
-          color: #2c3e50;
+          color: var(--text-primary, #2c3e50);
           margin-bottom: 4px;
           white-space: nowrap;
           overflow: hidden;
@@ -1441,13 +1470,13 @@ onBeforeUnmount(() => {
 
         .chat-message {
           font-size: 13px;
-          color: #95a5a6;
+          color: var(--text-tertiary, #95a5a6);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
 
           &.unread-text {
-            color: #2c3e50;
+            color: var(--text-primary, #2c3e50);
             font-weight: 500;
           }
         }
@@ -1455,7 +1484,7 @@ onBeforeUnmount(() => {
 
       .chat-time {
         font-size: 11px;
-        color: #bdc3c7;
+        color: var(--text-tertiary, #bdc3c7);
         margin-left: 8px;
         white-space: nowrap;
       }
@@ -1476,21 +1505,21 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       align-items: center;
       padding: 0 4px 8px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-color, #f0f0f0);
       margin-bottom: 8px;
 
       .section-title {
         font-size: 12px;
         font-weight: 600;
-        color: #95a5a6;
+        color: var(--text-tertiary, #95a5a6);
       }
 
       .section-count {
         font-size: 11px;
-        background: #f0f0f0;
+        background: var(--bg-secondary, #f0f0f0);
         padding: 2px 6px;
         border-radius: 8px;
-        color: #7f8c8d;
+        color: var(--text-secondary, #7f8c8d);
       }
     }
   }
@@ -1501,16 +1530,16 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   padding: 20px;
-  color: #95a5a6;
+  color: var(--text-tertiary, #95a5a6);
   font-size: 14px;
 }
 
 /* Context Menu */
 .context-menu {
   position: fixed;
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
   padding: 8px 0;
   z-index: 1000;
   min-width: 200px;
@@ -1518,14 +1547,14 @@ onBeforeUnmount(() => {
   .context-menu-item {
     padding: 10px 16px;
     font-size: 14px;
-    color: #2c3e50;
+    color: var(--text-primary, #2c3e50);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
 
     &:hover {
-      background: #f8f9fa;
+      background: var(--hover-bg, #f8f9fa);
     }
   }
 }
@@ -1565,12 +1594,12 @@ onBeforeUnmount(() => {
 
 .theme-container,
 .avatar-selector-content {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 24px;
   padding: 24px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.2));
   position: relative;
   z-index: 2001;
 
@@ -1578,7 +1607,7 @@ onBeforeUnmount(() => {
     margin: 0 0 20px 0;
     font-size: 20px;
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary, #333);
     text-align: center;
   }
 }
@@ -1623,7 +1652,7 @@ onBeforeUnmount(() => {
 .divider {
   text-align: center;
   margin: 20px 0;
-  color: #999;
+  color: var(--text-tertiary, #999);
   font-size: 13px;
   position: relative;
 
@@ -1634,7 +1663,7 @@ onBeforeUnmount(() => {
     top: 50%;
     width: 30%;
     height: 1px;
-    background: #e0e0e0;
+    background: var(--border-color, #e0e0e0);
   }
 
   &::before {
@@ -1661,14 +1690,14 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border: 2px solid transparent;
 
   &:hover {
     background: var(--hover-bg);
     border-color: var(--primary-color);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-sm, 0 4px 8px rgba(0, 0, 0, 0.1));
   }
 
   &:active {
@@ -1681,13 +1710,13 @@ onBeforeUnmount(() => {
     border-radius: 50%;
     margin-bottom: 6px;
     object-fit: cover;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--bg-tertiary, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.1));
   }
 
   span {
     font-size: 11px;
-    color: #666;
+    color: var(--text-secondary, #666);
     text-align: center;
     line-height: 1.2;
   }
@@ -1708,11 +1737,11 @@ onBeforeUnmount(() => {
     transition: all 0.3s ease;
 
     &.cancel-btn {
-      background: #f0f0f0;
-      color: #666;
+      background: var(--bg-secondary, #f0f0f0);
+      color: var(--text-secondary, #666);
 
       &:hover {
-        background: #e0e0e0;
+        background: var(--active-bg, #e0e0e0);
       }
     }
   }
@@ -1846,13 +1875,13 @@ onBeforeUnmount(() => {
   margin: 0 0 4px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .theme-info p {
   margin: 0;
   font-size: 13px;
-  color: #888;
+  color: var(--text-tertiary, #888);
   font-style: italic;
 }
 
@@ -1866,8 +1895,8 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  border: 2px solid var(--bg-tertiary, white);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.15));
   transition: transform 0.2s ease;
 }
 

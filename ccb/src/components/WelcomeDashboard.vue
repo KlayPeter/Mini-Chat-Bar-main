@@ -49,7 +49,7 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-tertiary, #ffffff);
   border-radius: 24px;
   position: relative;
   overflow: hidden;
@@ -99,14 +99,14 @@ onMounted(async () => {
 .welcome-text {
   font-size: 36px;
   font-weight: 300;
-  color: #95a5a6;
+  color: var(--text-secondary, #95a5a6);
   margin-bottom: 16px;
   letter-spacing: 0.5px;
 }
 
 .subtitle {
   font-size: 16px;
-  color: #bdc3c7;
+  color: var(--text-tertiary, #bdc3c7);
   font-weight: 300;
   letter-spacing: 0.5px;
 }

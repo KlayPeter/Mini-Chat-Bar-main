@@ -104,7 +104,7 @@ defineExpose({ show, close })
   align-items: center;
   gap: 12px;
   padding: 16px 24px;
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   backdrop-filter: blur(10px);
@@ -131,7 +131,7 @@ defineExpose({ show, close })
   font-size: 15px;
   font-weight: 500;
   line-height: 1.4;
-  color: #2c3e50;
+  color: var(--text-primary, #2c3e50);
 
   @media (max-width: 768px) {
     font-size: 14px;

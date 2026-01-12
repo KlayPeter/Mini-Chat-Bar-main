@@ -87,7 +87,7 @@ defineExpose({
 }
 
 .confirm-dialog {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;

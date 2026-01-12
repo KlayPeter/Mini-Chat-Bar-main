@@ -776,8 +776,8 @@ defineExpose({
 
 <style scoped lang="scss">
 .chat-input {
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  background: var(--bg-tertiary, #ffffff);
   flex-shrink: 0;
   padding: 16px;
   backdrop-filter: blur(10px);
@@ -785,8 +785,8 @@ defineExpose({
 
   // 引用消息预览样式
   .quoted-message-preview {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background: var(--bg-secondary, #f8f9fa);
+    border: 1px solid var(--border-color-light, #e9ecef);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 12px;
@@ -800,7 +800,7 @@ defineExpose({
       
       .quoted-label {
         font-size: 12px;
-        color: #6c757d;
+        color: var(--text-secondary, #6c757d);
         font-weight: 500;
       }
       
@@ -810,7 +810,7 @@ defineExpose({
         cursor: pointer;
         padding: 4px;
         border-radius: 4px;
-        color: #6c757d;
+        color: var(--text-secondary, #6c757d);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -822,8 +822,8 @@ defineExpose({
         }
         
         &:hover {
-          background: #dee2e6;
-          color: #495057;
+          background: var(--active-bg, #dee2e6);
+          color: var(--text-primary, #495057);
         }
       }
     }
@@ -831,7 +831,7 @@ defineExpose({
     .quoted-content {
       .quoted-text {
         font-size: 13px;
-        color: #495057;
+        color: var(--text-primary, #495057);
         line-height: 1.4;
         max-height: 60px;
         overflow: hidden;
@@ -844,7 +844,7 @@ defineExpose({
       
       .quoted-media {
         font-size: 13px;
-        color: #6c757d;
+        color: var(--text-secondary, #6c757d);
         font-style: italic;
       }
     }
@@ -866,9 +866,9 @@ defineExpose({
   .file-preview-inline {
     margin-bottom: 12px;
     padding: 12px 16px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: var(--bg-secondary, linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%));
     border-radius: 12px;
-    border: 2px dashed rgba(0, 123, 255, 0.3);
+    border: 2px dashed var(--border-color, rgba(0, 123, 255, 0.3));
     animation: slideUp 0.3s ease-out;
 
     .file-item {
@@ -878,7 +878,7 @@ defineExpose({
       padding: 6px 0;
 
       &:not(:last-child) {
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid var(--border-color, #e9ecef);
         margin-bottom: 6px;
         padding-bottom: 12px;
       }
@@ -907,11 +907,12 @@ defineExpose({
           font-weight: 500;
           margin-bottom: 2px;
           word-break: break-all;
+          color: var(--text-primary);
         }
 
         .file-size {
           font-size: 12px;
-          color: #6c757d;
+          color: var(--text-secondary, #6c757d);
         }
       }
 
@@ -931,11 +932,11 @@ defineExpose({
 
     .file-count {
       font-size: 12px;
-      color: #6c757d;
+      color: var(--text-secondary, #6c757d);
       text-align: center;
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid #e9ecef;
+      border-top: 1px solid var(--border-color, #e9ecef);
     }
   }
 
@@ -945,9 +946,9 @@ defineExpose({
     align-items: flex-end;
     gap: 12px;
     position: relative;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--bg-secondary, rgba(255, 255, 255, 0.9));
     border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
     padding: 8px;
     transition: all 0.3s ease;
     
@@ -973,27 +974,27 @@ defineExpose({
       line-height: 1.6;
       min-height: 112px;
       max-height: 200px;
-      background: transparent;
-      color: #2c3e50;
+      background: var(--bg-tertiary, transparent);
+      color: var(--text-primary, #2c3e50);
       transition: all 0.3s ease;
       
       &::placeholder {
-        color: #8e9aaf;
+        color: var(--text-tertiary, #8e9aaf);
         font-weight: 400;
       }
 
       &:focus {
         outline: none;
-        border-color: #007bff;
+        border-color: var(--primary-color, #007bff);
       }
 
       &:disabled {
-        background-color: #f8f9fa;
+        background-color: var(--bg-secondary, #f8f9fa);
         cursor: not-allowed;
       }
 
       &.with-file {
-        border-color: #28a745;
+        border-color: var(--success-color, #28a745);
       }
     }
 
@@ -1007,7 +1008,8 @@ defineExpose({
         height: 40px;
         border: none;
         border-radius: 10px;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: var(--bg-secondary, linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%));
+        color: var(--text-primary, inherit);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -1021,15 +1023,15 @@ defineExpose({
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 123, 255, 0.05) 100%);
+          background: var(--hover-bg, linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 123, 255, 0.05) 100%));
           opacity: 0;
           transition: opacity 0.3s ease;
         }
 
         &:hover:not(:disabled) {
-          background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+          background: var(--active-bg, linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%));
           transform: translateY(-2px) scale(1.08);
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+          box-shadow: var(--shadow-md, 0 6px 20px rgba(0, 0, 0, 0.15));
           
           &::before {
             opacity: 1;
@@ -1042,8 +1044,8 @@ defineExpose({
         }
 
         &.active {
-          background: #007bff;
-          color: white;
+          background: var(--primary-color, #007bff);
+          color: var(--text-inverse, white);
         }
 
         .icon {
@@ -1053,8 +1055,8 @@ defineExpose({
         }
 
         &.voice-recording {
-          background: #dc3545;
-          color: white;
+          background: var(--error-color, #dc3545);
+          color: var(--text-inverse, white);
           border-radius: 18px;
           width: auto;
           padding: 0 12px;
@@ -1062,8 +1064,8 @@ defineExpose({
         }
 
         &.voice-cancel {
-          background: #6c757d;
-          color: white;
+          background: var(--text-tertiary, #6c757d);
+          color: var(--text-inverse, white);
         }
 
         &.send-btn {
@@ -1097,10 +1099,10 @@ defineExpose({
     bottom: 100%;
     left: 12px;
     right: 12px;
-    background: white;
-    border: 1px solid #e0e0e0;
+    background: var(--bg-tertiary, white);
+    border: 1px solid var(--border-color, #e0e0e0);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
     padding: 12px;
     z-index: 1000;
 
@@ -1125,7 +1127,7 @@ defineExpose({
         transition: background-color 0.2s;
 
         &:hover {
-          background-color: #f8f9fa;
+          background-color: var(--hover-bg, #f8f9fa);
         }
       }
     }
@@ -1199,17 +1201,17 @@ defineExpose({
 // @成员列表样式
 .mention-list-container {
   position: absolute;
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-tertiary, white);
+  border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.1));
   overflow: hidden;
   
   .mention-list {
     max-height: 200px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #ccc transparent;
+    scrollbar-color: var(--text-tertiary, #ccc) transparent;
     
     &::-webkit-scrollbar {
       width: 6px;
@@ -1220,12 +1222,12 @@ defineExpose({
     }
     
     &::-webkit-scrollbar-thumb {
-      background-color: #ccc;
+      background-color: var(--text-tertiary, #ccc);
       border-radius: 3px;
     }
     
     &::-webkit-scrollbar-thumb:hover {
-      background-color: #999;
+      background-color: var(--text-secondary, #999);
     }
     
     .mention-item {
@@ -1237,7 +1239,7 @@ defineExpose({
       
       &:hover,
       &.active {
-        background-color: #f5f5f5;
+        background-color: var(--hover-bg, #f5f5f5);
       }
       
       .member-avatar {
@@ -1259,8 +1261,8 @@ defineExpose({
         .all-icon {
           font-size: 18px;
           font-weight: bold;
-          color: #007bff;
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+          color: var(--primary-color, #007bff);
+          background: var(--hover-bg, linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%));
           width: 100%;
           height: 100%;
           display: flex;
@@ -1279,7 +1281,7 @@ defineExpose({
         .member-name {
           font-size: 14px;
           font-weight: 500;
-          color: #333;
+          color: var(--text-primary, #333);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1288,7 +1290,7 @@ defineExpose({
         .member-desc,
         .member-role {
           font-size: 12px;
-          color: #666;
+          color: var(--text-secondary, #666);
           margin-top: 2px;
         }
       }
@@ -1297,7 +1299,7 @@ defineExpose({
     .no-results {
       padding: 16px 12px;
       text-align: center;
-      color: #999;
+      color: var(--text-tertiary, #999);
       font-size: 14px;
     }
   }

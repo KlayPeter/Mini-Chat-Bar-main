@@ -151,7 +151,7 @@ onMounted(() => {
 }
 
 .dialog {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 8px;
   width: 450px;
   max-width: 90%;

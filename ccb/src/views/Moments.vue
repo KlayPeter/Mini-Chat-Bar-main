@@ -75,7 +75,7 @@ function showAI() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 1rem;
   margin: 0.5rem;
   margin-left: 0;

@@ -111,7 +111,7 @@ const closeSelector = () => {
 }
 
 .theme-selector-content {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 24px;
   padding: 32px;
   width: 90%;

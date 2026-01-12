@@ -334,7 +334,7 @@ onMounted(() => {
 
 .group-detail-panel {
   width: 400px;
-  background: white;
+  background: var(--bg-tertiary, white);
   display: flex;
   flex-direction: column;
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.15);
@@ -344,7 +344,7 @@ onMounted(() => {
 
 .panel-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color-light, #e0e0e0);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -352,6 +352,7 @@ onMounted(() => {
   h3 {
     margin: 0;
     font-size: 18px;
+    color: var(--text-primary, #333);
   }
 
   .close-btn {
@@ -359,10 +360,10 @@ onMounted(() => {
     border: none;
     font-size: 28px;
     cursor: pointer;
-    color: #999;
+    color: var(--text-tertiary, #999);
 
     &:hover {
-      color: #333;
+      color: var(--text-primary, #333);
     }
   }
 }
@@ -371,6 +372,7 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  background: var(--bg-tertiary, white);
 }
 
 .section {
@@ -379,15 +381,16 @@ onMounted(() => {
   h4 {
     margin: 0 0 15px 0;
     font-size: 16px;
+    color: var(--text-primary, #333);
   }
 
   .group-avatar-large {
     text-align: center;
     margin-bottom: 20px;
     padding: 15px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: var(--bg-secondary, #f8f9fa);
     border-radius: 12px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--border-color-light, #e0e0e0);
   }
 
   .group-name-edit {
@@ -430,7 +433,7 @@ onMounted(() => {
 
   .group-id {
     text-align: center;
-    color: #999;
+    color: var(--text-tertiary, #999);
     font-size: 12px;
     margin: 5px 0 0 0;
   }
@@ -479,13 +482,13 @@ onMounted(() => {
       padding: 12px 15px;
       border-radius: 8px;
       margin-bottom: 8px;
-      background: #fafafa;
-      border: 1px solid #f0f0f0;
+      background: var(--bg-secondary, #fafafa);
+      border: 1px solid var(--border-color, #f0f0f0);
       transition: all 0.2s ease;
 
       &:hover {
-        background: #f0f9ff;
-        border-color: #bae6fd;
+        background: var(--hover-bg, #f0f9ff);
+        border-color: var(--primary-light, #bae6fd);
         transform: translateY(-1px);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
@@ -500,14 +503,15 @@ onMounted(() => {
       .member-name {
         flex: 1;
         font-size: 14px;
+        color: var(--text-primary, #333);
       }
 
       .badge {
         font-size: 12px;
         padding: 2px 8px;
-        background: #ffeaa7;
+        background: var(--warning-color, #ffeaa7);
         border-radius: 10px;
-        color: #d63031;
+        color: var(--error-color, #d63031);
       }
       
       .kick-btn {
@@ -536,14 +540,14 @@ onMounted(() => {
   }
 
   .announcement-text {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: var(--bg-secondary, #f8f9fa);
     padding: 20px;
     border-radius: 10px;
     min-height: 80px;
     margin-bottom: 15px;
     white-space: pre-wrap;
-    color: #495057;
-    border: 1px solid #dee2e6;
+    color: var(--text-secondary, #495057);
+    border: 1px solid var(--border-color-light, #dee2e6);
     font-size: 14px;
     line-height: 1.6;
   }
@@ -606,9 +610,9 @@ onMounted(() => {
       transition: all 0.2s ease;
 
       &.cancel-btn {
-        background: #f8f9fa;
-        color: #6c757d;
-        border: 1px solid #dee2e6;
+        background: var(--bg-secondary, #f8f9fa);
+        color: var(--text-secondary, #6c757d);
+        border: 1px solid var(--border-color, #dee2e6);
 
         &:hover {
           background: #e9ecef;

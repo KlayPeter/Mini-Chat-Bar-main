@@ -328,7 +328,7 @@ watch(
     width: 100%;
     height: 100vh;
     z-index: 100; /* 降低 z-index，低于底部导航栏 */
-    background: white;
+    background: var(--bg-tertiary, white);
     border-radius: 0;
     pointer-events: auto;
   }
@@ -365,7 +365,7 @@ watch(
   width: 100%;
   height: 100vh;
   z-index: 100; /* 降低 z-index，低于底部导航栏 */
-  background: white;
+  background: var(--bg-tertiary, white);
 }
 
 /* 小屏移动设备 */

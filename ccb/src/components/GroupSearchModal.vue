@@ -150,10 +150,13 @@ async function loadGroups() {
 // 加载所有历史消息
 async function loadAllMessages() {
   try {
-    const token = localStorage.getItem('token')    const res = await axios.get(`${baseUrl}/room/search/messages`, {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(`${baseUrl}/room/search/messages`, {
       headers: { Authorization: `Bearer ${token}` }
-    })    if (res.data.success) {
-      allMessages.value = res.data.messages    }
+    })
+    if (res.data.success) {
+      allMessages.value = res.data.messages
+    }
   } catch (err) {
     console.error('加载历史消息失败:', err)
     console.error('错误详情:', err.response?.data || err.message)
@@ -180,7 +183,8 @@ const filteredGroups = computed(() => {
 const filteredMessages = computed(() => {
   if (!searchQuery.value.trim()) return []
   
-  const query = searchQuery.value.toLowerCase()  // 过滤并排序消息
+  const query = searchQuery.value.toLowerCase()
+  // 过滤并排序消息
   const filtered = allMessages.value.filter(message => {
     // 只搜索文本消息
     if (message.messageType !== 'text') return false
@@ -196,7 +200,8 @@ const filteredMessages = computed(() => {
     }
     
     return false
-  })  // 按时间倒序排序（最新的在前）
+  })
+  // 按时间倒序排序（最新的在前）
   return filtered
     .sort((a, b) => new Date(b.time) - new Date(a.time))
     .slice(0, 50) // 限制结果数量
@@ -300,7 +305,7 @@ function formatTime(time) {
 }
 
 .search-modal {
-  background: white;
+  background: var(--bg-tertiary, white);
   border-radius: 12px;
   width: 600px;
   max-width: 90vw;

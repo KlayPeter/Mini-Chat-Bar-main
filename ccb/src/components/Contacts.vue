@@ -232,7 +232,8 @@ async function handleSearch() {
         params: {
           query: searchKeyword.value
         }
-      });      if (response.data && response.data.users) {
+      });
+      if (response.data && response.data.users) {
         const userResults = response.data.users || [];
         
         // 为用户结果添加类型标识和高亮名称
@@ -287,7 +288,8 @@ async function confirmAddFriend() {
   try {
     const token = localStorage.getItem("token");
     
-    // 调试：打印用户信息    // 获取用户ID
+    // 调试：打印用户信息
+    // 获取用户ID
     const friendId = selectedUser.value.uID || selectedUser.value.id;
     
     if (!friendId) {
@@ -685,7 +687,6 @@ onBeforeUnmount(() => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  overflow: hidden;
   flex-shrink: 0;
   position: relative;
   /* border: 1px solid black; */
@@ -694,13 +695,14 @@ onBeforeUnmount(() => {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
   }
   
   /* 在线状态指示器 */
   .online-status-dot {
     position: absolute;
-    bottom: 2px;
-    right: 2px;
+    bottom: 0;
+    right: 0;
     width: 12px;
     height: 12px;
     border-radius: 50%;
@@ -708,6 +710,7 @@ onBeforeUnmount(() => {
     border: 2px solid var(--bg-tertiary, white);
     box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease;
+    z-index: 10;
     
     &.online {
       background-color: var(--success-color, #52c41a); /* 在线：绿色 */
@@ -1015,7 +1018,7 @@ onBeforeUnmount(() => {
 }
 
 .modal-content {
-  background-color: white;
+  background-color: var(--bg-tertiary, white);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
@@ -1177,8 +1180,8 @@ onBeforeUnmount(() => {
 /* 右键菜单样式 */
 .context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--bg-tertiary, white);
+  border: 1px solid var(--border-color, #ddd);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;

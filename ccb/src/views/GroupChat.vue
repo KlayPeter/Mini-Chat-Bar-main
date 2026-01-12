@@ -1546,11 +1546,11 @@ onUnmounted(() => {
 
 .chat-header {
   padding: 15px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
   display: flex !important;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--bg-tertiary, white);
   flex: 0 0 auto;
   flex-shrink: 0;
   min-height: 60px;
@@ -1562,13 +1562,13 @@ onUnmounted(() => {
     background: none;
     border: none;
     font-size: 20px;
-    color: #666;
+    color: var(--text-secondary, #666);
     cursor: pointer;
     padding: 0 10px 0 0;
     margin-right: 10px;
 
     &:hover {
-      color: #333;
+      color: var(--text-primary, #333);
     }
   }
 
@@ -1587,11 +1587,12 @@ onUnmounted(() => {
       h3 {
         margin: 0 0 4px 0;
         font-size: 16px;
+        color: var(--text-primary);
       }
 
       span {
         font-size: 12px;
-        color: #999;
+        color: var(--text-tertiary, #999);
       }
     }
   }
@@ -1609,7 +1610,7 @@ onUnmounted(() => {
     background: none;
     border: none;
     font-size: 20px;
-    color: #666;
+    color: var(--text-secondary, #666);
     cursor: pointer;
     width: 40px;
     height: 40px;
@@ -1617,8 +1618,8 @@ onUnmounted(() => {
     transition: all 0.2s ease;
 
     &:hover {
-      color: #333;
-      background-color: rgba(0, 0, 0, 0.05);
+      color: var(--text-primary, #333);
+      background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
     }
 
     i {
@@ -1708,7 +1709,7 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     bottom: 65px;
-    background: white;
+    background: var(--bg-tertiary, white);
     z-index: 100;
     transform: translateX(100%);
     transition: transform 0.3s ease;

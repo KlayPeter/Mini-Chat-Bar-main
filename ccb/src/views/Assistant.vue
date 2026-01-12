@@ -267,7 +267,8 @@ const send = async (content) => {
     from: "user",
     content: content,
     time: new Date().toISOString()
-  };  messages.value.push(userMessage);
+  };
+  messages.value.push(userMessage);
   
   // 清空输入框
   if (chatInputRef.value) {
@@ -453,7 +454,7 @@ const offmessage = () => {
   border: none;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  background-color: var(--bg-tertiary, #fff);
 
   .header {
     flex: 0 0 auto;
@@ -462,8 +463,8 @@ const offmessage = () => {
     justify-content: space-between;
     box-shadow: 0 1px 1px 0px rgba(0, 0, 0, 0.1);
     padding: 0 20px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background-color: var(--bg-secondary, #f8f9fa);
+    border-bottom: 1px solid var(--border-color, #e9ecef);
     min-height: 60px;
 
     .header-left {
@@ -476,7 +477,7 @@ const offmessage = () => {
         margin: 0;
         font-size: 18px;
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary, #333);
       }
 
       .role-selector {
@@ -484,9 +485,9 @@ const offmessage = () => {
 
         .role-btn {
           padding: 6px 12px;
-          border: 1px solid #e0e0e0;
+          border: 1px solid var(--border-color, #e0e0e0);
           border-radius: 8px;
-          background: white;
+          background: var(--bg-tertiary, white);
           cursor: pointer;
           font-size: 14px;
           transition: all 0.3s;
@@ -494,7 +495,7 @@ const offmessage = () => {
           display: flex;
           align-items: center;
           gap: 8px;
-          color: #333;
+          color: var(--text-primary, #333);
           font-weight: 500;
 
           .arrow {
@@ -512,9 +513,9 @@ const offmessage = () => {
           position: absolute;
           top: calc(100% + 8px);
           left: 0;
-          background: white;
+          background: var(--bg-tertiary, white);
           border-radius: 12px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          box-shadow: var(--shadow-md, 0 4px 20px rgba(0, 0, 0, 0.15));
           padding: 8px;
           min-width: 180px;
           z-index: 1000;
@@ -528,7 +529,7 @@ const offmessage = () => {
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
-            color: #666;
+            color: var(--text-secondary, #666);
             font-size: 14px;
 
             .role-icon {
@@ -541,7 +542,7 @@ const offmessage = () => {
 
             &:hover {
               background: var(--active-bg);
-              color: #333;
+              color: var(--text-primary, #333);
             }
 
             &.active {
@@ -597,7 +598,7 @@ const offmessage = () => {
     overflow-x: hidden;
     -webkit-app-region: no-drag;
     padding: 20px;
-    background-color: #f5f5f5;
+    background-color: var(--bg-secondary, #f5f5f5);
 
     ul {
       padding: 0;
@@ -653,8 +654,8 @@ const offmessage = () => {
 
             .content {
               display: inline-block;
-              background-color: #ffffff;
-              color: #2c3e50;
+              background-color: var(--message-bg-other, #ffffff);
+              color: var(--message-text-other, #2c3e50);
               padding: 0.75rem 1.2rem;
               margin: 0 1vw 0.4rem;
               border-radius: 18px 18px 18px 4px;
@@ -737,8 +738,8 @@ const offmessage = () => {
   .bottom {
     flex: 0 0 auto;
     padding: 15px 20px;
-    background-color: #fff;
-    border-top: 1px solid #e9ecef;
+    background-color: var(--bg-tertiary, #fff);
+    border-top: 1px solid var(--border-color, #e9ecef);
     -webkit-app-region: no-drag;
 
     .input-area {
@@ -749,7 +750,7 @@ const offmessage = () => {
       textarea {
         width: 100%;
         padding: 12px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color, #ddd);
         border-radius: 8px;
         resize: none;
         min-height: 60px;
@@ -757,6 +758,8 @@ const offmessage = () => {
         font-size: 14px;
         font-family: inherit;
         line-height: 1.5;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
         box-sizing: border-box;
 
         &:focus {
