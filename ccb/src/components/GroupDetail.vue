@@ -134,7 +134,7 @@ async function loadCurrentUser() {
     const res = await axios.get(`${baseUrl}/api/user/info`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    currentUserId.value = String(res.data.id || res.data.uID)
+    currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
   } catch (err) {
     console.error('获取用户信息失败:', err)
   }
@@ -147,11 +147,23 @@ const editAnnouncement = ref('')
 const showInviteDialog = ref(false)
 
 // 计算属性
-const isCreator = computed(() => props.group.Creator === currentUserId.value)
-const isAdmin = computed(() => props.group.Admins.includes(currentUserId.value))
-const isMember = computed(() =>
-  props.group.Members.some(m => m.userID === currentUserId.value)
-)
+const isCreator = computed(() => {
+  return String(props.group.Creator) === String(currentUserId.value) ||
+         String(props.group.CreatorID) === String(currentUserId.value)
+})
+
+const isAdmin = computed(() => {
+  if (!props.group.Admins) return false
+  return props.group.Admins.some(adminId => String(adminId) === String(currentUserId.value))
+})
+
+const isMember = computed(() => {
+  if (!props.group.Members) return false
+  return props.group.Members.some(m => {
+    const memberId = String(m.userID || m.userId || m.id || m.uID)
+    return memberId === String(currentUserId.value)
+  })
+})
 
 // 判断是否可以踢出某个成员
 const canKickMember = (member) => {

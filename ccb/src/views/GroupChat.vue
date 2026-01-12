@@ -186,7 +186,7 @@ async function loadCurrentUser() {
     const res = await axios.get(`${baseUrl}/api/user/info`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    currentUserId.value = String(res.data.id || res.data.uID)
+    currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
   } catch (err) {
     console.error('获取用户信息失败:', err)
   }
@@ -198,17 +198,20 @@ async function loadMyAvatar() {
     const res = await axios.get(`${baseUrl}/api/user/info`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    myAvatar.value = res.data.ava || '/images/avatar/default-avatar.webp'
+    myAvatar.value = res.data.user?.uAvatar || res.data.ava || '/images/avatar/default-avatar.webp'
   } catch (err) {
     console.error('获取自己头像失败:', err)
   }
 }
 
 // 处理GroupList发送的加入所有房间事件
-function handleJoinAllRooms(event) {  if (!socket || !socket.connected) {    return
+function handleJoinAllRooms(event) {
+  if (!socket || !socket.connected) {
+    return
   }
   
-  const { groups, userId } = event.detail  console.log('群聊列表:', groups.map(g => ({id: g.RoomID, name: g.RoomName})))
+  const { groups, userId } = event.detail
+  console.log('群聊列表:', groups.map(g => ({id: g.RoomID, name: g.RoomName})))
   
   groups.forEach(group => {
     console.log(`🏠 加入Socket房间: ${group.RoomID} (${group.RoomName})`)
@@ -220,7 +223,8 @@ function handleJoinAllRooms(event) {  if (!socket || !socket.connected) {    r
     })
     socket.emit('join-room', group.RoomID)
     socket.emit('join', group.RoomID)
-  })}
+  })
+}
 
 function initSocket() {
   socket = io(baseUrl, {
@@ -229,18 +233,21 @@ function initSocket() {
     rememberUpgrade: true
   })
 
-  socket.on('connect', () => {    // 发送连接测试
+  socket.on('connect', () => {
+    // 发送连接测试
     socket.emit('test-connection', {
       userId: currentUserId.value,
       timestamp: Date.now(),
       message: 'Socket连接测试'
     })
     
-    // 加入用户所有的群聊房间（关键修复！）    if (groupListRef.value && groupListRef.value.groups) {
+    // 加入用户所有的群聊房间（关键修复！）
+    if (groupListRef.value && groupListRef.value.groups) {
       const allGroups = groupListRef.value.groups
       console.log('📋 用户的所有群聊:', allGroups.map(g => ({id: g.RoomID, name: g.RoomName})))
       
-      allGroups.forEach(group => {        socket.emit('join-group', {
+      allGroups.forEach(group => {
+        socket.emit('join-group', {
           roomId: group.RoomID,
           userId: currentUserId.value
         })
@@ -250,7 +257,8 @@ function initSocket() {
     }
     
     // 如果已经选择了群聊，额外确认加入当前房间
-    if (currentGroup.value) {      socket.emit('join-group', {
+    if (currentGroup.value) {
+      socket.emit('join-group', {
         roomId: currentGroup.value.RoomID,
         userId: currentUserId.value
       })
@@ -258,12 +266,15 @@ function initSocket() {
   })
 
   // 监听连接测试回应
-  socket.on('test-response', (data) => {  })
+  socket.on('test-response', (data) => {
+  })
 
   // 监听服务器广播的测试消息
-  socket.on('broadcast-test', (data) => {  })
+  socket.on('broadcast-test', (data) => {
+  })
 
-  socket.on('disconnect', () => {  })
+  socket.on('disconnect', () => {
+  })
 
   socket.on('connect_error', (error) => {
     console.error('Socket连接错误:', error)
@@ -273,7 +284,8 @@ function initSocket() {
     
     if (currentGroup.value && data.roomId === currentGroup.value.RoomID) {
       // 检查消息数据是否存在(消息内容直接在data中)
-      if (!data.content && !data.message) {        return
+      if (!data.content && !data.message) {
+        return
       }
       
       // 适配不同的消息数据结构
@@ -295,7 +307,8 @@ function initSocket() {
           mentions: data.mentions,
           quotedMessage: data.quotedMessage // 添加引用消息信息
         };
-      } else {        return
+      } else {
+        return
       }
       
       // 检查是否是自己发送的消息，避免重复添加
@@ -314,47 +327,62 @@ function initSocket() {
             messageListRef.value.scrollToBottom()
           }
         })
-      } else {      }
+      } else {
+      }
     } else if (data.roomId !== currentGroup.value?.RoomID) {
-      // 其他群的消息由GroupList处理    }
+      // 其他群的消息由GroupList处理
+    }
   })
 
   // 监听各种可能的Socket事件
-  socket.on('joined-room', (data) => {  })
+  socket.on('joined-room', (data) => {
+  })
 
-  socket.on('left-room', (data) => {  })
+  socket.on('left-room', (data) => {
+  })
 
-  socket.on('joined-group', (data) => {  })
+  socket.on('joined-group', (data) => {
+  })
 
-  socket.on('room-joined', (data) => {  })
+  socket.on('room-joined', (data) => {
+  })
 
   // 监听房间成员信息
-  socket.on('room-members', (data) => {  })
+  socket.on('room-members', (data) => {
+  })
 
   // 监听房间状态
-  socket.on('room-status', (data) => {  })
+  socket.on('room-status', (data) => {
+  })
 
   // 监听所有可能的消息事件
-  socket.on('message', (data) => {    // 转发给group-message处理
+  socket.on('message', (data) => {
+    // 转发给group-message处理
     socket.emit('group-message', data)
   })
 
-  socket.on('new-message', (data) => {    // 转发给group-message处理
+  socket.on('new-message', (data) => {
+    // 转发给group-message处理
     socket.emit('group-message', data)
   })
 
-  socket.on('chat-message', (data) => {    // 转发给group-message处理
+  socket.on('chat-message', (data) => {
+    // 转发给group-message处理
     socket.emit('group-message', data)
   })
 
   // 监听其他Socket事件
-  socket.on('user-joined', (data) => {  })
+  socket.on('user-joined', (data) => {
+  })
 
-  socket.on('user-left', (data) => {  })
+  socket.on('user-left', (data) => {
+  })
 
-  socket.on('member-joined', (data) => {  })
+  socket.on('member-joined', (data) => {
+  })
 
-  socket.on('member-left', (data) => {  })
+  socket.on('member-left', (data) => {
+  })
 
   // 监听Socket错误
   socket.on('error', (error) => {
@@ -382,13 +410,18 @@ function initSocket() {
   })
 
   // 监听@提及通知事件
-  socket.on('mention-notification', (data) => {    // 检查是否@了当前用户
+  socket.on('mention-notification', (data) => {
+    // 检查是否@了当前用户
     const isMentioned = data.mentions.some(mention => 
       mention.type === 'all' || mention.userId === currentUserId.value
-    )    if (isMentioned && data.senderName) {
+    )
+    if (isMentioned && data.senderName) {
       // 如果是其他群的@提醒，在GroupList中显示红色@标记
-      if (!currentGroup.value || data.roomId !== currentGroup.value.RoomID) {        if (groupListRef.value && groupListRef.value.markGroupAsMentioned) {          groupListRef.value.markGroupAsMentioned(data.roomId)
-        } else {        }
+      if (!currentGroup.value || data.roomId !== currentGroup.value.RoomID) {
+        if (groupListRef.value && groupListRef.value.markGroupAsMentioned) {
+          groupListRef.value.markGroupAsMentioned(data.roomId)
+        } else {
+        }
       }
       
       // 只在当前群聊中显示详细通知
@@ -426,8 +459,10 @@ function initSocket() {
           const audio = new Audio('/sounds/mention-notification.mp3')
           audio.volume = 0.3
           audio.play().catch(() => {
-            // 如果音频播放失败，使用系统提示音          })
-        } catch (e) {        }
+            // 如果音频播放失败，使用系统提示音
+          })
+        } catch (e) {
+        }
       }
     }
   })
@@ -456,7 +491,9 @@ function getCurrentUserRole() {
   }
 }
 
-async function handleSelectGroup(group) {  if (currentGroup.value && socket) {    socket.emit('leave-group', {
+async function handleSelectGroup(group) {
+  if (currentGroup.value && socket) {
+    socket.emit('leave-group', {
       roomId: currentGroup.value.RoomID,
       userId: currentUserId.value
     })
@@ -476,7 +513,8 @@ async function handleSelectGroup(group) {  if (currentGroup.value && socket) {
     }
   }, 100)
 
-  if (socket && socket.connected) {    // 尝试多种房间加入事件名称
+  if (socket && socket.connected) {
+    // 尝试多种房间加入事件名称
     socket.emit('join-group', group.RoomID)
     socket.emit('join-room', group.RoomID) 
     socket.emit('join', group.RoomID)
@@ -485,7 +523,9 @@ async function handleSelectGroup(group) {  if (currentGroup.value && socket) {
     socket.emit('join-group', {
       roomId: group.RoomID,
       userId: currentUserId.value
-    })  } else {  }
+    })
+  } else {
+  }
 }
 
 // 移动端返回群聊列表
@@ -591,13 +631,15 @@ function playVoice(fileInfo) {
 }
 
 // 新组件需要的事件处理方法
-function handleForwardMessage(message) {  forwardMessages.value = [message]
+function handleForwardMessage(message) {
+  forwardMessages.value = [message]
   showForwardDialog.value = true
 }
 
 // 批量转发消息 - 模仿微信逻辑
 function handleForwardMessages(messages) {
-  if (!messages || messages.length === 0) return  // 检查转发消息数量限制（微信通常限制30条）
+  if (!messages || messages.length === 0) return
+  // 检查转发消息数量限制（微信通常限制30条）
   if (messages.length > 30) {
     toast.error('一次最多转发30条消息')
     return
@@ -629,7 +671,8 @@ async function handleDeleteMessages(messagesToDelete) {
   })
   
   if (confirmed) {
-    try {      // 获取要删除的消息ID列表
+    try {
+      // 获取要删除的消息ID列表
       const messageIds = messagesToDelete.map(msg => msg._id || msg.id).filter(id => id)
       
       // 如果有消息ID，尝试调用服务端API删除
@@ -642,7 +685,8 @@ async function handleDeleteMessages(messagesToDelete) {
           await axios.delete(`${baseUrl}/room/${currentGroup.value.RoomID}/messages`, {
             headers: { Authorization: `Bearer ${token}` },
             data: { messageIds: messageIds }
-          })        } catch (apiError) {
+          })
+        } catch (apiError) {
           console.warn('服务端批量删除失败，使用客户端删除:', apiError)
         }
       }
@@ -670,7 +714,8 @@ async function handleDeleteMessages(messagesToDelete) {
 
 // 处理转发完成
 function handleForwardComplete() {
-  // 转发完成后的处理}
+  // 转发完成后的处理
+}
 
 // 处理撤回消息
 async function handleRecallMessage(messageIndex) {
@@ -1024,14 +1069,17 @@ async function sendVoiceMessage() {
 function parseMentions(content) {
   const mentions = []
   const mentionRegex = /@(全体成员|[^@\s]+)/g
-  let match  while ((match = mentionRegex.exec(content)) !== null) {
-    const mentionText = match[1]    if (mentionText === '全体成员') {
+  let match
+  while ((match = mentionRegex.exec(content)) !== null) {
+    const mentionText = match[1]
+    if (mentionText === '全体成员') {
       // @全体成员
       mentions.push({
         type: 'all',
         text: mentionText,
         userId: null
-      })    } else {
+      })
+    } else {
       // 查找对应的用户 - 检查所有可能的显示名称字段
       const member = currentGroup.value?.Members?.find(m => {
         // 收集所有可能的显示名称
@@ -1040,7 +1088,8 @@ function parseMentions(content) {
           m.name, m.userName, m.Name, m.uName,
           m.displayName, m.DisplayName,
           m.realName, m.RealName
-        ].filter(Boolean) // 过滤掉空值        // 检查是否有任何名称匹配
+        ].filter(Boolean) // 过滤掉空值
+        // 检查是否有任何名称匹配
         return possibleNames.includes(mentionText)
       })
       
@@ -1051,9 +1100,12 @@ function parseMentions(content) {
           type: 'user',
           text: mentionText,
           userId: String(userId) // 确保转为字符串
-        })      } else {      }
+        })
+      } else {
+      }
     }
-  }  return mentions
+  }
+  return mentions
 }
 
 // 发送文本消息
@@ -1155,7 +1207,8 @@ async function sendMessage(content, quotedMessage = null) {
           }
         }
 
-        socket.emit('group-message', socketMessageData)        // 立即通知GroupList更新最新消息
+        socket.emit('group-message', socketMessageData)
+        // 立即通知GroupList更新最新消息
         if (groupListRef.value && groupListRef.value.updateGroupLastMessage) {
           groupListRef.value.updateGroupLastMessage(currentGroup.value.RoomID, {
             content: newMessage.content,
@@ -1168,13 +1221,17 @@ async function sendMessage(content, quotedMessage = null) {
         }
         
         // 发送@提及通知
-        if (mentions.length > 0) {          // 简化@提及通知发送
+        if (mentions.length > 0) {
+          // 简化@提及通知发送
           socket.emit('mention-notification', {
             roomId: currentGroup.value.RoomID,
             mentions: mentions,
             messageId: res.data.message.id || res.data.message._id,
             senderName: myAvatar.value || '某位成员'
-          })        }      } else {      }
+          })
+        }
+      } else {
+      }
     }
   } catch (error) {
     console.error('发送消息失败:', error)
@@ -1182,7 +1239,8 @@ async function sendMessage(content, quotedMessage = null) {
   }
 }
 
-async function handleGroupUpdate() {  // 重新加载群聊列表
+async function handleGroupUpdate() {
+  // 重新加载群聊列表
   if (groupListRef.value && groupListRef.value.loadGroups) {
     groupListRef.value.loadGroups()
   }
@@ -1200,7 +1258,8 @@ async function handleGroupUpdate() {  // 重新加载群聊列表
         const updatedGroup = res.data.rooms.find(room => room.RoomID === currentGroup.value.RoomID)
         if (updatedGroup) {
           // 更新当前群聊信息，保持响应性
-          Object.assign(currentGroup.value, updatedGroup)        }
+          Object.assign(currentGroup.value, updatedGroup)
+        }
       }
     } catch (err) {
       console.error('获取群聊列表失败:', err)
@@ -1243,22 +1302,31 @@ function formatTime(time) {
 }
 
 // 处理转发消息事件
-function handleForwardedMessage(event) {  const { roomId, message, forwardData } = event.detail  // 如果转发到当前群聊，立即更新消息列表
-  if (currentGroup.value && roomId === currentGroup.value.RoomID) {    if (message && !messages.value.some(msg => msg._id === message._id)) {
-      messages.value.push(message)      // 滚动到底部
+function handleForwardedMessage(event) {
+  const { roomId, message, forwardData } = event.detail
+  // 如果转发到当前群聊，立即更新消息列表
+  if (currentGroup.value && roomId === currentGroup.value.RoomID) {
+    if (message && !messages.value.some(msg => msg._id === message._id)) {
+      messages.value.push(message)
+      // 滚动到底部
       nextTick(() => {
         if (messageListRef.value) {
-          messageListRef.value.scrollToBottom()        }
+          messageListRef.value.scrollToBottom()
+        }
       })
-    } else {      if (!message) {      } else {
+    } else {
+      if (!message) {
+      } else {
         console.log('消息已存在，检查现有消息ID:', messages.value.map(m => m._id))
       }
     }
-  } else {  }
+  } else {
+  }
 }
 
 // 处理Socket广播事件
-function handleSocketBroadcast(event) {  const { roomId, message, forwardData } = event.detail
+function handleSocketBroadcast(event) {
+  const { roomId, message, forwardData } = event.detail
   
   // 通过Socket广播转发的消息给其他群成员
   if (socket && socket.connected) {
@@ -1275,7 +1343,8 @@ function handleSocketBroadcast(event) {  const { roomId, message, forwardData }
       time: message.time || new Date().toISOString()
     }
 
-    socket.emit('group-message', socketMessageData)    // 如果是当前群聊，也通知GroupList更新
+    socket.emit('group-message', socketMessageData)
+    // 如果是当前群聊，也通知GroupList更新
     if (currentGroup.value && roomId === currentGroup.value.RoomID) {
       if (groupListRef.value && groupListRef.value.updateGroupLastMessage) {
         groupListRef.value.updateGroupLastMessage(roomId, {
