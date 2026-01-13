@@ -142,11 +142,12 @@ class DatabaseTool {
       };
     }
 
-    // 统计参与者
+    // 统计参与者（只统计用户ID，避免重复）
     const participantSet = new Set();
     messages.forEach(m => {
-      participantSet.add(m.from);
-      if (m.senderName) participantSet.add(m.senderName);
+      if (m.from && m.from !== 'system') {
+        participantSet.add(m.from);
+      }
     });
 
     // 统计消息类型

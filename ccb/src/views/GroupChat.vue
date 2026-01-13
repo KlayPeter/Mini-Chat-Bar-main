@@ -317,6 +317,7 @@ function initSocket() {
           fromName: data.fromName,
           fromAvatar: data.fromAvatar,
           messageType: data.messageType || 'text',
+          time: data.time || data.createdAt || data.timestamp || new Date(),
           createdAt: data.createdAt || data.timestamp || new Date(),
           mentions: data.mentions,
           quotedMessage: data.quotedMessage // 添加引用消息信息
@@ -325,12 +326,30 @@ function initSocket() {
         return
       }
       
-      // 检查是否是自己发送的消息，避免重复添加
-      const isDuplicate = messages.value.some(msg => 
-        (msg._id && messageData._id && msg._id === messageData._id) || 
-        (msg.id && messageData.id && msg.id === messageData.id) ||
-        (msg.content === messageData.content && msg.from === messageData.from)
-      )
+      // 改进的去重逻辑：
+      // 1. 如果有ID，优先用ID判断
+      // 2. 如果没有ID，用内容+发送者+时间（5秒内）判断
+      const isDuplicate = messages.value.some(msg => {
+        const msgId = msg._id || msg.id;
+        const newMsgId = messageData._id || messageData.id;
+        
+        // 如果两个消息都有ID，用ID判断
+        if (msgId && newMsgId) {
+          return msgId === newMsgId;
+        }
+        
+        // 如果没有ID，用内容+发送者+时间判断（防止短时间内的重复）
+        if (msg.content === messageData.content && 
+            msg.from === messageData.from &&
+            msg.messageType === messageData.messageType) {
+          const msgTime = new Date(msg.time || msg.createdAt).getTime();
+          const newMsgTime = new Date(messageData.time || messageData.createdAt).getTime();
+          // 5秒内的相同内容认为是重复
+          return Math.abs(msgTime - newMsgTime) < 5000;
+        }
+        
+        return false;
+      });
       
       if (!isDuplicate) {
         messages.value.push(messageData)
@@ -341,7 +360,6 @@ function initSocket() {
             messageListRef.value.scrollToBottom()
           }
         })
-      } else {
       }
     } else if (data.roomId !== currentGroup.value?.RoomID) {
       // 其他群的消息由GroupList处理
@@ -1202,6 +1220,8 @@ async function sendMessage(content, quotedMessage = null) {
         const senderName = possibleNames.find(name => name && name.trim()) || 'Anonymous'
         
         const socketMessageData = {
+          _id: newMessage._id || newMessage.id, // 添加消息ID
+          id: newMessage.id || newMessage._id,   // 添加消息ID
           roomId: currentGroup.value.RoomID,
           content: newMessage.content,
           messageType: newMessage.messageType || 'text',
