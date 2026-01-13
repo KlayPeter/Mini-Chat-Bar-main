@@ -8,7 +8,7 @@
  */
 
 const vectorStore = require('./VectorStore');
-const Message = require('../models/Message');
+const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
 
 class MessageIndexer {

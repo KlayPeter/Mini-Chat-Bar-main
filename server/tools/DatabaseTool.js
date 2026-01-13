@@ -4,9 +4,9 @@
  * 提供消息查询、用户查询等数据库操作
  */
 
-const Message = require('../models/Message');
+const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
-const User = require('../models/User');
+const User = require('../models/Users');
 const Room = require('../models/Room');
 
 class DatabaseTool {

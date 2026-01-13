@@ -4,7 +4,7 @@
  * 提供语义搜索功能，集成 Chroma 向量数据库
  */
 
-const Message = require('../models/Message');
+const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
 const vectorStore = require('../services/VectorStore');
 
