@@ -1635,6 +1635,35 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 10px;
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--text-secondary, #666);
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: var(--primary-color, coral);
+        background-color: var(--hover-bg, rgba(255, 127, 80, 0.1));
+      }
+
+      .action-icon {
+        width: 20px;
+        height: 20px;
+        stroke-width: 1.5;
+      }
+
+      i {
+        font-size: 18px;
+      }
+    }
   }
 
   .detail-btn {
