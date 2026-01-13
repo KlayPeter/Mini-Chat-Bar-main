@@ -1,5 +1,23 @@
 <template>
-  <div class="message-list" ref="messageListRef">
+  <div class="message-list" ref="messageListRef" @mouseup="handleTextSelection">
+    <!-- 文本选择工具栏 -->
+    <TextSelectionToolbar
+      :show="showSelectionToolbar"
+      :position="toolbarPosition"
+      :selectedText="selectedText"
+      @ai-explain="handleAIExplain"
+      @quote="handleQuote"
+      @close="hideSelectionToolbar"
+    />
+
+    <!-- AI 解释浮窗 -->
+    <AIExplainDialog
+      :show="showExplainDialog"
+      :selectedText="selectedText"
+      :position="explainPopupPosition"
+      @close="showExplainDialog = false"
+    />
+
     <!-- 多选工具栏 -->
     <div v-if="selectionMode" class="selection-toolbar">
       <div class="selection-info">
@@ -109,6 +127,8 @@ import { ref, defineProps, defineEmits, watch, onMounted, onUnmounted, onUpdated
 import ChatMessage from './ChatMessage.vue'
 import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
 import MessageContextMenu from './MessageContextMenu.vue'
+import TextSelectionToolbar from '../TextSelectionToolbar.vue'
+import AIExplainDialog from '../AIExplainDialog.vue'
 
 const props = defineProps({
   messages: {
@@ -194,6 +214,14 @@ const contextMenu = ref({
   messageIndex: -1
 })
 
+// 文本选择相关状态
+const showSelectionToolbar = ref(false)
+const showExplainDialog = ref(false)
+const selectedText = ref('')
+const toolbarPosition = ref({ x: 0, y: 0 })
+const explainPopupPosition = ref({ x: 0, y: 0 })
+const selectionRect = ref({ left: 0, right: 0, top: 0, bottom: 0, width: 0 })
+
 // 获取消息唯一key
 function getMessageKey(message, index) {
   if (!message) return `msg-${index}`
@@ -264,7 +292,7 @@ function hideContextMenu() {
   // 延迟重置自动滚动阻止标记，防止取消菜单后立即触发滚动
   setTimeout(() => {
     preventAutoScroll.value = false
-  }, 100) // 100ms延迟足够防止意外滚动
+  }, 300) // 增加延迟时间，防止意外滚动
 }
 
 // 进入选择模式
@@ -422,6 +450,92 @@ function handleJumpToQuotedMessage(quotedMessage) {
   emit('jump-to-quoted-message', quotedMessage)
 }
 
+// 处理文本选择
+function handleTextSelection(event) {
+  const selection = window.getSelection()
+  const text = selection?.toString().trim()
+
+  if (text && text.length > 0) {
+    // 选择文本时阻止自动滚动
+    preventAutoScroll.value = true
+    
+    selectedText.value = text
+
+    // 获取选择范围的位置
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+
+    // 计算工具栏位置（在选中文本上方居中）
+    const toolbarWidth = 160 // 工具栏估算宽度
+    let toolbarX = rect.left + rect.width / 2 - toolbarWidth / 2
+    
+    // 确保不超出屏幕左右边界
+    toolbarX = Math.max(10, Math.min(toolbarX, window.innerWidth - toolbarWidth - 10))
+    
+    toolbarPosition.value = {
+      x: toolbarX,
+      y: rect.top - 50 // 工具栏高度 + 间距
+    }
+
+    // 保存选中文本的位置，用于浮窗定位
+    selectionRect.value = {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      width: rect.width
+    }
+
+    // 延迟显示工具栏，避免与其他事件冲突
+    setTimeout(() => {
+      showSelectionToolbar.value = true
+    }, 100)
+  } else {
+    hideSelectionToolbar()
+  }
+}
+
+// 隐藏选择工具栏
+function hideSelectionToolbar() {
+  showSelectionToolbar.value = false
+  
+  // 延迟恢复自动滚动，避免立即触发滚动
+  setTimeout(() => {
+    preventAutoScroll.value = false
+  }, 300)
+}
+
+// 处理 AI 解释
+function handleAIExplain(text) {
+  // 保持阻止自动滚动状态
+  preventAutoScroll.value = true
+  
+  // 计算浮窗位置（在选中文本下方居中）
+  const popupWidth = 320 // 浮窗宽度
+  const popupHeight = 300 // 浮窗估算高度
+  
+  let popupX = selectionRect.value.left + selectionRect.value.width / 2 - popupWidth / 2
+  let popupY = selectionRect.value.bottom + 15 // 在选中文本下方
+  
+  // 确保不超出屏幕边界
+  popupX = Math.max(10, Math.min(popupX, window.innerWidth - popupWidth - 10))
+  
+  // 如果下方空间不够，显示在上方
+  if (popupY + popupHeight > window.innerHeight - 20) {
+    popupY = selectionRect.value.top - popupHeight - 15
+  }
+  
+  explainPopupPosition.value = { x: popupX, y: popupY }
+  showExplainDialog.value = true
+  hideSelectionToolbar() // 隐藏工具栏
+}
+
+// 处理引用
+function handleQuote(text) {
+  // 触发引用回复事件
+  emit('quote-reply', { content: text })
+}
+
 // 滚动到底部
 function scrollToBottom() {
   if (!props.autoScroll || !messageListRef.value || preventAutoScroll.value) return
@@ -447,8 +561,9 @@ function scrollToMessage(messageId) {
 }
 
 // 监听消息变化，自动滚动
-watch(() => props.messages, () => {
-  if (props.autoScroll && !preventAutoScroll.value) {
+watch(() => props.messages, (newMessages, oldMessages) => {
+  // 只有在消息数量增加时才自动滚动（新消息到达）
+  if (props.autoScroll && !preventAutoScroll.value && newMessages.length > oldMessages.length) {
     scrollToBottom()
   }
 }, { deep: true })
@@ -464,13 +579,80 @@ watch(() => props.highlightedMessageId, (newId) => {
 
 onMounted(() => {
   scrollToBottom()
+  
+  // 监听用户手动滚动
+  let scrollTimeout = null
+  const handleScroll = () => {
+    if (!messageListRef.value) return
+    
+    const { scrollTop, scrollHeight, clientHeight } = messageListRef.value
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+    
+    // 如果用户向上滚动（不在底部），阻止自动滚动
+    if (!isAtBottom) {
+      preventAutoScroll.value = true
+      
+      // 清除之前的定时器
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+      
+      // 5秒后恢复自动滚动（如果没有其他操作）
+      scrollTimeout = setTimeout(() => {
+        // 检查是否仍然不在底部，且没有打开任何弹窗
+        if (!isShowingContextMenu.value && !showSelectionToolbar.value && !showExplainDialog.value) {
+          const currentIsAtBottom = messageListRef.value.scrollHeight - messageListRef.value.scrollTop - messageListRef.value.clientHeight < 50
+          if (currentIsAtBottom) {
+            preventAutoScroll.value = false
+          }
+        }
+      }, 5000)
+    } else {
+      // 用户滚动到底部，恢复自动滚动
+      if (!isShowingContextMenu.value && !showSelectionToolbar.value && !showExplainDialog.value) {
+        preventAutoScroll.value = false
+      }
+    }
+  }
+  
+  if (messageListRef.value) {
+    messageListRef.value.addEventListener('scroll', handleScroll)
+  }
+  
+  // 点击其他地方隐藏各种弹窗
+  document.addEventListener('mousedown', (e) => {
+    // 隐藏文本选择工具栏
+    if (showSelectionToolbar.value && !e.target.closest('.text-selection-toolbar')) {
+      hideSelectionToolbar()
+    }
+    // 隐藏解释弹窗
+    if (showExplainDialog.value && !e.target.closest('.explain-popup')) {
+      showExplainDialog.value = false
+      // 延迟恢复自动滚动
+      setTimeout(() => {
+        if (!isShowingContextMenu.value && !showSelectionToolbar.value) {
+          preventAutoScroll.value = false
+        }
+      }, 300)
+    }
+    // 隐藏右键菜单
+    if (contextMenu.value.show && !e.target.closest('.message-context-menu')) {
+      hideContextMenu()
+    }
+  })
 })
 
-onUpdated(() => {
-  if (props.autoScroll && !preventAutoScroll.value) {
-    scrollToBottom()
+onUnmounted(() => {
+  // 清理事件监听器
+  if (messageListRef.value) {
+    messageListRef.value.removeEventListener('scroll', handleScroll)
   }
 })
+
+// 不再在 onUpdated 中自动滚动，避免任何更新都触发滚动
+// onUpdated(() => {
+//   if (props.autoScroll && !preventAutoScroll.value) {
+//     scrollToBottom()
+//   }
+// })
 
 // 暴露方法给父组件
 defineExpose({

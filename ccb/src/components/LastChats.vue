@@ -589,8 +589,8 @@ async function getfriends() {
         )
         .then((msgRes) => ({
           id: friend.id,
-          lastMessage: msgRes.data.content,
-          lastTime: msgRes.data.time,
+          lastMessage: msgRes.data?.content || '',
+          lastTime: msgRes.data?.time || '',
         }))
         .catch((err) => {
           console.error(`初始化时获取${friend.name}的消息失败`, err)
@@ -657,8 +657,8 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
         }
       )
 
-      friends.value[senderIndex].lastMessage = msgRes.data.content || ''
-      friends.value[senderIndex].lastTime = msgRes.data.time || ''
+      friends.value[senderIndex].lastMessage = msgRes.data?.content || ''
+      friends.value[senderIndex].lastTime = msgRes.data?.time || ''
       
       // 重新排序好友列表
       friends.value.sort((a, b) => new Date(b.lastTime || 0) - new Date(a.lastTime || 0))

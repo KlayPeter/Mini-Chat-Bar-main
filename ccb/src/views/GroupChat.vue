@@ -189,6 +189,8 @@ const messageListRef = ref(null)
 const groupListRef = ref(null)
 const chatInputRef = ref(null)
 const isLoadingMessages = ref(false)
+const isLoadingMore = ref(false) // 加载更多状态
+const hasMoreMessages = ref(true) // 是否还有更多消息
 const showChatArea = ref(false) // 移动端控制聊天区域显示
 const highlightedMessageId = ref(null) // 高亮显示的消息ID
 

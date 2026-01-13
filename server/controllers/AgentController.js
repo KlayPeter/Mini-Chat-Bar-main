@@ -240,6 +240,80 @@ class AgentController {
       });
     }
   }
+
+  /**
+   * AI 解释文本
+   * POST /api/agent/explain
+   */
+  static async explainText(req, res) {
+    try {
+      const { text } = req.body;
+      const axios = require('axios');
+
+      if (!text || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: '请提供要解释的文本'
+        });
+      }
+
+      // 判断复杂度（简单实现：根据长度和内容判断）
+      const isComplex = text.length > 100 || /代码|函数|class|function|const|let|var|import|export/.test(text);
+
+      let explanation;
+
+      if (isComplex) {
+        // 复杂场景：使用 ChatAgent（带 RAG）
+        const result = await chatAgent.execute({
+          question: `请详细解释以下内容：\n\n${text}`,
+          userId: req.user.userId,
+          useContext: true
+        });
+        explanation = result.data.answer;
+      } else {
+        // 简单场景：直接调用 DeepSeek API
+        const response = await axios.post(
+          'https://api.deepseek.com/chat/completions',
+          {
+            model: 'deepseek-chat',
+            messages: [
+              {
+                role: 'system',
+                content: '你是一个专业的解释助手，擅长用简洁清晰的语言解释各种概念、术语和内容。'
+              },
+              {
+                role: 'user',
+                content: `请简洁地解释：${text}`
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        explanation = response.data.choices[0].message.content;
+      }
+
+      res.json({
+        success: true,
+        explanation,
+        isComplex
+      });
+    } catch (error) {
+      console.error('AI 解释失败:', error);
+      res.status(500).json({
+        success: false,
+        message: 'AI 解释失败',
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = AgentController;

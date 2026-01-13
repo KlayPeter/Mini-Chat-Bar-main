@@ -76,4 +76,13 @@ router.post('/rag/search', AgentController.ragSearch);
  */
 router.get('/rag/stats', AgentController.ragStats);
 
+/**
+ * POST /api/agent/explain
+ * AI 解释文本
+ * 
+ * Body:
+ * - text: 要解释的文本（必填）
+ */
+router.post('/explain', AgentController.explainText);
+
 module.exports = router;
