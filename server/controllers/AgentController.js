@@ -7,6 +7,7 @@
 const SummaryAgent = require('../agents/SummaryAgent');
 const ChatAgent = require('../agents/ChatAgent');
 const Summary = require('../models/Summary');
+const ragService = require('../services/RAGService');
 
 // Agent 实例（单例）
 const summaryAgent = new SummaryAgent();
@@ -172,6 +173,64 @@ class AgentController {
       res.json({
         success: true,
         message: '会话记忆已清除'
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * RAG 检索测试
+   * POST /api/agent/rag/search
+   */
+  static async ragSearch(req, res) {
+    try {
+      const { query, chatType, chatId, topK = 5, strategy = 'hybrid' } = req.body;
+
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          error: '参数错误：需要提供查询内容'
+        });
+      }
+
+      const result = await ragService.retrieve({
+        query,
+        chatType,
+        chatId,
+        topK,
+        strategy
+      });
+
+      res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error) {
+      console.error('RAG 检索失败:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * 获取 RAG 统计信息
+   * GET /api/agent/rag/stats
+   */
+  static async ragStats(req, res) {
+    try {
+      const stats = await ragService.getStats();
+
+      res.json({
+        success: true,
+        data: stats
       });
 
     } catch (error) {

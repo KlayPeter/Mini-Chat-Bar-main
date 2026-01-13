@@ -57,4 +57,23 @@ router.get('/summaries', AgentController.getSummaries);
  */
 router.post('/clear-memory', AgentController.clearMemory);
 
+/**
+ * POST /api/agent/rag/search
+ * RAG 检索测试
+ * 
+ * Body:
+ * - query: 查询内容（必填）
+ * - chatType: 聊天类型（可选）
+ * - chatId: 聊天 ID（可选）
+ * - topK: 返回数量（默认 5）
+ * - strategy: 检索策略 'vector' | 'keyword' | 'hybrid'（默认 hybrid）
+ */
+router.post('/rag/search', AgentController.ragSearch);
+
+/**
+ * GET /api/agent/rag/stats
+ * 获取 RAG 统计信息
+ */
+router.get('/rag/stats', AgentController.ragStats);
+
 module.exports = router;
