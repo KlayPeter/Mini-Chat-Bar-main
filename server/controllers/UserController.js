@@ -444,6 +444,46 @@ class UserController {
     }
   }
 
+  // 更新用户名
+  static async updateUsername(req, res) {
+    try {
+      const { username } = req.body;
+      const userId = req.user.userId;
+
+      // 验证用户名
+      if (!username || username.trim().length < 2) {
+        return res.status(400).json({ message: "用户名至少需要2个字符" });
+      }
+
+      if (username.trim().length > 20) {
+        return res.status(400).json({ message: "用户名不能超过20个字符" });
+      }
+
+      // 检查用户名是否已被占用
+      const existingUser = await Users.findOne({ 
+        uName: username.trim(),
+        uID: { $ne: userId } // 排除自己
+      });
+
+      if (existingUser) {
+        return res.status(409).json({ message: "用户名已被占用" });
+      }
+
+      await Users.updateOne(
+        { uID: userId },
+        { $set: { uName: username.trim() } }
+      );
+
+      res.status(200).json({
+        message: "用户名更新成功",
+        username: username.trim(),
+      });
+    } catch (err) {
+      console.error("更新用户名失败", err);
+      res.status(500).json({ message: "服务器内部错误" });
+    }
+  }
+
   // 删除好友
   static async deleteFriend(req, res) {
     try {

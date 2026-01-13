@@ -360,9 +360,29 @@ exports.getGroupMessages = async (req, res) => {
       .sort({ time: -1 })
       .limit(parseInt(limit))
 
+    // 补充缺失的头像信息
+    const messagesWithAvatar = await Promise.all(messages.map(async (msg) => {
+      const msgObj = msg.toObject()
+      // 如果消息没有头像且不是系统消息，尝试从群成员或用户表获取
+      if (!msgObj.fromAvatar && msgObj.from !== 'system') {
+        // 先从群成员中查找
+        const member = room.Members.find(m => m.userID === msgObj.from)
+        if (member && member.Avatar) {
+          msgObj.fromAvatar = member.Avatar
+        } else {
+          // 从用户表查找
+          const user = await Users.findOne({ uID: msgObj.from })
+          if (user) {
+            msgObj.fromAvatar = user.uAvatar
+          }
+        }
+      }
+      return msgObj
+    }))
+
     res.json({
       success: true,
-      messages: messages.reverse()
+      messages: messagesWithAvatar.reverse()
     })
   } catch (err) {
     console.error('获取群消息失败:', err)

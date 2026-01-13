@@ -11,7 +11,7 @@ const Room = require('../models/Room');
 
 class DatabaseTool {
   /**
-   * 获取私聊消息
+   * 获取私聊消息（带用户名）
    * @param {Object} params
    * @param {string} params.userId - 当前用户 ID
    * @param {string} params.targetId - 对方用户 ID
@@ -42,11 +42,23 @@ class DatabaseTool {
       .limit(limit)
       .lean();
 
-    return messages;
+    // 获取所有参与者的用户名
+    const userIds = [...new Set(messages.map(m => m.from))];
+    const users = await User.find({ uID: { $in: userIds } }).lean();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.uID] = u.uName || u.uID;
+    });
+
+    // 为每条消息添加 senderName
+    return messages.map(m => ({
+      ...m,
+      senderName: userMap[m.from] || m.from
+    }));
   }
 
   /**
-   * 获取群聊消息
+   * 获取群聊消息（带用户名）
    * @param {Object} params
    * @param {string} params.roomId - 群 ID
    * @param {Object} params.timeRange - 时间范围
@@ -69,6 +81,22 @@ class DatabaseTool {
       .sort({ time: 1 })
       .limit(limit)
       .lean();
+
+    // 如果消息没有 senderName，查询用户名
+    const messagesWithoutName = messages.filter(m => !m.senderName && m.from);
+    if (messagesWithoutName.length > 0) {
+      const userIds = [...new Set(messagesWithoutName.map(m => m.from))];
+      const users = await User.find({ uID: { $in: userIds } }).lean();
+      const userMap = {};
+      users.forEach(u => {
+        userMap[u.uID] = u.uName || u.uID;
+      });
+
+      return messages.map(m => ({
+        ...m,
+        senderName: m.senderName || userMap[m.from] || m.from
+      }));
+    }
 
     return messages;
   }

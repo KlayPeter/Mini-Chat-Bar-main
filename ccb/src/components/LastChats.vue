@@ -302,8 +302,16 @@
       ></div>
     </div>
 
-    <!-- 主题选择器 -->
-    <ThemeSelector :show="showThemeSelector" @close="showThemeSelector = false" />
+    <!-- 设置弹窗 -->
+    <SettingsDialog 
+      :show="showSettingsDialog" 
+      :currentUsername="username"
+      :currentAvatar="userava"
+      :userId="userid"
+      @close="showSettingsDialog = false"
+      @username-updated="handleUsernameUpdated"
+      @avatar-updated="handleAvatarUpdated"
+    />
 
     <!-- 右键菜单 -->
     <div
@@ -349,7 +357,7 @@ import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
-import ThemeSelector from './ThemeSelector.vue'
+import SettingsDialog from './SettingsDialog.vue'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 
 const router = useRouter()
@@ -358,7 +366,7 @@ const { confirm } = useConfirm()
 const issetting = ref(false)
 const isMobile = ref(false)
 const showAddMenu = ref(false)
-const showThemeSelector = ref(false)
+const showSettingsDialog = ref(false)
 
 // 在线状态管理
 const { isUserOnline, onlineUsers } = useOnlineStatus()
@@ -446,7 +454,18 @@ function back() {
 }
 
 function setcolor() {
-  showThemeSelector.value = true
+  showSettingsDialog.value = true
+}
+
+// 处理用户名更新
+function handleUsernameUpdated(newName) {
+  username.value = newName
+}
+
+// 处理头像更新
+function handleAvatarUpdated(newAvatarUrl) {
+  userava.value = newAvatarUrl
+  avatarKey.value = Date.now()
 }
 
 function toBeige() {

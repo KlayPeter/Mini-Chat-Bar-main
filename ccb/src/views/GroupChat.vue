@@ -44,6 +44,9 @@
             </div>
           </div>
           <div class="header-actions">
+            <button @click="showSummaryDialog = true" class="summary-btn" title="AI 生成纪要">
+              <Notes class="action-icon" />
+            </button>
             <button @click="showGroupDetail = true" class="detail-btn" title="群详情">
               <i>ⓘ</i>
             </button>
@@ -123,6 +126,15 @@
       @close="showForwardDialog = false"
       @forward-complete="handleForwardComplete"
     />
+
+    <!-- AI 总结对话框 -->
+    <SummaryDialog
+      v-if="showSummaryDialog && currentGroup"
+      chatType="group"
+      :targetId="currentGroup.RoomID"
+      :targetName="currentGroup.RoomName"
+      @close="showSummaryDialog = false"
+    />
     </div>
 
     <!-- 移动端底部导航栏 -->
@@ -132,7 +144,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { Search, ChatBubble } from '@iconoir/vue'
+import { Search, ChatBubble, Notes } from '@iconoir/vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import Sidebar from '../components/Sidebar.vue'
@@ -142,6 +154,7 @@ import GroupAvatar from '../components/GroupAvatar.vue'
 import BottomNavbar from '../components/BottomNavbar.vue'
 import GroupSearchModal from '../components/GroupSearchModal.vue'
 import ForwardDialog from '../components/ForwardDialog.vue'
+import SummaryDialog from '../components/SummaryDialog.vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import { useToast } from '../composables/useToast'
@@ -170,6 +183,7 @@ const myAvatar = ref('')
 const showGroupDetail = ref(false)
 const showSearchModal = ref(false)
 const showForwardDialog = ref(false)
+const showSummaryDialog = ref(false)
 const forwardMessages = ref([])
 const messageListRef = ref(null)
 const groupListRef = ref(null)

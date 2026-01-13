@@ -69,9 +69,24 @@ module.exports = function(socket, io) {
   // 发送群消息
   socket.on("group-message", async (data) => {
     try {
-      // 直接广播原始数据加timestamp，避免数据丢失
+      // 如果消息中没有头像信息，从数据库获取
+      let fromAvatar = data.fromAvatar
+      if (!fromAvatar && data.from && data.from !== 'system') {
+        try {
+          const Users = require('../models/Users')
+          const user = await Users.findOne({ uID: data.from })
+          if (user) {
+            fromAvatar = user.uAvatar
+          }
+        } catch (err) {
+          console.error('获取用户头像失败:', err)
+        }
+      }
+
+      // 广播数据，确保包含头像
       const broadcastData = {
         ...data,
+        fromAvatar: fromAvatar || '/images/avatar/default-avatar.webp',
         timestamp: new Date()
       }
       

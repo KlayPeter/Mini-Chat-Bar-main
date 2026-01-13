@@ -15,6 +15,13 @@
         </div>
         <div class="header-right">
           <button
+            @click="showSummaryDialog = true"
+            class="summary-btn"
+            title="AI 总结对话"
+          >
+            <Notes class="action-icon" />
+          </button>
+          <button
             @click="deleteCurrentChat"
             class="delete-chat"
             title="删除当前聊天记录"
@@ -79,6 +86,15 @@
       @close="showForwardDialog = false"
       @forward-complete="handleForwardComplete"
     />
+
+    <!-- AI 总结对话框 -->
+    <SummaryDialog
+      v-if="showSummaryDialog"
+      chatType="private"
+      :targetId="chatstore.currentChatUser"
+      :targetName="uname"
+      @close="showSummaryDialog = false"
+    />
   </div>
 </template>
 
@@ -88,15 +104,19 @@ import { useRoute } from 'vue-router'
 import { useChatStore } from '../stores/useChatStore'
 import axios from 'axios'
 import { watch } from 'vue'
-import { Xmark } from '@iconoir/vue'
+import { Xmark, Notes } from '@iconoir/vue'
 import { socket } from '../../utils/socket'
 import { onBeforeUnmount } from 'vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import ForwardDialog from '../components/ForwardDialog.vue'
+import SummaryDialog from '../components/SummaryDialog.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
+
+// 总结对话框
+const showSummaryDialog = ref(false)
 
 const messages = ref([])
 const messageListRef = ref(null)
