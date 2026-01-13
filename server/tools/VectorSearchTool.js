@@ -1,39 +1,23 @@
 /**
  * VectorSearchTool - 向量搜索工具
  * 
- * 提供语义搜索功能（后续集成 Chroma）
- * 当前版本：简单的关键词搜索作为降级方案
+ * 提供语义搜索功能，集成 Chroma 向量数据库
  */
 
 const Message = require('../models/Message');
 const GroupMessage = require('../models/GroupMessage');
+const vectorStore = require('../services/VectorStore');
 
 class VectorSearchTool {
-  constructor() {
-    this.isVectorStoreReady = false;
-    this.vectorStore = null;
-  }
-
   /**
-   * 初始化向量存储（后续实现）
+   * 初始化向量存储
    */
-  async init() {
-    try {
-      // TODO: 集成 Chroma
-      // const { ChromaClient } = require('chromadb');
-      // this.vectorStore = new ChromaClient({ path: './data/chroma' });
-      // this.collection = await this.vectorStore.getOrCreateCollection({ name: 'messages' });
-      // this.isVectorStoreReady = true;
-      
-      console.log('📦 VectorSearchTool: 使用关键词搜索模式（向量库待集成）');
-    } catch (error) {
-      console.error('向量库初始化失败:', error);
-      this.isVectorStoreReady = false;
-    }
+  static async init() {
+    return await vectorStore.init();
   }
 
   /**
-   * 语义搜索（当前使用关键词搜索作为降级）
+   * 语义搜索
    * @param {Object} params
    * @param {string} params.query - 搜索查询
    * @param {string} params.chatType - 聊天类型 'private' | 'group'
@@ -41,63 +25,94 @@ class VectorSearchTool {
    * @param {number} params.topK - 返回数量
    */
   static async search({ query, chatType, chatId, topK = 5 }) {
-    // 当前使用关键词搜索作为降级方案
-    // TODO: 替换为向量搜索
-    
+    // 优先使用向量搜索
+    if (vectorStore.isReady) {
+      const results = await vectorStore.search({
+        query,
+        chatType,
+        chatId,
+        topK
+      });
+
+      if (results.length > 0) {
+        return results;
+      }
+    }
+
+    // 降级：使用关键词搜索
+    console.log('📝 使用关键词搜索（向量库未就绪或无结果）');
+    return await this.keywordSearch({ query, chatType, chatId, topK });
+  }
+
+  /**
+   * 关键词搜索（降级方案）
+   */
+  static async keywordSearch({ query, chatType, chatId, topK }) {
     const keywords = query.split(/\s+/).filter(k => k.length > 1);
     
-    if (chatType === 'private') {
-      return await this.searchPrivateMessages(keywords, chatId, topK);
-    } else {
-      return await this.searchGroupMessages(keywords, chatId, topK);
+    if (keywords.length === 0) {
+      return [];
     }
-  }
 
-  /**
-   * 搜索私聊消息
-   */
-  static async searchPrivateMessages(keywords, chatId, topK) {
     const regexPatterns = keywords.map(k => new RegExp(k, 'i'));
     
-    const messages = await Message.find({
-      $or: [
-        { from: chatId },
-        { to: chatId }
-      ],
-      content: { $in: regexPatterns }
-    })
-    .sort({ time: -1 })
-    .limit(topK)
-    .lean();
+    let messages = [];
+    
+    if (chatType === 'private') {
+      messages = await Message.find({
+        $or: [
+          { from: chatId },
+          { to: chatId }
+        ],
+        content: { $regex: keywords.join('|'), $options: 'i' }
+      })
+      .sort({ time: -1 })
+      .limit(topK)
+      .lean();
+    } else if (chatType === 'group') {
+      messages = await GroupMessage.find({
+        roomId: chatId,
+        content: { $regex: keywords.join('|'), $options: 'i' }
+      })
+      .sort({ time: -1 })
+      .limit(topK)
+      .lean();
+    } else {
+      // 搜索所有消息
+      const privateMessages = await Message.find({
+        content: { $regex: keywords.join('|'), $options: 'i' }
+      })
+      .sort({ time: -1 })
+      .limit(topK)
+      .lean();
+
+      const groupMessages = await GroupMessage.find({
+        content: { $regex: keywords.join('|'), $options: 'i' }
+      })
+      .sort({ time: -1 })
+      .limit(topK)
+      .lean();
+
+      messages = [...privateMessages, ...groupMessages]
+        .sort((a, b) => new Date(b.time) - new Date(a.time))
+        .slice(0, topK);
+    }
 
     return messages.map(m => ({
-      ...m,
+      content: m.content,
+      metadata: {
+        sender: m.from || m.senderName,
+        senderName: m.senderName || '',
+        time: m.time,
+        chatType: m.roomId ? 'group' : 'private',
+        chatId: m.roomId || m.to || ''
+      },
       relevance: this.calculateRelevance(m.content, keywords)
     }));
   }
 
   /**
-   * 搜索群聊消息
-   */
-  static async searchGroupMessages(keywords, roomId, topK) {
-    const regexPatterns = keywords.map(k => new RegExp(k, 'i'));
-    
-    const messages = await GroupMessage.find({
-      roomId,
-      content: { $in: regexPatterns }
-    })
-    .sort({ time: -1 })
-    .limit(topK)
-    .lean();
-
-    return messages.map(m => ({
-      ...m,
-      relevance: this.calculateRelevance(m.content, keywords)
-    }));
-  }
-
-  /**
-   * 计算相关性分数（简单版本）
+   * 计算相关性分数
    */
   static calculateRelevance(content, keywords) {
     if (!content) return 0;
@@ -111,17 +126,15 @@ class VectorSearchTool {
       }
     }
     
-    return score / keywords.length;
+    return Math.min(score / keywords.length, 1);
   }
 
   /**
-   * 索引消息（后续实现向量化）
+   * 索引消息
    * @param {Object} message - 消息对象
    */
   static async indexMessage(message) {
-    // TODO: 实现向量化存储
-    // 当前版本不做任何操作，消息已存储在 MongoDB
-    return true;
+    return await vectorStore.indexMessage(message);
   }
 
   /**
@@ -129,8 +142,29 @@ class VectorSearchTool {
    * @param {Array} messages - 消息数组
    */
   static async batchIndex(messages) {
-    // TODO: 实现批量向量化
-    return true;
+    return await vectorStore.batchIndex(messages);
+  }
+
+  /**
+   * 删除消息索引
+   * @param {string} messageId - 消息 ID
+   */
+  static async deleteIndex(messageId) {
+    return await vectorStore.deleteMessage(messageId);
+  }
+
+  /**
+   * 获取向量库统计信息
+   */
+  static async getStats() {
+    return await vectorStore.getStats();
+  }
+
+  /**
+   * 检查向量库是否就绪
+   */
+  static isReady() {
+    return vectorStore.isReady;
   }
 }
 

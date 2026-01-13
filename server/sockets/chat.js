@@ -2,6 +2,9 @@
 const users = new Map() // userId -> Set of socket.id
 const onlineUsers = new Set() // 在线用户ID集合
 
+// 消息索引服务
+const messageIndexer = require('../services/MessageIndexer')
+
 module.exports = function(socket, io) {
   socket.on("login", (userId) => {
     // 验证userId是否有效
@@ -64,6 +67,17 @@ module.exports = function(socket, io) {
     };
     
     console.log(`转发消息通知: ${senderId} -> ${to}`, messageData);
+    
+    // 异步索引消息（不阻塞消息发送）
+    if (messageType === 'text' && content) {
+      messageIndexer.addToQueue({
+        content: content,
+        from: senderId,
+        to: to,
+        time: timestamp || new Date(),
+        messageType: 'text'
+      });
+    }
     
     const targetSockets = users.get(to);
     if (targetSockets && targetSockets.size > 0) {

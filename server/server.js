@@ -34,6 +34,15 @@ console.log('Agent路由导入成功')
 const auth = require('./middlewares/auth')
 console.log('Auth中间件导入成功')
 
+// 向量库服务（可选，如果 chromadb 未安装会自动降级）
+let messageIndexer = null
+try {
+  messageIndexer = require('./services/MessageIndexer')
+  console.log('MessageIndexer服务导入成功')
+} catch (error) {
+  console.log('MessageIndexer服务导入失败（chromadb 可能未安装）:', error.message)
+}
+
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -107,8 +116,18 @@ io.on('connection', (socket) => {
 })
 
 const PORT = process.env.PORT || 3000
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log('✓ 服务器正在运行在 http://localhost:' + PORT)
   console.log('✓ CORS 已启用（开发模式：允许所有源）')
   console.log('✓ Socket.IO 已启用，支持 websocket 和 polling 传输')
+
+  // 初始化向量库服务（异步，不阻塞启动）
+  if (messageIndexer) {
+    try {
+      await messageIndexer.start()
+      console.log('✓ 向量库服务已启动')
+    } catch (error) {
+      console.log('⚠ 向量库服务启动失败（不影响主功能）:', error.message)
+    }
+  }
 })

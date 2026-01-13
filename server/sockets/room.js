@@ -1,6 +1,9 @@
 const Room = require("../models/Room")
 const GroupMessage = require("../models/GroupMessage")
 
+// 消息索引服务
+const messageIndexer = require('../services/MessageIndexer')
+
 // 全局房间用户管理
 const roomUsers = new Map(); // roomId -> Set of socket.id
 
@@ -73,6 +76,18 @@ module.exports = function(socket, io) {
       }
       
       io.to(data.roomId).emit("group-message", broadcastData)
+      
+      // 异步索引消息（不阻塞消息发送）
+      if (data.messageType === 'text' && data.content) {
+        messageIndexer.addToQueue({
+          content: data.content,
+          senderName: data.senderName,
+          from: data.senderId,
+          roomId: data.roomId,
+          time: broadcastData.timestamp,
+          messageType: 'text'
+        });
+      }
       
     } catch (err) {
       console.error("发送群消息失败:", err)
