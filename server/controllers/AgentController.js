@@ -247,7 +247,7 @@ class AgentController {
    */
   static async explainText(req, res) {
     try {
-      const { text } = req.body;
+      const { text, isFollowUp } = req.body;
       const axios = require('axios');
 
       if (!text || !text.trim()) {
@@ -257,21 +257,10 @@ class AgentController {
         });
       }
 
-      // 判断复杂度（简单实现：根据长度和内容判断）
-      const isComplex = text.length > 100 || /代码|函数|class|function|const|let|var|import|export/.test(text);
-
       let explanation;
-
-      if (isComplex) {
-        // 复杂场景：使用 ChatAgent（带 RAG）
-        const result = await chatAgent.execute({
-          question: `请详细解释以下内容：\n\n${text}`,
-          userId: req.user.userId,
-          useContext: true
-        });
-        explanation = result.data.answer;
-      } else {
-        // 简单场景：直接调用 DeepSeek API
+      
+      // 追问模式：直接使用完整上下文
+      if (isFollowUp) {
         const response = await axios.post(
           'https://api.deepseek.com/chat/completions',
           {
@@ -279,15 +268,15 @@ class AgentController {
             messages: [
               {
                 role: 'system',
-                content: '你是一个专业的解释助手，擅长用简洁清晰的语言解释各种概念、术语和内容。'
+                content: '你是一个专业的解释助手。用户会提供原文和对话历史，请根据上下文回答用户的追问。回答要简洁清晰。'
               },
               {
                 role: 'user',
-                content: `请简洁地解释：${text}`
+                content: text
               }
             ],
             temperature: 0.7,
-            max_tokens: 500
+            max_tokens: 800
           },
           {
             headers: {
@@ -296,14 +285,50 @@ class AgentController {
             }
           }
         );
-
         explanation = response.data.choices[0].message.content;
+      } else {
+        // 首次解释
+        const isComplex = text.length > 100 || /代码|函数|class|function|const|let|var|import|export/.test(text);
+
+        if (isComplex) {
+          const result = await chatAgent.execute({
+            question: `请详细解释以下内容：\n\n${text}`,
+            userId: req.user.userId,
+            useContext: true
+          });
+          explanation = result.data.answer;
+        } else {
+          const response = await axios.post(
+            'https://api.deepseek.com/chat/completions',
+            {
+              model: 'deepseek-chat',
+              messages: [
+                {
+                  role: 'system',
+                  content: '你是一个专业的解释助手，擅长用简洁清晰的语言解释各种概念、术语和内容。'
+                },
+                {
+                  role: 'user',
+                  content: `请简洁地解释：${text}`
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: 500
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          explanation = response.data.choices[0].message.content;
+        }
       }
 
       res.json({
         success: true,
-        explanation,
-        isComplex
+        explanation
       });
     } catch (error) {
       console.error('AI 解释失败:', error);
