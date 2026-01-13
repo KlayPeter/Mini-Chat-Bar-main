@@ -58,6 +58,8 @@
           ref="messageListRef"
           :messages="messages"
           :loading="isLoadingMessages"
+          :loadingMore="isLoadingMore"
+          :hasMore="hasMoreMessages"
           :currentUserId="currentUserId"
           :myAvatar="myAvatar"
           :baseUrl="baseUrl"
@@ -79,6 +81,7 @@
           @re-edit-message="handleReEditMessage"
           @quote-reply="handleQuoteReply"
           @jump-to-quoted-message="handleJumpToQuotedMessage"
+          @load-more="loadMoreMessages"
         />
 
         <!-- 输入区域 -->
@@ -99,6 +102,7 @@
           @search="showSearchModal = true"
           @typing-start="handleTypingStart"
           @typing-stop="handleTypingStop"
+          @input-focus="handleInputFocus"
         />
       </div>
     </div>
@@ -622,22 +626,57 @@ function scrollToMessage(messageId) {
 
 async function loadMessages() {
   isLoadingMessages.value = true
+  hasMoreMessages.value = true
   try {
     const token = localStorage.getItem('token')
     const res = await axios.get(
-      `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
+      `${baseUrl}/room/${currentGroup.value.RoomID}/messages?limit=50`,
       {
         headers: { Authorization: `Bearer ${token}` }
       }
     )
     if (res.data.success) {
       messages.value = res.data.messages
-      // ChatMessageList组件会自动滚动到底部
+      // 如果返回的消息少于50条，说明没有更多了
+      hasMoreMessages.value = res.data.messages.length >= 50
     }
   } catch (err) {
     console.error('加载消息失败:', err)
   } finally {
     isLoadingMessages.value = false
+  }
+}
+
+// 加载更多历史消息
+async function loadMoreMessages() {
+  if (isLoadingMore.value || !hasMoreMessages.value || messages.value.length === 0) return
+  
+  isLoadingMore.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const oldestMessage = messages.value[0]
+    const beforeTime = oldestMessage.time
+    
+    const res = await axios.get(
+      `${baseUrl}/room/${currentGroup.value.RoomID}/messages?limit=50&before=${beforeTime}`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+    
+    if (res.data.success) {
+      const newMessages = res.data.messages
+      if (newMessages.length > 0) {
+        // 将新消息添加到列表前面
+        messages.value = [...newMessages, ...messages.value]
+      }
+      // 如果返回的消息少于50条，说明没有更多了
+      hasMoreMessages.value = newMessages.length >= 50
+    }
+  } catch (err) {
+    console.error('加载更多消息失败:', err)
+  } finally {
+    isLoadingMore.value = false
   }
 }
 
@@ -853,6 +892,13 @@ function handleQuoteReply(message) {
     
     // 聚焦到输入框
     chatInputRef.value.focusInput()
+  }
+}
+
+// 处理输入框获得焦点 - 滚动到底部
+function handleInputFocus() {
+  if (messageListRef.value) {
+    messageListRef.value.scrollToBottom(true) // 强制滚动
   }
 }
 

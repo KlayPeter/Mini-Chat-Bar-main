@@ -317,6 +317,7 @@ const emit = defineEmits([
   'typing-start',
   'typing-stop',
   'search',
+  'input-focus',
 ])
 
 // 响应式数据
@@ -543,7 +544,8 @@ function handlePaste(event) {
 }
 
 function handleFocus() {
-  // 聚焦时的处理
+  // 聚焦时通知父组件，用于滚动到底部
+  emit('input-focus')
 }
 
 function handleBlur() {

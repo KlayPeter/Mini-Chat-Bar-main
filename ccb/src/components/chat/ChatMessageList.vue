@@ -1,5 +1,14 @@
 <template>
-  <div class="message-list" ref="messageListRef" @mouseup="handleTextSelection">
+  <div class="message-list" ref="messageListRef" @mouseup="handleTextSelection" @scroll="handleScroll">
+    <!-- 加载更多提示 -->
+    <div v-if="loadingMore" class="loading-more">
+      <i class="spin"><Refresh class="loading-icon-small" /></i>
+      <span>加载更多...</span>
+    </div>
+    <div v-else-if="!hasMore && messages.length > 0" class="no-more-messages">
+      <span>没有更多消息了</span>
+    </div>
+    
     <!-- 文本选择工具栏 -->
     <TextSelectionToolbar
       :show="showSelectionToolbar"
@@ -178,6 +187,14 @@ const props = defineProps({
   highlightedMessageId: {
     type: String,
     default: ''
+  },
+  loadingMore: {
+    type: Boolean,
+    default: false
+  },
+  hasMore: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -198,7 +215,8 @@ const emit = defineEmits([
   're-edit-message',
   'quote-reply',
   'jump-to-quoted-message',
-  'scroll-to-bottom'
+  'scroll-to-bottom',
+  'load-more'
 ])
 
 const messageListRef = ref(null)
@@ -506,28 +524,19 @@ function hideSelectionToolbar() {
 }
 
 // 处理 AI 解释
-function handleAIExplain(text) {
-  // 保持阻止自动滚动状态
+function handleAIExplain() {
   preventAutoScroll.value = true
-  
-  // 计算浮窗位置（在选中文本下方居中）
-  const popupWidth = 320 // 浮窗宽度
-  const popupHeight = 300 // 浮窗估算高度
-  
+  const popupWidth = 320
+  const popupHeight = 300
   let popupX = selectionRect.value.left + selectionRect.value.width / 2 - popupWidth / 2
-  let popupY = selectionRect.value.bottom + 15 // 在选中文本下方
-  
-  // 确保不超出屏幕边界
+  let popupY = selectionRect.value.bottom + 15
   popupX = Math.max(10, Math.min(popupX, window.innerWidth - popupWidth - 10))
-  
-  // 如果下方空间不够，显示在上方
   if (popupY + popupHeight > window.innerHeight - 20) {
     popupY = selectionRect.value.top - popupHeight - 15
   }
-  
   explainPopupPosition.value = { x: popupX, y: popupY }
   showExplainDialog.value = true
-  hideSelectionToolbar() // 隐藏工具栏
+  hideSelectionToolbar()
 }
 
 // 处理引用
@@ -537,8 +546,14 @@ function handleQuote(text) {
 }
 
 // 滚动到底部
-function scrollToBottom() {
-  if (!props.autoScroll || !messageListRef.value || preventAutoScroll.value) return
+function scrollToBottom(force = false) {
+  if (!messageListRef.value) return
+  if (!force && (!props.autoScroll || preventAutoScroll.value)) return
+  
+  // 如果是强制滚动，重置 preventAutoScroll
+  if (force) {
+    preventAutoScroll.value = false
+  }
   
   nextTick(() => {
     if (messageListRef.value) {
@@ -577,45 +592,47 @@ watch(() => props.highlightedMessageId, (newId) => {
   }
 })
 
-onMounted(() => {
-  scrollToBottom()
+// 处理滚动事件
+let scrollTimeout = null
+function handleScroll() {
+  if (!messageListRef.value) return
   
-  // 监听用户手动滚动
-  let scrollTimeout = null
-  const handleScroll = () => {
-    if (!messageListRef.value) return
+  const { scrollTop, scrollHeight, clientHeight } = messageListRef.value
+  const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+  const isAtTop = scrollTop < 100
+  
+  // 滚动到顶部时加载更多
+  if (isAtTop && props.hasMore && !props.loadingMore) {
+    emit('load-more')
+  }
+  
+  // 如果用户向上滚动（不在底部），阻止自动滚动
+  if (!isAtBottom) {
+    preventAutoScroll.value = true
     
-    const { scrollTop, scrollHeight, clientHeight } = messageListRef.value
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+    // 清除之前的定时器
+    if (scrollTimeout) clearTimeout(scrollTimeout)
     
-    // 如果用户向上滚动（不在底部），阻止自动滚动
-    if (!isAtBottom) {
-      preventAutoScroll.value = true
-      
-      // 清除之前的定时器
-      if (scrollTimeout) clearTimeout(scrollTimeout)
-      
-      // 5秒后恢复自动滚动（如果没有其他操作）
-      scrollTimeout = setTimeout(() => {
-        // 检查是否仍然不在底部，且没有打开任何弹窗
-        if (!isShowingContextMenu.value && !showSelectionToolbar.value && !showExplainDialog.value) {
-          const currentIsAtBottom = messageListRef.value.scrollHeight - messageListRef.value.scrollTop - messageListRef.value.clientHeight < 50
-          if (currentIsAtBottom) {
-            preventAutoScroll.value = false
-          }
-        }
-      }, 5000)
-    } else {
-      // 用户滚动到底部，恢复自动滚动
+    // 5秒后恢复自动滚动（如果没有其他操作）
+    scrollTimeout = setTimeout(() => {
+      // 检查是否仍然不在底部，且没有打开任何弹窗
       if (!isShowingContextMenu.value && !showSelectionToolbar.value && !showExplainDialog.value) {
-        preventAutoScroll.value = false
+        const currentIsAtBottom = messageListRef.value.scrollHeight - messageListRef.value.scrollTop - messageListRef.value.clientHeight < 50
+        if (currentIsAtBottom) {
+          preventAutoScroll.value = false
+        }
       }
+    }, 5000)
+  } else {
+    // 用户滚动到底部，恢复自动滚动
+    if (!isShowingContextMenu.value && !showSelectionToolbar.value && !showExplainDialog.value) {
+      preventAutoScroll.value = false
     }
   }
-  
-  if (messageListRef.value) {
-    messageListRef.value.addEventListener('scroll', handleScroll)
-  }
+}
+
+onMounted(() => {
+  scrollToBottom()
   
   // 点击其他地方隐藏各种弹窗
   document.addEventListener('mousedown', (e) => {
@@ -641,10 +658,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // 清理事件监听器
-  if (messageListRef.value) {
-    messageListRef.value.removeEventListener('scroll', handleScroll)
-  }
+  // 清理定时器
+  if (scrollTimeout) clearTimeout(scrollTimeout)
 })
 
 // 不再在 onUpdated 中自动滚动，避免任何更新都触发滚动
@@ -676,6 +691,30 @@ defineExpose({
   background: transparent;
   border-radius: 1rem;
   -webkit-app-region: no-drag;
+
+  // 加载更多样式
+  .loading-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    color: #999;
+    font-size: 13px;
+    
+    .loading-icon-small {
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+    }
+  }
+  
+  .no-more-messages {
+    text-align: center;
+    padding: 12px;
+    color: #ccc;
+    font-size: 12px;
+  }
 
   // 多选工具栏样式
   .selection-toolbar {
