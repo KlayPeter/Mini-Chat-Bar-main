@@ -31,6 +31,17 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+/* 文本选中样式 - 使用主题色 */
+::selection {
+  background: rgba(255, 127, 80, 0.3);
+  color: inherit;
+}
+
+::-moz-selection {
+  background: rgba(255, 127, 80, 0.3);
+  color: inherit;
+}
+
 html,
 body,
 #app {

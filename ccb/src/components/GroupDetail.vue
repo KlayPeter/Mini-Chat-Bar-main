@@ -321,25 +321,26 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .group-detail-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
   background: rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  z-index: 100;
   display: flex;
   justify-content: flex-end;
 }
 
 .group-detail-panel {
-  width: 400px;
+  width: 320px;
+  max-width: 100%;
   background: var(--bg-tertiary, white);
   display: flex;
   flex-direction: column;
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.15);
-  border-radius: 12px 0 0 12px;
   overflow: hidden;
+  height: 100%;
 }
 
 .panel-header {

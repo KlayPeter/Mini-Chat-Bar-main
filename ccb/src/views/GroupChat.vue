@@ -108,13 +108,14 @@
       </div>
     </div>
 
-    <!-- 群详情侧边栏 -->
-    <GroupDetail
-      v-if="showGroupDetail && currentGroup"
-      :group="currentGroup"
-      @close="showGroupDetail = false"
-      @update="handleGroupUpdate"
-    />
+      <!-- 群详情侧边栏 -->
+      <GroupDetail
+        v-if="showGroupDetail && currentGroup"
+        :group="currentGroup"
+        @close="showGroupDetail = false"
+        @update="handleGroupUpdate"
+      />
+    </div>
 
     <!-- 搜索弹窗 -->
     <GroupSearchModal
@@ -140,7 +141,6 @@
       :targetName="currentGroup.RoomName"
       @close="showSummaryDialog = false"
     />
-    </div>
 
     <!-- 移动端底部导航栏 -->
     <BottomNavbar class="mobile-only" />
@@ -1527,6 +1527,7 @@ onUnmounted(() => {
   background: #f9f9f9;
   transition: all 1.5s ease-in;
   overflow: hidden;
+  position: relative;
 }
 
 .mobile-only {

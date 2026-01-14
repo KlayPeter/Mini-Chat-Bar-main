@@ -649,8 +649,9 @@ onMounted(() => {
 
             &:hover { background: var(--hover-bg, #f5f5f5); }
             &.active {
-              background: var(--active-bg, rgba(255, 127, 80, 0.1));
+              background: rgba(255, 127, 80, 0.1);
               color: var(--primary-color, coral);
+              font-weight: 500;
             }
           }
         }
