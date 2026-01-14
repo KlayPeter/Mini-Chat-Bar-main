@@ -64,7 +64,7 @@ class ChatAgent extends BaseAgent {
    * 规划执行步骤
    */
   planSteps(task) {
-    const { question, chatType, userId, targetId, roomId, useContext = true, useRAG = true } = task;
+    const { question, chatType, userId, targetId, roomId, useContext = true, useRAG = true, timeRange = 'recent' } = task;
 
     const steps = [];
     const chatId = chatType === 'private' ? targetId : roomId;
@@ -92,7 +92,8 @@ class ChatAgent extends BaseAgent {
           chatType,
           chatId,
           topK: 5,
-          strategy: 'hybrid'
+          strategy: 'hybrid',
+          timeRange
         }
       });
     }
@@ -154,7 +155,8 @@ class ChatAgent extends BaseAgent {
       ragResult.documents.forEach((doc, i) => {
         const source = ragResult.sources?.[i];
         const sender = source?.sender || '未知';
-        contextText += `[${sender}]: ${doc}\n`;
+        const time = source?.time ? new Date(source.time).toLocaleString('zh-CN') : '';
+        contextText += `[${sender}${time ? ` ${time}` : ''}]: ${doc}\n`;
       });
       contextText += '\n';
     }
@@ -162,9 +164,11 @@ class ChatAgent extends BaseAgent {
     // 添加最近消息
     if (recentMessages && recentMessages.length > 0) {
       contextText += '【最近对话】\n';
+      // 最近消息按时间从旧到新排序（slice(-8) 取最后8条，已经是从旧到新）
       recentMessages.slice(-8).forEach(m => {
-        const sender = m.senderName || m.from;
-        contextText += `${sender}: ${m.content}\n`;
+        const sender = m.senderName || m.fromName || m.from;
+        const time = m.time ? new Date(m.time).toLocaleString('zh-CN') : '';
+        contextText += `${sender}${time ? ` (${time})` : ''}: ${m.content}\n`;
       });
       contextText += '\n';
     }

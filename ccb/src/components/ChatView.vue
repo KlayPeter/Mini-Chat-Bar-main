@@ -33,17 +33,26 @@
         @showchat="handleshowchat"
         @showcontacts="handleshowcontacts"
         @todetail="showAI"
+        @toggleAI="toggleAIPanel"
       />
     </div>
-    <div class="section2" v-if="showlastchats">
-      <LastChats
-        @hidechat="handlehidechat"
-        @changecolor="setcolor"
-        @todetail="showdetail"
+    <div class="section2-wrapper">
+      <div class="section2" v-if="showlastchats">
+        <LastChats
+          @hidechat="handlehidechat"
+          @changecolor="setcolor"
+          @todetail="showdetail"
+        />
+      </div>
+      <div class="section2" v-if="showcontacts">
+        <Contacts @hidecontacts="handlehidecontacts" @todetail="showdetail" />
+      </div>
+      <!-- AI 助手面板 - 覆盖在 section2 上 -->
+      <AIAssistantPanel 
+        :visible="showAIPanel" 
+        :chatContext="privateChatContext"
+        @close="showAIPanel = false" 
       />
-    </div>
-    <div class="section2" v-if="showcontacts">
-      <Contacts @hidecontacts="handlehidecontacts" @todetail="showdetail" />
     </div>
     <!-- <div class="section3" v-if="show3"><Content @closemessage="handleclosemessage"/></div> -->
     <!-- 隐藏聊天内容的叉叉要到其它地方不上 -->
@@ -67,21 +76,41 @@ import LastChats from './LastChats.vue'
 import Contacts from './Contacts.vue'
 import BottomNavbar from './BottomNavbar.vue'
 import WelcomeDashboard from './WelcomeDashboard.vue'
-import { onMounted, ref, watch } from 'vue'
+import AIAssistantPanel from './AIAssistantPanel.vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useChatStore } from '../stores/useChatStore'
 
 const theme = ref('beige')
 const container = ref(null)
 const router = useRouter()
+const route = useRoute()
 const chatStore = useChatStore()
 
 const showlastchats = ref(true)
 const showcontacts = ref(false)
 const showcontent = ref(false)
+const showAIPanel = ref(false)
 
 const isMobile = ref(false)
+
+// 当前私聊上下文（供 AI 助手使用）
+const privateChatContext = computed(() => {
+  if (route.path.includes('/chatdetail') && route.query.userId) {
+    return {
+      chatType: 'private',
+      targetId: route.query.userId,
+      targetName: route.query.uname || '好友'
+    }
+  }
+  return null
+})
+
+// 切换 AI 面板
+function toggleAIPanel() {
+  showAIPanel.value = !showAIPanel.value
+}
 
 //这里处理contacts板块的显示和隐藏
 function handlehidechat(message) {
@@ -121,10 +150,8 @@ function showdetail({ uname, img, userId }) {
 }
 
 function showAI() {
-  showcontent.value = true
-  router.push({
-    path: '/chat-ai',
-  })
+  // 移动端点击 AI 按钮也打开面板
+  showAIPanel.value = true
 }
 
 function hidecontent() {
@@ -153,7 +180,7 @@ function checkRoute() {
     showlastchats.value = false
     showcontacts.value = true
     showcontent.value = false
-  } else if (path.includes('/chatdetail') || path.includes('/chat-ai')) {
+  } else if (path.includes('/chatdetail')) {
     showcontent.value = true
   } else if (path === '/' || path === '/chatbox') {
     showcontent.value = false
@@ -183,7 +210,7 @@ watch(
       showlastchats.value = false
       showcontacts.value = true
       showcontent.value = false
-    } else if (newPath.includes('/chatdetail') || newPath.includes('/chat-ai')) {
+    } else if (newPath.includes('/chatdetail')) {
       showcontent.value = true
     } else if (newPath === '/' || newPath === '/chatbox') {
       showcontent.value = false
@@ -238,8 +265,16 @@ watch(
 .section1 {
   flex: 0 0 8%;
 }
-.section2 {
+
+.section2-wrapper {
   flex: 0 0 30%;
+  position: relative;
+  overflow: hidden;
+}
+
+.section2 {
+  width: 100%;
+  height: 100%;
   border: 1px solid gray;
   border-top: none;
   border-bottom: none;
@@ -294,7 +329,7 @@ watch(
     flex: 0 0 10%;
   }
 
-  .section2 {
+  .section2-wrapper {
     flex: 0 0 35%;
   }
 
@@ -315,8 +350,11 @@ watch(
     display: none;
   }
 
-  .container:not(.mobile) .section2 {
+  .container:not(.mobile) .section2-wrapper {
     flex: 1;
+  }
+
+  .container:not(.mobile) .section2 {
     border: none;
     border-radius: 0;
   }

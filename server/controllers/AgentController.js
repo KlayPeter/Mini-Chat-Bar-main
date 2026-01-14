@@ -83,7 +83,7 @@ class AgentController {
    */
   static async chat(req, res) {
     try {
-      const { question, chatType, targetId, roomId, useContext, sessionId } = req.body;
+      const { question, chatType, targetId, roomId, useContext, sessionId, timeRange } = req.body;
       const userId = req.user.userId;
 
       // 参数验证
@@ -102,7 +102,8 @@ class AgentController {
         targetId,
         roomId,
         useContext: useContext !== false,
-        sessionId: sessionId || `${userId}-${Date.now()}`
+        sessionId: sessionId || `${userId}-${Date.now()}`,
+        timeRange: timeRange || 'recent'
       });
 
       if (!result.success) {

@@ -16,10 +16,11 @@ class RAGService {
   constructor() {
     // 检索配置
     this.config = {
-      topK: 5,                    // 默认检索数量
-      minRelevance: 0.3,          // 最小相关性阈值
-      maxContextLength: 2000,     // 最大上下文长度
+      topK: 30,                   // 默认检索数量
+      minRelevance: 0.1,          // 最小相关性阈值
+      maxContextLength: 8000,     // 最大上下文长度
       hybridWeight: 0.7,          // 混合搜索中向量搜索的权重
+      recentMessagesCount: 200,   // 最近消息数量（增加到200条）
     };
   }
 
@@ -31,24 +32,28 @@ class RAGService {
    * @param {string} params.chatId - 聊天ID
    * @param {number} params.topK - 返回数量
    * @param {string} params.strategy - 检索策略: 'vector' | 'keyword' | 'hybrid'
+   * @param {string} params.timeRange - 时间范围: 'recent' | 'day' | 'week' | 'month' | 'all'
    */
-  async retrieve({ query, chatType, chatId, topK = 5, strategy = 'hybrid' }) {
+  async retrieve({ query, chatType, chatId, topK = 5, strategy = 'hybrid', timeRange = 'recent' }) {
     if (!query || query.trim().length === 0) {
       return { documents: [], sources: [] };
     }
+
+    // 计算时间过滤条件
+    const timeFilter = this.getTimeFilter(timeRange);
 
     let results = [];
 
     switch (strategy) {
       case 'vector':
-        results = await this.vectorSearch({ query, chatType, chatId, topK });
+        results = await this.vectorSearch({ query, chatType, chatId, topK, timeFilter });
         break;
       case 'keyword':
-        results = await this.keywordSearch({ query, chatType, chatId, topK });
+        results = await this.keywordSearch({ query, chatType, chatId, topK, timeFilter });
         break;
       case 'hybrid':
       default:
-        results = await this.hybridSearch({ query, chatType, chatId, topK });
+        results = await this.hybridSearch({ query, chatType, chatId, topK, timeFilter, timeRange });
     }
 
     // 过滤低相关性结果
@@ -69,12 +74,41 @@ class RAGService {
   }
 
   /**
+   * 根据时间范围获取时间过滤条件
+   */
+  getTimeFilter(timeRange) {
+    const now = new Date();
+    let startTime = null;
+
+    switch (timeRange) {
+      case 'day':
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'all':
+        startTime = null; // 不限制时间
+        break;
+      case 'recent':
+      default:
+        startTime = null; // recent 模式通过 limit 控制，不用时间过滤
+        break;
+    }
+
+    return startTime ? { time: { $gte: startTime } } : null;
+  }
+
+  /**
    * 向量搜索
    */
-  async vectorSearch({ query, chatType, chatId, topK }) {
+  async vectorSearch({ query, chatType, chatId, topK, timeFilter, timeRange }) {
     if (!vectorStore.isReady) {
       console.log('⚠️ 向量库未就绪，降级到关键词搜索');
-      return this.keywordSearch({ query, chatType, chatId, topK });
+      return this.keywordSearch({ query, chatType, chatId, topK, timeFilter, timeRange });
     }
 
     const results = await vectorStore.search({
@@ -84,7 +118,16 @@ class RAGService {
       topK
     });
 
-    return results.map(r => ({
+    // 如果有时间过滤且不是 recent 模式，在结果中过滤
+    let filtered = results;
+    if (timeFilter && timeFilter.time && timeRange !== 'recent') {
+      filtered = results.filter(r => {
+        const msgTime = new Date(r.metadata?.time);
+        return msgTime >= timeFilter.time.$gte;
+      });
+    }
+
+    return filtered.map(r => ({
       content: r.content,
       metadata: r.metadata,
       relevance: r.relevance || 0.5
@@ -94,40 +137,81 @@ class RAGService {
   /**
    * 关键词搜索
    */
-  async keywordSearch({ query, chatType, chatId, topK }) {
+  async keywordSearch({ query, chatType, chatId, topK, timeFilter, timeRange }) {
     const keywords = this.extractKeywords(query);
     
-    if (keywords.length === 0) {
+    // 同时使用原始查询和提取的关键词
+    const patterns = [];
+    
+    // 添加原始查询（去除标点）
+    const cleanQuery = query.replace(/[，。！？、；：""''（）【】《》\s,.!?;:'"()\[\]<>]+/g, '');
+    if (cleanQuery.length >= 2) {
+      patterns.push(cleanQuery);
+    }
+    
+    // 添加提取的关键词
+    if (keywords.length > 0) {
+      patterns.push(...keywords);
+    }
+    
+    // 去重
+    const uniquePatterns = [...new Set(patterns)];
+    
+    if (uniquePatterns.length === 0) {
       return [];
     }
 
-    const regexPattern = keywords.join('|');
+    const regexPattern = uniquePatterns.join('|');
     let messages = [];
+    
+    // 根据时间范围调整搜索数量
+    let searchLimit = 300;
+    if (timeRange === 'recent') {
+      searchLimit = 50;
+    } else if (timeRange === 'day') {
+      searchLimit = 100;
+    } else if (timeRange === 'week') {
+      searchLimit = 200;
+    } else if (timeRange === 'all') {
+      searchLimit = 500;
+    }
+
+    // 构建查询条件
+    const buildQuery = (baseQuery) => {
+      // recent 模式不用时间过滤，只用 limit
+      if (timeFilter && timeRange !== 'recent') {
+        return { ...baseQuery, ...timeFilter };
+      }
+      return baseQuery;
+    };
 
     try {
       if (chatType === 'private' && chatId) {
-        messages = await Message.find({
+        const baseQuery = {
           $or: [{ from: chatId }, { to: chatId }],
           content: { $regex: regexPattern, $options: 'i' }
-        })
-        .sort({ time: -1 })
-        .limit(topK * 2)
-        .lean();
+        };
+        messages = await Message.find(buildQuery(baseQuery))
+          .sort({ time: -1 })
+          .limit(searchLimit)
+          .lean();
       } else if (chatType === 'group' && chatId) {
-        messages = await GroupMessage.find({
+        const baseQuery = {
           roomId: chatId,
           content: { $regex: regexPattern, $options: 'i' }
-        })
-        .sort({ time: -1 })
-        .limit(topK * 2)
-        .lean();
+        };
+        messages = await GroupMessage.find(buildQuery(baseQuery))
+          .sort({ time: -1 })
+          .limit(searchLimit)
+          .lean();
       } else {
         // 全局搜索
+        const privateQuery = buildQuery({ content: { $regex: regexPattern, $options: 'i' } });
+        const groupQuery = buildQuery({ content: { $regex: regexPattern, $options: 'i' } });
+        
         const [privateMsg, groupMsg] = await Promise.all([
-          Message.find({ content: { $regex: regexPattern, $options: 'i' } })
-            .sort({ time: -1 }).limit(topK).lean(),
-          GroupMessage.find({ content: { $regex: regexPattern, $options: 'i' } })
-            .sort({ time: -1 }).limit(topK).lean()
+          Message.find(privateQuery).sort({ time: -1 }).limit(searchLimit).lean(),
+          GroupMessage.find(groupQuery).sort({ time: -1 }).limit(searchLimit).lean()
         ]);
         messages = [...privateMsg, ...groupMsg];
       }
@@ -141,8 +225,8 @@ class RAGService {
       .map(m => ({
         content: m.content,
         metadata: {
-          sender: m.from || m.senderId,
-          senderName: m.senderName || '',
+          sender: m.fromName || m.senderName || m.from || m.senderId,
+          senderName: m.fromName || m.senderName || '',
           time: m.time,
           chatType: m.roomId ? 'group' : 'private',
           chatId: m.roomId || m.to || ''
@@ -156,10 +240,25 @@ class RAGService {
   /**
    * 混合搜索（向量 + 关键词）
    */
-  async hybridSearch({ query, chatType, chatId, topK }) {
-    const [vectorResults, keywordResults] = await Promise.all([
-      this.vectorSearch({ query, chatType, chatId, topK }),
-      this.keywordSearch({ query, chatType, chatId, topK })
+  async hybridSearch({ query, chatType, chatId, topK, timeFilter, timeRange }) {
+    // 根据时间范围调整最近消息数量
+    let recentLimit = this.config.recentMessagesCount;
+    if (timeRange === 'recent') {
+      recentLimit = 50; // 最近50条
+    } else if (timeRange === 'all') {
+      recentLimit = 500; // 全部记录时获取更多
+    } else if (timeRange === 'month') {
+      recentLimit = 300;
+    } else if (timeRange === 'week') {
+      recentLimit = 200;
+    } else if (timeRange === 'day') {
+      recentLimit = 100;
+    }
+
+    const [vectorResults, keywordResults, recentMessages] = await Promise.all([
+      this.vectorSearch({ query, chatType, chatId, topK, timeFilter, timeRange }),
+      this.keywordSearch({ query, chatType, chatId, topK, timeFilter, timeRange }),
+      this.getRecentMessages({ chatType, chatId, limit: recentLimit, timeFilter, timeRange })
     ]);
 
     // 合并结果，去重
@@ -196,6 +295,18 @@ class RAGService {
       }
     }
 
+    // 添加最近消息作为补充（较低权重）
+    for (const r of recentMessages) {
+      const key = r.content.substring(0, 50);
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push({
+          ...r,
+          relevance: 0.3 // 最近消息给一个基础相关性
+        });
+      }
+    }
+
     // 按相关性排序
     return merged
       .sort((a, b) => b.relevance - a.relevance)
@@ -203,17 +314,94 @@ class RAGService {
   }
 
   /**
+   * 获取最近消息
+   */
+  async getRecentMessages({ chatType, chatId, limit = 20, timeFilter, timeRange }) {
+    let messages = [];
+
+    // 构建查询条件
+    const buildQuery = (baseQuery) => {
+      if (timeFilter) {
+        return { ...baseQuery, ...timeFilter };
+      }
+      return baseQuery;
+    };
+
+    // recent 模式只取最近 limit 条，不需要时间过滤
+    const useTimeFilter = timeRange !== 'recent';
+
+    try {
+      if (chatType === 'private' && chatId) {
+        const baseQuery = { $or: [{ from: chatId }, { to: chatId }] };
+        messages = await Message.find(useTimeFilter ? buildQuery(baseQuery) : baseQuery)
+          .sort({ time: -1 })
+          .limit(limit)
+          .lean();
+      } else if (chatType === 'group' && chatId) {
+        const baseQuery = { roomId: chatId };
+        messages = await GroupMessage.find(useTimeFilter ? buildQuery(baseQuery) : baseQuery)
+          .sort({ time: -1 })
+          .limit(limit)
+          .lean();
+      }
+    } catch (error) {
+      console.error('获取最近消息失败:', error);
+      return [];
+    }
+
+    return messages.map(m => ({
+      content: m.content,
+      metadata: {
+        sender: m.fromName || m.senderName || m.from || m.senderId,
+        senderName: m.fromName || m.senderName || '',
+        time: m.time,
+        chatType: m.roomId ? 'group' : 'private',
+        chatId: m.roomId || m.to || ''
+      },
+      relevance: 0.3
+    }));
+  }
+
+  /**
    * 提取关键词
    */
   extractKeywords(text) {
-    // 移除标点符号，分词
-    const cleaned = text.replace(/[，。！？、；：""''（）【】《》\s]+/g, ' ');
-    const words = cleaned.split(' ').filter(w => w.length > 1);
+    // 移除标点符号
+    const cleaned = text.replace(/[，。！？、；：""''（）【】《》\s,.!?;:'"()\[\]<>]+/g, ' ');
+    
+    // 分词：按空格分割，同时尝试提取中文词组（2-4字）
+    const words = [];
+    const parts = cleaned.split(' ').filter(w => w.length > 0);
+    
+    for (const part of parts) {
+      if (/[\u4e00-\u9fa5]/.test(part)) {
+        // 中文：提取2-4字的词组
+        if (part.length <= 4) {
+          words.push(part);
+        } else {
+          // 长中文串，按2-3字切分
+          for (let i = 0; i < part.length - 1; i += 2) {
+            const chunk = part.substring(i, Math.min(i + 3, part.length));
+            if (chunk.length >= 2) {
+              words.push(chunk);
+            }
+          }
+        }
+      } else if (part.length > 1) {
+        // 英文/数字
+        words.push(part);
+      }
+    }
     
     // 过滤停用词
-    const stopWords = new Set(['的', '是', '在', '了', '和', '与', '或', '这', '那', '有', '没有', '什么', '怎么', '如何', '为什么', '可以', '能够', '应该']);
+    const stopWords = new Set([
+      '的', '是', '在', '了', '和', '与', '或', '这', '那', '有', '没有', 
+      '什么', '怎么', '如何', '为什么', '可以', '能够', '应该', '吗', '呢',
+      '啊', '哦', '嗯', '呀', '吧', '么', '哪', '谁', '哪里', '这个', '那个',
+      '一个', '一些', '这些', '那些', '我', '你', '他', '她', '它', '我们', '你们', '他们'
+    ]);
     
-    return words.filter(w => !stopWords.has(w));
+    return [...new Set(words.filter(w => !stopWords.has(w)))];
   }
 
   /**

@@ -44,7 +44,7 @@ import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
 import { ChatBubble, User, Group, Star } from '@iconoir/vue'
-const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
+const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI'])
 const router = useRouter()
 const route = useRoute()
 
@@ -62,7 +62,7 @@ function updateActiveTab() {
     activeTab.value = 'favorites'
   } else if (path === '/contacts') {
     activeTab.value = 'contacts'
-  } else if (path === '/chats' || path === '/' || path.includes('/chatdetail') || path.includes('/chat-ai')) {
+  } else if (path === '/chats' || path === '/' || path.includes('/chatdetail')) {
     activeTab.value = 'chat'
   }
 }
@@ -73,8 +73,7 @@ watch(() => route.path, () => {
 })
 
 function toAI() {
-  activeTab.value = 'chat'
-  router.push('/chat-ai')
+  emit('toggleAI')
 }
 
 function chat() {

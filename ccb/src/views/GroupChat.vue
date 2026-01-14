@@ -3,18 +3,19 @@
     <div class="container">
       <!-- 侧边栏 -->
       <div class="section1">
-        <Sidebar />
+        <Sidebar @toggleAI="toggleAIPanel" />
       </div>
 
       <!-- 群聊列表 -->
       <div class="section2">
         <GroupList @select-group="handleSelectGroup" ref="groupListRef" />
 
-        <!-- 搜索按钮 -->
-        <button class="search-fab" @click="showSearchModal = true" title="搜索群聊和历史消息">
-          <i><Search class="search-icon" /></i>
-          <span>搜索</span>
-        </button>
+        <!-- AI 助手面板 - 覆盖在群列表上 -->
+        <AIAssistantPanel 
+          :visible="showAIPanel" 
+          :chatContext="aiChatContext"
+          @close="showAIPanel = false" 
+        />
       </div>
 
       <!-- 聊天区域 -->
@@ -147,11 +148,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { Search, ChatBubble, Notes } from '@iconoir/vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import Sidebar from '../components/Sidebar.vue'
+import AIAssistantPanel from '../components/AIAssistantPanel.vue'
 import GroupList from '../components/GroupList.vue'
 import GroupDetail from '../components/GroupDetail.vue'
 import GroupAvatar from '../components/GroupAvatar.vue'
@@ -197,6 +199,24 @@ const isLoadingMore = ref(false) // 加载更多状态
 const hasMoreMessages = ref(true) // 是否还有更多消息
 const showChatArea = ref(false) // 移动端控制聊天区域显示
 const highlightedMessageId = ref(null) // 高亮显示的消息ID
+const showAIPanel = ref(false) // AI 助手面板
+
+// AI 助手上下文
+const aiChatContext = computed(() => {
+  if (currentGroup.value) {
+    return {
+      chatType: 'group',
+      roomId: currentGroup.value.RoomID,
+      roomName: currentGroup.value.RoomName
+    }
+  }
+  return null
+})
+
+// 切换 AI 面板
+function toggleAIPanel() {
+  showAIPanel.value = !showAIPanel.value
+}
 
 let socket = null
 
@@ -539,6 +559,13 @@ async function handleSelectGroup(group) {
 
   currentGroup.value = group
   showChatArea.value = true // 移动端显示聊天区域
+  
+  // 保存聊天上下文到 localStorage，供 AI 助手使用
+  localStorage.setItem('lastChatContext', JSON.stringify({
+    chatType: 'group',
+    roomId: group.RoomID,
+    roomName: group.RoomName
+  }))
 
   // 加载消息
   await loadMessages()

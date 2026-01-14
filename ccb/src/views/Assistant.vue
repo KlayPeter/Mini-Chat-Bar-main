@@ -23,6 +23,13 @@
               </div>
             </div>
           </div>
+          <!-- RAG 模式开关 -->
+          <div class="rag-toggle" @click.stop="toggleRAGMode">
+            <span class="rag-label">{{ useRAG && currentChatContext?.roomName ? `基于「${currentChatContext.roomName}」` : '基于聊天记录' }}</span>
+            <div class="toggle-switch" :class="{ active: useRAG }">
+              <div class="toggle-slider"></div>
+            </div>
+          </div>
         </div>
         <div class="header-right">
           <button @click="clearHistory" class="delete-chat" title="清空历史">
@@ -56,6 +63,25 @@
         @preview-file="handlePreviewFile"
         @play-voice="handlePlayVoice"
       />
+
+      <!-- 来源引用显示 -->
+      <div v-if="currentSources.length > 0" class="sources-panel">
+        <div class="sources-header">
+          <span>回答来源 ({{ currentSources.length }})</span>
+          <button @click="currentSources = []" class="close-sources">
+            <Xmark style="width: 14px; height: 14px;" />
+          </button>
+        </div>
+        <div class="sources-list">
+          <div v-for="(source, index) in currentSources" :key="index" class="source-item">
+            <div class="source-sender">{{ source.sender }}</div>
+            <div class="source-content">{{ source.content }}</div>
+            <div class="source-meta">
+              <span class="relevance">相关度: {{ Math.round(source.relevance * 100) }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 输入区域 -->
       <ChatInput
@@ -92,6 +118,12 @@ const showRoleMenu = ref(false);
 const baseUrl = import.meta.env.VITE_BASE_URL;
 const toast = useToast();
 const { confirm } = useConfirm();
+
+// RAG 相关
+const useRAG = ref(false);
+const currentSources = ref([]);
+const sessionId = ref(`session-${Date.now()}`);
+const currentChatContext = ref(null); // 当前聊天上下文 { chatType, targetId, roomId }
 
 // 计算属性 - 格式化消息用于ChatMessageList组件
 const formattedMessages = computed(() => {
@@ -166,6 +198,9 @@ const getRoleAvatar = () => {
 
 // 获取占位符文本
 const getPlaceholder = () => {
+  if (useRAG.value) {
+    return '基于聊天记录提问...';
+  }
   const placeholderMap = {
     default: '问我任何问题...',
     assistant: '我可以帮你解决问题...',
@@ -176,29 +211,6 @@ const getPlaceholder = () => {
     psychologist: '愿意倾听你的心声...'
   };
   return placeholderMap[selectedRole.value] || '输入消息...';
-};
-
-// 格式化消息（支持Markdown简单格式）
-const formatMessage = (content) => {
-  if (!content) return '';
-  
-  // 代码块
-  content = content.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-  // 行内代码
-  content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // 加粗
-  content = content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // 换行
-  content = content.replace(/\n/g, '<br>');
-  
-  return content;
-};
-
-// 格式化时间
-const formatTime = (time) => {
-  if (!time) return '';
-  const date = new Date(time);
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 };
 
 // 加载对话历史
@@ -276,26 +288,63 @@ const send = async (content) => {
   }
 
   isLoading.value = true;
+  currentSources.value = []; // 清空之前的来源
 
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.post(
-      `${import.meta.env.VITE_BASE_URL}/api/deepseek-chat`,
-      {
-        question: content,
-        role: selectedRole.value
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000 // 30秒超时
-      }
-    );
+    let aiAnswer = '';
+    let sources = [];
 
-    const aiAnswer = res.data.answer;
+    if (useRAG.value) {
+      // 使用 RAG 增强的 Agent 接口
+      const res = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/agent/chat`,
+        {
+          question: content,
+          chatType: currentChatContext.value?.chatType || 'group',
+          targetId: currentChatContext.value?.targetId,
+          roomId: currentChatContext.value?.roomId,
+          useContext: true,
+          sessionId: sessionId.value
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 60000
+        }
+      );
+
+      if (res.data.success) {
+        aiAnswer = res.data.data.answer;
+        sources = res.data.data.sources || [];
+        
+        // 如果有来源，显示来源面板
+        if (sources.length > 0) {
+          currentSources.value = sources;
+        }
+      } else {
+        throw new Error(res.data.error || '请求失败');
+      }
+    } else {
+      // 使用普通接口
+      const res = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/deepseek-chat`,
+        {
+          question: content,
+          role: selectedRole.value
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 30000
+        }
+      );
+      aiAnswer = res.data.answer;
+    }
+
     messages.value.push({
       from: "AI",
       content: aiAnswer,
-      time: new Date().toISOString()
+      time: new Date().toISOString(),
+      sources: sources.length > 0 ? sources : undefined
     });
     
     // 确保AI回复后滚动到底部
@@ -348,6 +397,22 @@ const toggleRoleMenu = () => {
 // 隐藏角色菜单
 const hideRoleMenu = () => {
   showRoleMenu.value = false;
+};
+
+// 切换 RAG 模式
+const toggleRAGMode = () => {
+  useRAG.value = !useRAG.value;
+  if (useRAG.value) {
+    toast.success('已开启聊天记录检索模式');
+  } else {
+    toast.info('已关闭聊天记录检索模式');
+    currentSources.value = [];
+  }
+};
+
+// 设置聊天上下文（供外部调用）
+const setChatContext = (context) => {
+  currentChatContext.value = context;
 };
 
 // 选择角色
@@ -432,12 +497,28 @@ const getUserAvatar = async () => {
 onMounted(async () => {
   await getUserAvatar();
   await loadHistory();
+  
+  // 尝试从 localStorage 获取当前聊天上下文
+  const lastChatContext = localStorage.getItem('lastChatContext');
+  if (lastChatContext) {
+    try {
+      currentChatContext.value = JSON.parse(lastChatContext);
+      console.log('已加载聊天上下文:', currentChatContext.value);
+    } catch (e) {
+      console.error('解析聊天上下文失败:', e);
+    }
+  }
 });
 
 const emit = defineEmits(["closemessage"]);
 const offmessage = () => {
   emit("closemessage");
 };
+
+// 暴露方法供外部调用
+defineExpose({
+  setChatContext
+});
 </script>
 
 <style scoped lang="scss">
@@ -833,6 +914,142 @@ const offmessage = () => {
 
   &:hover {
     background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+// RAG 开关样式
+.rag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+  }
+
+  .rag-label {
+    font-size: 13px;
+    color: var(--text-secondary, #666);
+  }
+
+  .toggle-switch {
+    width: 36px;
+    height: 20px;
+    background: var(--border-color, #ddd);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.3s;
+
+    .toggle-slider {
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    &.active {
+      background: var(--primary-color, coral);
+
+      .toggle-slider {
+        transform: translateX(16px);
+      }
+    }
+  }
+}
+
+// 来源面板样式
+.sources-panel {
+  flex: 0 0 auto;
+  max-height: 150px;
+  border-top: 1px solid var(--border-color, #e9ecef);
+  background: var(--bg-secondary, #f8f9fa);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  .sources-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    border-bottom: 1px solid var(--border-color, #e9ecef);
+
+    .close-sources {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary, #666);
+
+      &:hover {
+        background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+      }
+    }
+  }
+
+  .sources-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+
+    .source-item {
+      background: var(--bg-tertiary, white);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+      border: 1px solid var(--border-color, #e9ecef);
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .source-sender {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--primary-color, coral);
+        margin-bottom: 4px;
+      }
+
+      .source-content {
+        font-size: 13px;
+        color: var(--text-primary, #333);
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .source-meta {
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--text-tertiary, #999);
+
+        .relevance {
+          background: var(--primary-color, coral);
+          color: white;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+        }
+      }
+    }
   }
 }
 </style>

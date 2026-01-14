@@ -590,8 +590,10 @@ async function deleteCurrentChat() {
 
 // 关闭消息窗口
 function offmessage() {
-  // 可以添加关闭逻辑，比如返回到联系人列表
+  // 清空当前聊天用户
   chatstore.currentChatUser = ''
+  // 触发关闭事件，让父组件处理
+  emit('closemessage')
 }
 
 // 清理Socket事件监听器
