@@ -1,0 +1,1690 @@
+openapi: 3.0.3
+info:
+  title: Mini Chat Bar API
+  description: 一个基于Vue 3 + Express + Socket.IO的现代化聊天应用API文档
+  version: 1.0.0
+  contact:
+    name: Mini Chat Bar Team
+    email: support@minichatbar.com
+
+servers:
+  - url: http://localhost:3000
+    description: 开发环境
+  - url: https://api.minichatbar.com
+    description: 生产环境
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Token认证
+
+  schemas:
+    User:
+      type: object
+      properties:
+        uID:
+          type: string
+          description: 用户唯一ID
+        uName:
+          type: string
+          description: 用户名
+        uEmail:
+          type: string
+          format: email
+          description: 用户邮箱
+        uAvatar:
+          type: string
+          description: 用户头像URL
+        Friends:
+          type: array
+          items:
+            type: string
+          description: 好友ID列表
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: 消息ID
+        from:
+          type: string
+          description: 发送者ID
+        to:
+          type: string
+          description: 接收者ID
+        content:
+          type: string
+          description: 消息内容
+        messageType:
+          type: string
+          enum: [text, image, file, voice]
+          description: 消息类型
+        time:
+          type: string
+          format: date-time
+          description: 发送时间
+        fileInfo:
+          type: object
+          properties:
+            fileName:
+              type: string
+            fileUrl:
+              type: string
+            fileSize:
+              type: number
+            fileType:
+              type: string
+
+    GroupMessage:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: 消息ID
+        roomId:
+          type: string
+          description: 群聊ID
+        from:
+          type: string
+          description: 发送者ID
+        fromName:
+          type: string
+          description: 发送者名称
+        fromAvatar:
+          type: string
+          description: 发送者头像
+        content:
+          type: string
+          description: 消息内容
+        messageType:
+          type: string
+          enum: [text, image, file, voice, system]
+        timestamp:
+          type: string
+          format: date-time
+
+    Room:
+      type: object
+      properties:
+        RoomID:
+          type: string
+          description: 群聊ID
+        RoomName:
+          type: string
+          description: 群聊名称
+        Creator:
+          type: string
+          description: 创建者ID
+        Admins:
+          type: array
+          items:
+            type: string
+          description: 管理员ID列表
+        Members:
+          type: array
+          items:
+            type: object
+            properties:
+              userID:
+                type: string
+              Nickname:
+                type: string
+              Avatar:
+                type: string
+              joinedAt:
+                type: string
+                format: date-time
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error:
+          type: string
+
+security:
+  - bearerAuth: []
+
+paths:
+  # WebSocket 事件信息
+  /websocket/events:
+    get:
+      tags:
+        - WebSocket事件
+      summary: WebSocket事件说明文档
+      description: |
+        ## Socket.IO 实时通信事件文档
+        
+        **连接地址**: `ws://localhost:3000` (开发环境) 或 `wss://your-domain.com` (生产环境)
+        
+        ### 🔌 连接管理事件
+        
+        **客户端 → 服务端**:
+        - `connect` - 自动触发，客户端连接到服务器
+        - `login` - 用户登录事件，参数: userId (string)
+        - `user-online` - 用户主动上线，参数: userId (string)  
+        - `user-offline` - 用户主动离线，参数: userId (string)
+        - `disconnect` - 自动触发，客户端断开连接
+        
+        **服务端 → 客户端**:
+        - `user-online-notification` - 用户上线通知，数据: userId (string)
+        - `user-offline-notification` - 用户离线通知，数据: userId (string)
+        - `online-users-update` - 在线用户列表更新，数据: userIds (string[])
+        
+        ### 💬 私聊消息事件
+        
+        **客户端 → 服务端**:
+        - `private-message` - 发送私聊消息
+        - `private-file-message` - 发送私聊文件消息
+        - `message-deleted` - 删除单条消息
+        - `messages-deleted` - 批量删除消息
+        
+        **服务端 → 客户端**:
+        - `private-message` - 接收私聊消息
+        - `private-file-message` - 接收文件消息
+        - `message-deleted` - 消息删除通知
+        - `private-message-recalled` - 消息撤回通知
+        - `avatar-updated` - 头像更新通知
+        
+        ### 👥 群聊消息事件
+        
+        **客户端 → 服务端**:
+        - `join-group` - 加入群聊
+        - `leave-group` - 离开群聊
+        - `group-message` - 发送群聊消息
+        - `group-message-read` - 标记群消息已读
+        - `group-typing` - 开始输入状态
+        - `group-stop-typing` - 停止输入状态
+        - `group-message-recall` - 撤回群聊消息
+        
+        **服务端 → 客户端**:
+        - `member-joined` - 成员加入通知
+        - `member-left` - 成员离开通知
+        - `online-count` - 在线人数更新
+        - `group-message` - 接收群聊消息
+        - `group-message-read` - 群消息已读通知
+        - `group-typing` - 有人正在输入
+        - `group-stop-typing` - 停止输入通知
+        - `group-message-recalled` - 群消息撤回通知
+        
+        ### ⚠️ 错误事件
+        
+        - `error` - 服务端错误通知，数据: { message: string, code?: string, details?: any }
+        
+        ### 📝 连接示例代码
+        
+        ```javascript
+        import { io } from 'socket.io-client'
+        
+        const socket = io('http://localhost:3000', {
+          withCredentials: true,
+          transports: ['websocket', 'polling']
+        })
+        
+        // 登录
+        socket.emit('login', localStorage.getItem('userId'))
+        
+        // 监听消息
+        socket.on('private-message', (data) => {
+          console.log('收到私聊消息:', data)
+        })
+        
+        // 发送消息
+        socket.emit('private-message', {
+          from: 'user1',
+          to: 'user2', 
+          content: '你好',
+          messageType: 'text',
+          timestamp: new Date().toISOString()
+        })
+        
+        // 加入群聊
+        socket.emit('join-group', {
+          roomId: 'group_123',
+          userId: 'user1'
+        })
+        ```
+        
+        ### 📋 注意事项
+        
+        1. **连接地址**: ws://localhost:3000 (开发环境)
+        2. **支持多设备登录**: 一个用户可以有多个socket连接
+        3. **消息可靠性**: 私聊消息采用HTTP+Socket双轨制
+        4. **群聊房间**: 使用Socket.IO的room机制
+        5. **认证**: 连接后需要发送login事件进行身份验证
+        6. **错误处理**: 所有事件都包含适当的错误处理
+      responses:
+        '200':
+          description: WebSocket事件文档信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "请查看上方描述了解WebSocket事件详情"
+                  connection_url:
+                    type: string
+                    example: "ws://localhost:3000"
+                  supported_events:
+                    type: array
+                    items:
+                      type: string
+                    example: ["login", "private-message", "group-message", "join-group"]
+
+  # 用户认证相关
+  /api/user/register-email:
+    post:
+      tags:
+        - 用户认证
+      summary: 邮箱验证码注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uName
+                - uEmail
+                - uPassword
+                - verificationCode
+              properties:
+                uName:
+                  type: string
+                  description: 用户名
+                uEmail:
+                  type: string
+                  format: email
+                  description: 邮箱地址
+                uPassword:
+                  type: string
+                  minLength: 8
+                  description: 密码
+                verificationCode:
+                  type: string
+                  description: 邮箱验证码
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: 请求参数错误
+        '409':
+          description: 用户名或邮箱已存在
+
+  /api/user/login-email:
+    post:
+      tags:
+        - 用户认证
+      summary: 邮箱密码登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "登录成功"
+                  token:
+                    type: string
+                    description: JWT Token
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: 用户ID
+                        example: "1642345678901"
+                      name:
+                        type: string
+                        description: 用户名
+                        example: "张三"
+                      email:
+                        type: string
+                        format: email
+                        description: 用户邮箱
+                        example: "zhangsan@example.com"
+                      ava:
+                        type: string
+                        description: 用户头像URL
+                        example: "/images/avatar/default-avatar.webp"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "请输入有效的邮箱地址"
+        '401':
+          description: 密码错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "密码错误"
+        '404':
+          description: 邮箱未注册
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "邮箱未注册"
+
+  /api/user/login-code:
+    post:
+      tags:
+        - 用户认证
+      summary: 邮箱验证码登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - verificationCode
+              properties:
+                email:
+                  type: string
+                  format: email
+                verificationCode:
+                  type: string
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "登录成功"
+                  token:
+                    type: string
+                    description: JWT Token
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: 用户ID
+                        example: "1642345678901"
+                      name:
+                        type: string
+                        description: 用户名
+                        example: "张三"
+                      email:
+                        type: string
+                        format: email
+                        description: 用户邮箱
+                        example: "zhangsan@example.com"
+                      ava:
+                        type: string
+                        description: 用户头像URL
+                        example: "/images/avatar/default-avatar.webp"
+        '400':
+          description: 验证码错误或过期
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "验证码错误或已过期"
+        '404':
+          description: 邮箱未注册
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "邮箱未注册"
+
+  /api/user/send-verification:
+    post:
+      tags:
+        - 用户认证
+      summary: 发送邮箱验证码
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - type
+              properties:
+                email:
+                  type: string
+                  format: email
+                type:
+                  type: string
+                  enum: [register, login]
+      responses:
+        '200':
+          description: 验证码发送成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "验证码已发送到您的邮箱"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "请输入有效的邮箱地址"
+        '409':
+          description: 邮箱已被注册(仅注册时)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "邮箱已被注册"
+        '404':
+          description: 邮箱未注册(仅登录时)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "邮箱未注册"
+
+  # OAuth认证
+  /auth/google:
+    get:
+      tags:
+        - OAuth认证
+      summary: Google OAuth登录
+      security: []
+      responses:
+        '302':
+          description: 重定向到Google OAuth授权页面
+
+  /auth/google/callback:
+    get:
+      tags:
+        - OAuth认证
+      summary: Google OAuth回调
+      security: []
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 重定向回前端并携带token
+
+  /auth/github:
+    get:
+      tags:
+        - OAuth认证  
+      summary: GitHub OAuth登录
+      security: []
+      responses:
+        '302':
+          description: 重定向到GitHub OAuth授权页面
+
+  # 用户信息管理
+  /api/user/info:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取当前用户信息
+      responses:
+        '200':
+          description: 成功获取用户信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      uID:
+                        type: string
+                        description: 用户ID
+                        example: "1642345678901"
+                      uName:
+                        type: string
+                        description: 用户名
+                        example: "张三"
+                      uEmail:
+                        type: string
+                        format: email
+                        description: 用户邮箱
+                        example: "zhangsan@example.com"
+                      uAvatar:
+                        type: string
+                        description: 用户头像URL
+                        example: "/images/avatar/default-avatar.webp"
+                      Friends:
+                        type: array
+                        items:
+                          type: string
+                        description: 好友ID列表
+                        example: ["1642345678902", "1642345678903"]
+        '401':
+          description: 未授权，Token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token 无效或已过期"
+
+  /api/user/friends:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取好友列表
+      responses:
+        '200':
+          description: 成功获取好友列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uID:
+                          type: string
+                          description: 好友用户ID
+                          example: "1642345678902"
+                        uName:
+                          type: string
+                          description: 好友用户名
+                          example: "李四"
+                        uEmail:
+                          type: string
+                          format: email
+                          description: 好友邮箱
+                          example: "lisi@example.com"
+                        uAvatar:
+                          type: string
+                          description: 好友头像URL
+                          example: "/images/avatar/user-avatar.webp"
+                        isOnline:
+                          type: boolean
+                          description: 是否在线
+                          example: true
+
+  /api/user/add:
+    post:
+      tags:
+        - 用户管理
+      summary: 添加好友
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                friendId:
+                  type: string
+      responses:
+        '200':
+          description: 添加好友成功
+
+  /api/user/avatar:
+    put:
+      tags:
+        - 用户管理
+      summary: 更新用户头像
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+      responses:
+        '200':
+          description: 头像更新成功
+
+  # 私聊相关
+  /api/chat/messages/{id}:
+    get:
+      tags:
+        - 私聊
+      summary: 获取与指定用户的聊天记录
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 对方用户ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: 每页消息数量
+      responses:
+        '200':
+          description: 成功获取聊天记录
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                          description: 消息ID
+                          example: "507f1f77bcf86cd799439011"
+                        from:
+                          type: string
+                          description: 发送者ID
+                          example: "1642345678901"
+                        to:
+                          type: string
+                          description: 接收者ID
+                          example: "1642345678902"
+                        content:
+                          type: string
+                          description: 消息内容
+                          example: "你好，最近怎么样？"
+                        messageType:
+                          type: string
+                          enum: [text, image, file, voice]
+                          description: 消息类型
+                          example: "text"
+                        time:
+                          type: string
+                          format: date-time
+                          description: 发送时间
+                          example: "2024-01-15T10:30:00.000Z"
+                        fileInfo:
+                          type: object
+                          description: 文件信息（仅文件消息）
+                          properties:
+                            fileName:
+                              type: string
+                              example: "document.pdf"
+                            fileUrl:
+                              type: string
+                              example: "/uploads/file-123456.pdf"
+                            fileSize:
+                              type: number
+                              example: 1024000
+                            fileType:
+                              type: string
+                              example: "application/pdf"
+                  pagination:
+                    type: object
+                    properties:
+                      current:
+                        type: integer
+                        example: 1
+                      total:
+                        type: integer
+                        example: 5
+                      count:
+                        type: integer
+                        example: 248
+                      limit:
+                        type: integer
+                        example: 50
+
+    post:
+      tags:
+        - 私聊
+      summary: 发送私聊消息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 接收者用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: 消息内容
+                messageType:
+                  type: string
+                  enum: [text, image, file, voice]
+                  default: text
+      responses:
+        '200':
+          description: 消息发送成功
+
+    delete:
+      tags:
+        - 私聊
+      summary: 删除与指定用户的所有聊天记录
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+
+  /api/chat/search:
+    get:
+      tags:
+        - 私聊
+      summary: 搜索聊天记录
+      parameters:
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: targetUser
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 搜索结果
+
+  /api/chat/search/users:
+    get:
+      tags:
+        - 私聊
+      summary: 搜索用户
+      parameters:
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 搜索结果
+
+  # 群聊相关
+  /room/create:
+    post:
+      tags:
+        - 群聊
+      summary: 创建群聊
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupName
+              properties:
+                groupName:
+                  type: string
+                  description: 群聊名称
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  description: 初始成员ID列表
+      responses:
+        '200':
+          description: 群聊创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  room:
+                    $ref: '#/components/schemas/Room'
+
+  /room/list:
+    get:
+      tags:
+        - 群聊
+      summary: 获取用户所有群聊
+      responses:
+        '200':
+          description: 成功获取群聊列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  groups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Room'
+
+  /room/{roomId}:
+    get:
+      tags:
+        - 群聊
+      summary: 获取群聊详情
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取群聊详情
+
+    put:
+      tags:
+        - 群聊
+      summary: 更新群聊信息
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                RoomName:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+
+  /room/{roomId}/messages:
+    get:
+      tags:
+        - 群聊
+      summary: 获取群聊消息
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 成功获取群聊消息
+
+    post:
+      tags:
+        - 群聊
+      summary: 发送群聊消息
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                messageType:
+                  type: string
+                  enum: [text, image, file, voice]
+                  default: text
+      responses:
+        '200':
+          description: 消息发送成功
+
+  /room/{roomId}/invite:
+    post:
+      tags:
+        - 群聊
+      summary: 邀请成员加入群聊
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 邀请成功
+
+  /room/{roomId}/leave:
+    post:
+      tags:
+        - 群聊
+      summary: 退出群聊
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 退出成功
+
+  # 文件上传
+  /api/upload:
+    post:
+      tags:
+        - 文件管理
+      summary: 上传文件
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 要上传的文件
+      responses:
+        '200':
+          description: 文件上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "文件上传成功"
+                  fileUrl:
+                    type: string
+                    description: 文件访问URL
+                    example: "/uploads/file-1642345678901-123456789.jpg"
+                  fileName:
+                    type: string
+                    description: 原始文件名
+                    example: "photo.jpg"
+                  fileSize:
+                    type: number
+                    description: 文件大小(字节)
+                    example: 1024000
+                  fileType:
+                    type: string
+                    description: 文件MIME类型
+                    example: "image/jpeg"
+                  uploadTime:
+                    type: string
+                    format: date-time
+                    description: 上传时间
+                    example: "2024-01-15T10:30:00.000Z"
+        '400':
+          description: 文件上传失败
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "不支持的文件类型"
+        '413':
+          description: 文件过大
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "文件大小超过10MB限制"
+
+  /api/upload/file/{filename}:
+    get:
+      tags:
+        - 文件管理
+      summary: 获取文件
+      security: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 文件内容
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+
+    delete:
+      tags:
+        - 文件管理
+      summary: 删除文件
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 文件删除成功
+
+  # AI相关接口
+  /api/deepseek-chat:
+    post:
+      tags:
+        - AI助手
+      summary: AI聊天对话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: 用户消息
+                model:
+                  type: string
+                  default: deepseek-chat
+                temperature:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.7
+      responses:
+        '200':
+          description: AI回复成功
+
+  /api/conversation/history:
+    get:
+      tags:
+        - AI助手
+      summary: 获取对话历史
+      responses:
+        '200':
+          description: 成功获取对话历史
+
+    delete:
+      tags:
+        - AI助手
+      summary: 清空对话历史
+      responses:
+        '200':
+          description: 清空成功
+
+  /api/conversation/roles:
+    get:
+      tags:
+        - AI助手
+      summary: 获取可用角色列表
+      responses:
+        '200':
+          description: 成功获取角色列表
+
+  # Agent相关接口
+  /api/agent/summarize:
+    post:
+      tags:
+        - AI Agent
+      summary: 生成聊天总结
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chatType
+              properties:
+                chatType:
+                  type: string
+                  enum: [private, group]
+                targetId:
+                  type: string
+                  description: 私聊对方用户ID (chatType=private时必填)
+                roomId:
+                  type: string
+                  description: 群ID (chatType=group时必填)
+                timeRange:
+                  type: object
+                  properties:
+                    start:
+                      type: string
+                      format: date-time
+                    end:
+                      type: string
+                      format: date-time
+                limit:
+                  type: integer
+                  default: 100
+                  description: 消息数量限制
+      responses:
+        '200':
+          description: 总结生成成功
+
+  /api/agent/chat:
+    post:
+      tags:
+        - AI Agent
+      summary: 智能问答
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - question
+              properties:
+                question:
+                  type: string
+                  description: 问题
+                chatType:
+                  type: string
+                  enum: [private, group]
+                targetId:
+                  type: string
+                roomId:
+                  type: string
+                useContext:
+                  type: boolean
+                  default: true
+                sessionId:
+                  type: string
+      responses:
+        '200':
+          description: 问答成功
+
+  /api/agent/explain:
+    post:
+      tags:
+        - AI Agent
+      summary: AI解释文本
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: 要解释的文本
+      responses:
+        '200':
+          description: 解释成功
+
+tags:
+  - name: 用户认证
+    description: 用户注册、登录相关接口
+  - name: OAuth认证
+    description: Google、GitHub等第三方登录
+  - name: 用户管理
+    description: 用户信息管理、好友管理
+  - name: 私聊
+    description: 私聊消息相关接口
+  - name: 群聊
+    description: 群聊管理和消息接口
+  - name: 文件管理
+    description: 文件上传、下载、删除
+  - name: AI助手
+    description: AI对话和历史管理
+  - name: AI Agent
+    description: 智能总结、问答、文本解释
+  - name: WebSocket事件
+    description: Socket.IO实时通信事件 - 连接地址 ws://localhost:3000
+
+# WebSocket 事件文档
+# 注意：以下不是REST API，而是Socket.IO事件
+# 连接地址：ws://localhost:3000 或 wss://your-domain.com
+# 
+# ==================== 连接管理事件 ====================
+# 
+# 客户端 → 服务端事件：
+# 
+# connect (自动触发)
+# - 描述: 客户端连接到服务器
+# - 参数: 无
+# 
+# login
+# - 描述: 用户登录事件
+# - 参数: userId (string) - 用户ID
+# - 示例: socket.emit('login', '1642345678901')
+# 
+# user-online
+# - 描述: 用户主动上线
+# - 参数: userId (string) - 用户ID
+# 
+# user-offline  
+# - 描述: 用户主动离线
+# - 参数: userId (string) - 用户ID
+# 
+# disconnect (自动触发)
+# - 描述: 客户端断开连接
+# - 参数: 无
+# 
+# 服务端 → 客户端事件：
+# 
+# user-online-notification
+# - 描述: 用户上线通知
+# - 数据: userId (string) - 上线用户ID
+# 
+# user-offline-notification
+# - 描述: 用户离线通知  
+# - 数据: userId (string) - 离线用户ID
+# 
+# online-users-update
+# - 描述: 在线用户列表更新
+# - 数据: userIds (string[]) - 在线用户ID数组
+# 
+# ==================== 私聊消息事件 ====================
+# 
+# 客户端 → 服务端事件：
+# 
+# private-message
+# - 描述: 发送私聊消息
+# - 参数: {
+#     from: string,        // 发送者ID
+#     to: string,          // 接收者ID
+#     content: string,     // 消息内容
+#     messageType: 'text' | 'image' | 'file' | 'voice',
+#     timestamp: string    // ISO时间戳
+#   }
+# 
+# private-file-message
+# - 描述: 发送私聊文件消息
+# - 参数: {
+#     to: string,          // 接收者ID
+#     fileUrl: string,     // 文件URL
+#     fileName: string,    // 文件名
+#     fileType: string,    // MIME类型
+#     messageType: 'image' | 'file' | 'voice'
+#   }
+# 
+# message-deleted
+# - 描述: 删除单条消息
+# - 参数: {
+#     messageId: string,   // 消息ID
+#     chatWith: string     // 聊天对象ID
+#   }
+# 
+# messages-deleted
+# - 描述: 批量删除消息
+# - 参数: {
+#     messageIds: string[], // 消息ID数组
+#     chatWith: string      // 聊天对象ID
+#   }
+# 
+# 服务端 → 客户端事件：
+# 
+# private-message
+# - 描述: 接收私聊消息
+# - 数据: {
+#     from: string,
+#     to: string,
+#     content: string,
+#     messageType: string,
+#     timestamp: string
+#   }
+# 
+# private-file-message
+# - 描述: 接收文件消息
+# - 数据: {
+#     from: string,
+#     fileUrl: string,
+#     fileName: string,
+#     fileType: string,
+#     messageType: string
+#   }
+# 
+# message-deleted
+# - 描述: 消息删除通知
+# - 数据: {
+#     messageId: string,
+#     chatWith: string
+#   }
+# 
+# private-message-recalled
+# - 描述: 消息撤回通知
+# - 数据: {
+#     messageId: string,
+#     chatWith: string,
+#     userId: string
+#   }
+# 
+# avatar-updated
+# - 描述: 头像更新通知
+# - 数据: {
+#     userId: string,
+#     newAvatarUrl: string
+#   }
+# 
+# ==================== 群聊消息事件 ====================
+# 
+# 客户端 → 服务端事件：
+# 
+# join-group
+# - 描述: 加入群聊
+# - 参数: {
+#     roomId: string,      // 群聊ID
+#     userId: string       // 用户ID
+#   }
+# 
+# leave-group
+# - 描述: 离开群聊
+# - 参数: {
+#     roomId: string,
+#     userId: string
+#   }
+# 
+# group-message
+# - 描述: 发送群聊消息
+# - 参数: {
+#     roomId: string,      // 群聊ID
+#     from: string,        // 发送者ID
+#     senderName: string,  // 发送者名称
+#     content: string,     // 消息内容
+#     messageType: 'text' | 'image' | 'file' | 'voice' | 'system',
+#     fromAvatar?: string  // 发送者头像
+#   }
+# 
+# group-message-read
+# - 描述: 标记群消息已读
+# - 参数: {
+#     roomId: string,
+#     messageId: string,
+#     userId: string
+#   }
+# 
+# group-typing
+# - 描述: 开始输入状态
+# - 参数: {
+#     roomId: string,
+#     userId: string,
+#     userName: string
+#   }
+# 
+# group-stop-typing
+# - 描述: 停止输入状态
+# - 参数: {
+#     roomId: string,
+#     userId: string
+#   }
+# 
+# group-message-recall
+# - 描述: 撤回群聊消息
+# - 参数: {
+#     roomId: string,
+#     messageId: string
+#   }
+# 
+# 服务端 → 客户端事件：
+# 
+# member-joined
+# - 描述: 成员加入通知
+# - 数据: {
+#     userId: string,
+#     timestamp: Date
+#   }
+# 
+# member-left
+# - 描述: 成员离开通知
+# - 数据: {
+#     userId: string,
+#     timestamp: Date
+#   }
+# 
+# online-count
+# - 描述: 在线人数更新
+# - 数据: {
+#     count: number
+#   }
+# 
+# group-message
+# - 描述: 接收群聊消息
+# - 数据: {
+#     roomId: string,
+#     from: string,
+#     senderName: string,
+#     content: string,
+#     messageType: string,
+#     fromAvatar: string,
+#     timestamp: Date
+#   }
+# 
+# group-message-read
+# - 描述: 群消息已读通知
+# - 数据: {
+#     messageId: string,
+#     userId: string,
+#     timestamp: Date
+#   }
+# 
+# group-typing
+# - 描述: 有人正在输入
+# - 数据: {
+#     userId: string,
+#     userName: string,
+#     timestamp: Date
+#   }
+# 
+# group-stop-typing
+# - 描述: 停止输入通知
+# - 数据: {
+#     userId: string,
+#     timestamp: Date
+#   }
+# 
+# group-message-recalled
+# - 描述: 群消息撤回通知
+# - 数据: {
+#     messageId: string,
+#     timestamp: Date
+#   }
+# 
+# ==================== 错误事件 ====================
+# 
+# error
+# - 描述: 服务端错误通知
+# - 数据: {
+#     message: string,     // 错误消息
+#     code?: string,       // 错误代码
+#     details?: any        // 错误详情
+#   }
+# 
+# ==================== 连接示例 ====================
+# 
+# // 前端连接示例
+# import { io } from 'socket.io-client'
+# 
+# const socket = io('http://localhost:3000', {
+#   withCredentials: true,
+#   transports: ['websocket', 'polling']
+# })
+# 
+# // 登录
+# socket.emit('login', localStorage.getItem('userId'))
+# 
+# // 监听消息
+# socket.on('private-message', (data) => {
+#   console.log('收到私聊消息:', data)
+# })
+# 
+# // 发送消息
+# socket.emit('private-message', {
+#   from: 'user1',
+#   to: 'user2', 
+#   content: '你好',
+#   messageType: 'text',
+#   timestamp: new Date().toISOString()
+# })
+# 
+# // 加入群聊
+# socket.emit('join-group', {
+#   roomId: 'group_123',
+#   userId: 'user1'
+# })
+# 
+# ==================== 注意事项 ====================
+# 
+# 1. 连接地址: ws://localhost:3000 (开发环境)
+# 2. 支持多设备登录: 一个用户可以有多个socket连接
+# 3. 消息可靠性: 私聊消息采用HTTP+Socket双轨制
+# 4. 群聊房间: 使用Socket.IO的room机制
+# 5. 认证: 连接后需要发送login事件进行身份验证
+# 6. 错误处理: 所有事件都包含适当的错误处理

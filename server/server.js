@@ -34,6 +34,12 @@ console.log('Agent路由导入成功')
 const auth = require('./middlewares/auth')
 console.log('Auth中间件导入成功')
 
+// Swagger UI 配置
+const swaggerUi = require('swagger-ui-express')
+const YAML = require('yamljs')
+const swaggerDocument = YAML.load(path.join(__dirname, '..', 'swagger-api-docs.yaml'))
+console.log('Swagger文档导入成功')
+
 // 向量库服务（可选，如果 chromadb 未安装会自动降级）
 let messageIndexer = null
 try {
@@ -97,6 +103,12 @@ app.use(session({
 // 初始化 Passport
 app.use(passport.initialize())
 app.use(passport.session())
+
+// Swagger UI 路由 - 必须在其他路由之前
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Mini Chat Bar API 文档'
+}))
 
 app.use('/room', roomRouter)
 app.use('/api/user', userRouter)
