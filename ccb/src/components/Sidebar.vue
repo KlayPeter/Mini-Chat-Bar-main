@@ -22,6 +22,11 @@
             <Group class="icon" />
           </i>
         </li>
+        <li :class="{ active: activeTab === 'chatroom' }">
+          <i title="技术聊天室" @click="toChatRoom">
+            <Code class="icon" />
+          </i>
+        </li>
         <li :class="{ active: activeTab === 'favorites' }">
           <i title="收藏夹" @click="togithub">
             <Star class="icon" />
@@ -43,8 +48,8 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
-import { ChatBubble, User, Group, Star } from '@iconoir/vue'
-const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI'])
+import { ChatBubble, User, Group, Star, Code } from '@iconoir/vue'
+const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI', 'showchatrooms'])
 const router = useRouter()
 const route = useRoute()
 
@@ -56,6 +61,8 @@ function updateActiveTab() {
   const path = route.path
   if (path === '/group-chat') {
     activeTab.value = 'group'
+  } else if (path === '/chatrooms' || path.includes('/chatroom-detail')) {
+    activeTab.value = 'chatroom'
   } else if (path === '/moments') {
     activeTab.value = 'moments'
   } else if (path === '/favorites') {
@@ -94,6 +101,11 @@ function tocsdn() {
 function toGroupChat() {
   activeTab.value = 'group'
   router.push('/group-chat')
+}
+
+function toChatRoom() {
+  activeTab.value = 'chatroom'
+  router.push('/chatrooms')
 }
 
 function togithub() {

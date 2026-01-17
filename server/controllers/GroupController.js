@@ -5,7 +5,7 @@ const Users = require('../models/Users')
 // 创建群聊
 exports.createGroup = async (req, res) => {
   try {
-    const { groupName, memberIds } = req.body
+    const { groupName, memberIds, type, techDirection, joinType, password, announcement, duration } = req.body
     const creator = req.user.userId
 
     // 获取创建者信息
@@ -15,7 +15,8 @@ exports.createGroup = async (req, res) => {
     }
 
     // 生成唯一的群ID
-    const roomId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const prefix = type === 'chatroom' ? 'chatroom' : 'group'
+    const roomId = `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     // 构建成员列表（包含创建者）
     const members = [{
@@ -42,13 +43,34 @@ exports.createGroup = async (req, res) => {
       }
     }
 
-    // 创建群聊
+    // 生成邀请码（如果需要）
+    let inviteCode = ''
+    if (joinType === 'invite') {
+      inviteCode = Math.random().toString(36).substr(2, 8).toUpperCase()
+    }
+
+    // 计算过期时间（仅聊天室有时间限制）
+    let expiresAt = null
+    const roomDuration = duration || 24 // 默认24小时
+    if (type === 'chatroom') {
+      expiresAt = new Date(Date.now() + roomDuration * 60 * 60 * 1000)
+    }
+
+    // 创建群聊/聊天室
     const newRoom = new Room({
       RoomID: roomId,
       RoomName: groupName,
       Creator: creator,
       Admins: [creator],
-      Members: members
+      Members: members,
+      type: type || 'normal',
+      techDirection: techDirection || '',
+      joinType: joinType || 'public',
+      inviteCode: inviteCode,
+      password: password || '',
+      Announcement: announcement || '',
+      duration: type === 'chatroom' ? roomDuration : undefined,
+      expiresAt: expiresAt
     })
 
     await newRoom.save()
@@ -58,14 +80,16 @@ exports.createGroup = async (req, res) => {
       roomId: roomId,
       from: 'system',
       fromName: '系统消息',
-      content: `${creatorInfo.uName} 创建了群聊`,
+      content: type === 'chatroom' 
+        ? `${creatorInfo.uName} 创建了技术聊天室，将在 ${roomDuration} 小时后自动解散` 
+        : `${creatorInfo.uName} 创建了群聊`,
       messageType: 'system'
     })
     await systemMessage.save()
 
     res.json({
       success: true,
-      message: '群聊创建成功',
+      message: type === 'chatroom' ? '聊天室创建成功' : '群聊创建成功',
       room: newRoom
     })
   } catch (err) {
@@ -80,7 +104,8 @@ exports.getUserGroups = async (req, res) => {
     const userId = req.user.userId
 
     const groups = await Room.find({
-      'Members.userID': userId
+      'Members.userID': userId,
+      type: { $ne: 'chatroom' } // 排除聊天室
     }).sort({ updatedAt: -1 })
 
     res.json({
@@ -90,6 +115,40 @@ exports.getUserGroups = async (req, res) => {
   } catch (err) {
     console.error('获取群聊列表失败:', err)
     res.status(500).json({ message: '获取群聊列表失败' })
+  }
+}
+
+// 获取用户的所有技术聊天室
+exports.getChatRooms = async (req, res) => {
+  try {
+    const userId = req.user.userId
+
+    const rooms = await Room.find({
+      $or: [
+        { 'Members.userID': userId, type: 'chatroom' },
+        { type: 'chatroom', joinType: 'public' },
+        { type: 'chatroom', joinType: 'password' } // 密码方式的聊天室也显示在列表中
+      ]
+    }).sort({ updatedAt: -1 })
+
+    // 获取在线人数（从 roomUsers Map）
+    const roomSocketModule = require('../sockets/room')
+    const roomUsers = roomSocketModule.roomUsers
+    
+    const roomsWithOnlineCount = rooms.map(room => {
+      const roomObj = room.toObject()
+      // 获取该房间的在线用户数（按 userId 去重）
+      roomObj.onlineCount = roomUsers.has(room.RoomID) ? roomUsers.get(room.RoomID).size : 0
+      return roomObj
+    })
+
+    res.json({
+      success: true,
+      rooms: roomsWithOnlineCount
+    })
+  } catch (err) {
+    console.error('获取聊天室列表失败:', err)
+    res.status(500).json({ message: '获取聊天室列表失败' })
   }
 }
 
@@ -106,6 +165,48 @@ exports.getGroupDetail = async (req, res) => {
 
     // 检查用户是否是群成员
     const isMember = room.Members.some(m => m.userID === userId)
+    
+    // 如果是聊天室类型，允许非成员查看（但需要根据 joinType 判断是否可以加入）
+    if (room.type === 'chatroom') {
+      // 如果不是成员，自动加入（根据 joinType 判断）
+      if (!isMember) {
+        if (room.joinType === 'public') {
+          // 公开聊天室，自动加入
+          const userInfo = await Users.findOne({ uID: userId })
+          if (userInfo) {
+            room.Members.push({
+              userID: userId,
+              Nickname: userInfo.uName,
+              Avatar: userInfo.uAvatar,
+              joinedAt: new Date()
+            })
+            await room.save()
+          }
+        } else if (room.joinType === 'invite' || room.joinType === 'password') {
+          // 需要邀请码或密码的聊天室，返回聊天室信息但标记为未加入
+          return res.json({
+            success: true,
+            room: room,
+            needJoin: true,
+            joinType: room.joinType
+          })
+        }
+      }
+      
+      // 获取在线人数（从 roomUsers Map）
+      const roomSocketModule = require('../sockets/room')
+      const roomUsers = roomSocketModule.roomUsers
+      const roomObj = room.toObject()
+      roomObj.onlineCount = roomUsers.has(room.RoomID) ? roomUsers.get(room.RoomID).size : 0
+      
+      // 返回聊天室信息
+      return res.json({
+        success: true,
+        room: roomObj
+      })
+    }
+    
+    // 普通群聊必须是成员才能查看
     if (!isMember) {
       return res.status(403).json({ message: '您不是该群成员' })
     }
@@ -117,6 +218,140 @@ exports.getGroupDetail = async (req, res) => {
   } catch (err) {
     console.error('获取群聊详情失败:', err)
     res.status(500).json({ message: '获取群聊详情失败' })
+  }
+}
+
+// 通过邀请码加入聊天室
+exports.joinRoomByInviteCode = async (req, res) => {
+  try {
+    const { inviteCode, password } = req.body
+    const userId = req.user.userId
+
+    // 查找聊天室
+    const room = await Room.findOne({ inviteCode: inviteCode })
+    if (!room) {
+      return res.status(404).json({ message: '邀请码无效' })
+    }
+
+    // 检查是否已经是成员
+    const isMember = room.Members.some(m => m.userID === userId)
+    if (isMember) {
+      return res.json({
+        success: true,
+        message: '您已经是该聊天室成员',
+        room: room
+      })
+    }
+
+    // 检查加入类型
+    if (room.joinType === 'password' || (room.joinType === 'invite' && room.password)) {
+      if (!password || password !== room.password) {
+        return res.status(401).json({ message: '密码错误' })
+      }
+    }
+
+    // 获取用户信息
+    const userInfo = await Users.findOne({ uID: userId })
+    if (!userInfo) {
+      return res.status(404).json({ message: '用户不存在' })
+    }
+
+    // 添加成员
+    room.Members.push({
+      userID: userId,
+      Nickname: userInfo.uName,
+      Avatar: userInfo.uAvatar,
+      joinedAt: new Date()
+    })
+
+    await room.save()
+
+    // 创建系统消息
+    const systemMessage = new GroupMessage({
+      roomId: room.RoomID,
+      from: 'system',
+      fromName: '系统消息',
+      content: `${userInfo.uName} 加入了聊天室`,
+      messageType: 'system'
+    })
+    await systemMessage.save()
+
+    res.json({
+      success: true,
+      message: '成功加入聊天室',
+      room: room
+    })
+  } catch (err) {
+    console.error('加入聊天室失败:', err)
+    res.status(500).json({ message: '加入聊天室失败' })
+  }
+}
+
+// 通过密码直接加入聊天室（用于密码方式的聊天室）
+exports.joinRoomByPassword = async (req, res) => {
+  try {
+    const { roomId, password } = req.body
+    const userId = req.user.userId
+
+    // 查找聊天室
+    const room = await Room.findOne({ RoomID: roomId })
+    if (!room) {
+      return res.status(404).json({ message: '聊天室不存在' })
+    }
+
+    // 检查是否已经是成员
+    const isMember = room.Members.some(m => m.userID === userId)
+    if (isMember) {
+      return res.json({
+        success: true,
+        message: '您已经是该聊天室成员',
+        room: room
+      })
+    }
+
+    // 验证密码
+    if (room.joinType === 'password') {
+      if (!password || password !== room.password) {
+        return res.status(401).json({ message: '密码错误' })
+      }
+    } else {
+      return res.status(400).json({ message: '该聊天室不是密码方式' })
+    }
+
+    // 获取用户信息
+    const userInfo = await Users.findOne({ uID: userId })
+    if (!userInfo) {
+      return res.status(404).json({ message: '用户不存在' })
+    }
+
+    // 添加成员
+    room.Members.push({
+      userID: userId,
+      Nickname: userInfo.uName,
+      Avatar: userInfo.uAvatar,
+      joinedAt: new Date()
+    })
+
+    await room.save()
+
+    // 创建系统消息
+    const systemMessage = new GroupMessage({
+      roomId: room.RoomID,
+      from: 'system',
+      fromName: '系统消息',
+      content: `${userInfo.uName} 加入了聊天室`,
+      messageType: 'system'
+    })
+    await systemMessage.save()
+
+    res.json({
+      success: true,
+      message: '成功加入聊天室',
+      room: room
+    })
+  } catch (err) {
+    console.error('加入聊天室失败:', err)
+    res.status(500).json({ message: '加入聊天室失败' })
   }
 }
 
@@ -234,14 +469,14 @@ exports.leaveGroup = async (req, res) => {
       roomId: roomId,
       from: 'system',
       fromName: '系统消息',
-      content: `${userInfo.uName} 退出了群聊`,
+      content: `${userInfo.uName} 退出了${room.type === 'chatroom' ? '聊天室' : '群聊'}`,
       messageType: 'system'
     })
     await systemMessage.save()
 
     res.json({
       success: true,
-      message: '已退出群聊'
+      message: room.type === 'chatroom' ? '已退出聊天室' : '已退出群聊'
     })
   } catch (err) {
     console.error('退出群聊失败:', err)
@@ -249,14 +484,44 @@ exports.leaveGroup = async (req, res) => {
   }
 }
 
+// 解散聊天室（仅创建者可用）
+exports.dissolveRoom = async (req, res) => {
+  try {
+    const { roomId } = req.params
+    const userId = req.user.userId
+
+    const room = await Room.findOne({ RoomID: roomId })
+    if (!room) {
+      return res.status(404).json({ message: '聊天室不存在' })
+    }
+
+    // 检查是否是创建者
+    if (room.Creator !== userId) {
+      return res.status(403).json({ message: '只有创建者可以解散聊天室' })
+    }
+
+    // 删除聊天室和所有消息
+    await Room.deleteOne({ RoomID: roomId })
+    await GroupMessage.deleteMany({ roomId: roomId })
+
+    res.json({
+      success: true,
+      message: '聊天室已解散'
+    })
+  } catch (err) {
+    console.error('解散聊天室失败:', err)
+    res.status(500).json({ message: '解散聊天室失败' })
+  }
+}
+
 // 发送群消息
 exports.sendGroupMessage = async (req, res) => {
   try {
     const { roomId } = req.params
-    const { content, messageType, fileInfo, quotedMessage } = req.body
+    const { content, messageType, fileInfo, quotedMessage, codeInfo, isQuestion } = req.body
     const userId = req.user.userId
     
-    console.log('🔍 服务器接收到的消息数据:', { content, messageType, fileInfo, quotedMessage })
+    console.log('🔍 服务器接收到的消息数据:', { content, messageType, fileInfo, quotedMessage, codeInfo, isQuestion })
 
     const room = await Room.findOne({ RoomID: roomId })
     if (!room) {
@@ -280,7 +545,9 @@ exports.sendGroupMessage = async (req, res) => {
       fromAvatar: userInfo.uAvatar,
       content: content,
       messageType: messageType || 'text',
-      fileInfo: fileInfo
+      fileInfo: fileInfo,
+      codeInfo: codeInfo,
+      isQuestion: isQuestion || false
     }
 
     // 如果有引用消息，添加引用信息
@@ -303,7 +570,7 @@ exports.sendGroupMessage = async (req, res) => {
     room.updatedAt = new Date()
     await room.save()
 
-    // 确保返回完整的消息对象，包括引用信息
+    // 确保返回完整的消息对象，包括引用信息和代码信息
     const responseMessage = {
       _id: message._id,
       roomId: message.roomId,
@@ -313,13 +580,24 @@ exports.sendGroupMessage = async (req, res) => {
       content: message.content,
       messageType: message.messageType,
       fileInfo: message.fileInfo,
+      codeInfo: message.codeInfo,
       quotedMessage: message.quotedMessage,
+      isQuestion: message.isQuestion,
       time: message.time,
       createdAt: message.time,
       status: message.status
     }
     
     console.log('🔍 服务器最终返回的消息:', responseMessage)
+    
+    // 通过 Socket.IO 广播消息给房间内的所有用户
+    const io = req.app.get('io')
+    if (io) {
+      console.log(`📡 广播消息到房间: ${roomId}`)
+      io.to(roomId).emit('group-message', responseMessage)
+    } else {
+      console.warn('⚠️ Socket.IO 实例未找到')
+    }
     
     res.json({
       success: true,
@@ -345,7 +623,9 @@ exports.getGroupMessages = async (req, res) => {
 
     // 检查是否是群成员
     const isMember = room.Members.some(m => m.userID === userId)
-    if (!isMember) {
+    
+    // 如果是聊天室类型，允许非成员查看消息（公开聊天室）
+    if (room.type !== 'chatroom' && !isMember) {
       return res.status(403).json({ message: '您不是该群成员' })
     }
 
@@ -369,16 +649,38 @@ exports.getGroupMessages = async (req, res) => {
         const member = room.Members.find(m => m.userID === msgObj.from)
         if (member && member.Avatar) {
           msgObj.fromAvatar = member.Avatar
+          msgObj.fromName = msgObj.fromName || member.Nickname
         } else {
           // 从用户表查找
           const user = await Users.findOne({ uID: msgObj.from })
           if (user) {
             msgObj.fromAvatar = user.uAvatar
+            msgObj.fromName = msgObj.fromName || user.uName
           }
         }
       }
-      return msgObj
+      
+      // 确保返回所有必要字段
+      return {
+        _id: msgObj._id,
+        roomId: msgObj.roomId,
+        from: msgObj.from,
+        fromName: msgObj.fromName,
+        fromAvatar: msgObj.fromAvatar,
+        content: msgObj.content,
+        messageType: msgObj.messageType,
+        fileInfo: msgObj.fileInfo,
+        codeInfo: msgObj.codeInfo,
+        quotedMessage: msgObj.quotedMessage,
+        isQuestion: msgObj.isQuestion || false,
+        isSolution: msgObj.isSolution || false,
+        time: msgObj.time,
+        createdAt: msgObj.time,
+        status: msgObj.status
+      }
     }))
+
+    console.log('📤 返回的消息示例:', messagesWithAvatar[0])
 
     res.json({
       success: true,

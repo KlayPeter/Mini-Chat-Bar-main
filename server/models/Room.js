@@ -14,6 +14,43 @@ const roomSchema = new mongoose.Schema({
     }],
     Announcement: { type: String, default: '' },
     MaxMembers: { type: Number, default: 500 },
+    // 新增：聊天室类型
+    type: { 
+        type: String, 
+        enum: ['normal', 'chatroom'], 
+        default: 'normal' 
+    },
+    // 新增：技术方向（仅聊天室使用）
+    techDirection: { 
+        type: String,
+        default: ''
+    },
+    // 新增：加入方式
+    joinType: {
+        type: String,
+        enum: ['public', 'invite', 'password'],
+        default: 'public'
+    },
+    // 新增：邀请码
+    inviteCode: {
+        type: String,
+        default: ''
+    },
+    // 新增：密码
+    password: {
+        type: String,
+        default: ''
+    },
+    // 新增：聊天室持续时间（小时）
+    duration: {
+        type: Number,
+        default: 24 // 默认24小时
+    },
+    // 新增：过期时间
+    expiresAt: {
+        type: Date,
+        required: false
+    },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 })

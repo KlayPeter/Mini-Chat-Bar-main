@@ -67,6 +67,9 @@ const io = new Server(server, {
   allowEIO3: true,
 })
 
+// 将 Socket.IO 实例附加到 Express app，以便在路由中使用
+app.set('io', io)
+
 connectDB()
 
 // CORS 配置 - 使用更宽松的配置以解决跨域问题
@@ -142,4 +145,8 @@ server.listen(PORT, async () => {
       console.log('⚠ 向量库服务启动失败（不影响主功能）:', error.message)
     }
   }
+  
+  // 启动聊天室过期清理任务
+  const roomCleanup = require('./services/RoomCleanup')
+  roomCleanup.startCleanupTask()
 })

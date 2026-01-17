@@ -11,6 +11,9 @@
       <div class="section2 mobile" v-if="showcontacts && !showcontent">
         <Contacts @hidecontacts="handlehidecontacts" @todetail="showdetail" />
       </div>
+      <div class="section2 mobile" v-if="showchatrooms && !showcontent">
+        <ChatRoomListPanel />
+      </div>
       <Transition name="slide-fade" mode="out-in">
         <router-view
           v-if="showcontent"
@@ -36,7 +39,7 @@
         @toggleAI="toggleAIPanel"
       />
     </div>
-    <div class="section2-wrapper">
+    <div class="section2-wrapper" :class="{ collapsed: isSection2Collapsed }">
       <div class="section2" v-if="showlastchats">
         <LastChats
           @hidechat="handlehidechat"
@@ -47,6 +50,9 @@
       <div class="section2" v-if="showcontacts">
         <Contacts @hidecontacts="handlehidecontacts" @todetail="showdetail" />
       </div>
+      <div class="section2" v-if="showchatrooms">
+        <ChatRoomListPanel />
+      </div>
       <!-- AI 助手面板 - 覆盖在 section2 上 -->
       <AIAssistantPanel 
         :visible="showAIPanel" 
@@ -56,7 +62,18 @@
     </div>
     <!-- <div class="section3" v-if="show3"><Content @closemessage="handleclosemessage"/></div> -->
     <!-- 隐藏聊天内容的叉叉要到其它地方不上 -->
-    <div class="section3-wrapper">
+    <div class="section3-wrapper" :class="{ expanded: isSection2Collapsed }">
+      <!-- 折叠/展开按钮 -->
+      <button 
+        v-if="showcontent" 
+        @click="toggleSection2" 
+        class="toggle-section2-btn"
+        :title="isSection2Collapsed ? '展开列表' : '折叠列表'"
+      >
+        <ChevronRight v-if="isSection2Collapsed" :size="20" />
+        <ChevronLeft v-else :size="20" />
+      </button>
+      
       <Transition name="slide-fade" mode="out-in">
         <router-view
           v-if="showcontent"
@@ -74,9 +91,11 @@
 import Sidebar from './Sidebar.vue'
 import LastChats from './LastChats.vue'
 import Contacts from './Contacts.vue'
+import ChatRoomListPanel from './ChatRoomListPanel.vue'
 import BottomNavbar from './BottomNavbar.vue'
 import WelcomeDashboard from './WelcomeDashboard.vue'
 import AIAssistantPanel from './AIAssistantPanel.vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { onMounted, ref, watch, computed } from 'vue'
 import { nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -90,8 +109,10 @@ const chatStore = useChatStore()
 
 const showlastchats = ref(true)
 const showcontacts = ref(false)
+const showchatrooms = ref(false)
 const showcontent = ref(false)
 const showAIPanel = ref(false)
+const isSection2Collapsed = ref(false)
 
 const isMobile = ref(false)
 
@@ -112,6 +133,11 @@ function toggleAIPanel() {
   showAIPanel.value = !showAIPanel.value
 }
 
+// 切换 section2 折叠状态
+function toggleSection2() {
+  isSection2Collapsed.value = !isSection2Collapsed.value
+}
+
 //这里处理contacts板块的显示和隐藏
 function handlehidechat(message) {
   showlastchats.value = false
@@ -127,6 +153,15 @@ function handleshowcontacts(message) {
 
 function handlehidecontacts(message) {
   showcontacts.value = false
+}
+
+//这里处理chatrooms板块的显示和隐藏
+function handleshowchatrooms(message) {
+  router.push('/chatrooms')
+}
+
+function handlehidechatrooms(message) {
+  showchatrooms.value = false
 }
 
 function setcolor(data) {
@@ -175,15 +210,34 @@ function checkRoute() {
   if (meta.showChats) {
     showlastchats.value = true
     showcontacts.value = false
+    showchatrooms.value = false
     showcontent.value = false
   } else if (meta.showContacts) {
     showlastchats.value = false
     showcontacts.value = true
+    showchatrooms.value = false
     showcontent.value = false
-  } else if (path.includes('/chatdetail')) {
+  } else if (meta.showChatRooms) {
+    showlastchats.value = false
+    showcontacts.value = false
+    showchatrooms.value = true
+    showcontent.value = true // 显示 router-view 中的 ChatRoomWelcome
+  } else if (path.includes('/chatdetail') || path.includes('/chatroom-detail')) {
     showcontent.value = true
+    // 自动折叠列表（仅在聊天室详情页）
+    if (path.includes('/chatroom-detail')) {
+      isSection2Collapsed.value = true
+      // 保持聊天室列表显示
+      showlastchats.value = false
+      showcontacts.value = false
+      showchatrooms.value = true
+    }
   } else if (path === '/' || path === '/chatbox') {
     showcontent.value = false
+    // 返回首页时默认显示聊天列表
+    showlastchats.value = true
+    showcontacts.value = false
+    showchatrooms.value = false
   }
 }
 
@@ -205,17 +259,29 @@ watch(
     if (meta.showChats) {
       showlastchats.value = true
       showcontacts.value = false
+      showchatrooms.value = false
       showcontent.value = false
     } else if (meta.showContacts) {
       showlastchats.value = false
       showcontacts.value = true
+      showchatrooms.value = false
       showcontent.value = false
-    } else if (newPath.includes('/chatdetail')) {
+    } else if (meta.showChatRooms) {
+      showlastchats.value = false
+      showcontacts.value = false
+      showchatrooms.value = true
+      showcontent.value = true // 显示 router-view 中的 ChatRoomWelcome
+      isSection2Collapsed.value = false // 返回聊天室列表时展开
+    } else if (newPath.includes('/chatdetail') || newPath.includes('/chatroom-detail')) {
       showcontent.value = true
+      // 自动折叠列表（仅在聊天室详情页）
+      if (newPath.includes('/chatroom-detail')) {
+        isSection2Collapsed.value = true
+      }
     } else if (newPath === '/' || newPath === '/chatbox') {
       showcontent.value = false
       // 返回首页时默认显示聊天列表
-      if (!showcontacts.value) {
+      if (!showcontacts.value && !showchatrooms.value) {
         showlastchats.value = true
       }
     }
@@ -270,6 +336,13 @@ watch(
   flex: 0 0 30%;
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
+  
+  &.collapsed {
+    flex: 0 0 0%;
+    width: 0;
+    min-width: 0;
+  }
 }
 
 .section2 {
@@ -288,6 +361,43 @@ watch(
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &.expanded {
+    flex: 1 1 92%;
+  }
+}
+
+.toggle-section2-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  width: 28px;
+  height: 56px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  
+  &:hover {
+    background: white;
+    color: rgb(165, 42, 42);
+    width: 32px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(-50%) scale(0.95);
+  }
 }
 
 .section3 {

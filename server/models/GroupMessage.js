@@ -8,7 +8,7 @@ const groupMessageSchema = new mongoose.Schema({
   content: { type: String },
   messageType: { 
     type: String, 
-    enum: ['text', 'image', 'file', 'video', 'system'],
+    enum: ['text', 'image', 'file', 'video', 'system', 'code'],
     default: 'text' 
   },
   fileInfo: {
@@ -17,6 +17,12 @@ const groupMessageSchema = new mongoose.Schema({
     fileType: String,
     fileSize: Number
   },
+  // 新增：代码消息信息
+  codeInfo: {
+    language: { type: String, default: 'javascript' },
+    code: { type: String },
+    fileName: { type: String }
+  },
   // 引用消息信息
   quotedMessage: {
     id: { type: String }, // 被引用消息的ID
@@ -24,10 +30,16 @@ const groupMessageSchema = new mongoose.Schema({
     fromName: { type: String }, // 被引用消息发送者名称
     messageType: { 
       type: String,
-      enum: ['text', 'image', 'file', 'video', 'audio'],
+      enum: ['text', 'image', 'file', 'video', 'audio', 'code'],
       default: 'text'
     }
   },
+  // 新增：问题标记
+  isQuestion: { type: Boolean, default: false },
+  // 新增：解决方案标记
+  isSolution: { type: Boolean, default: false },
+  // 新增：关联的问题ID
+  solutionTo: { type: String },
   time: { type: Date, default: Date.now, index: true },
   status: { 
     type: String, 

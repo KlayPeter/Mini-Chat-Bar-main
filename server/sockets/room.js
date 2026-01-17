@@ -4,10 +4,23 @@ const GroupMessage = require("../models/GroupMessage")
 // 消息索引服务
 const messageIndexer = require('../services/MessageIndexer')
 
-// 全局房间用户管理
-const roomUsers = new Map(); // roomId -> Set of socket.id
+// 全局房间用户管理 - 改为存储 userId 而不是 socket.id
+const roomUsers = new Map(); // roomId -> Set of userId
 
-module.exports = function(socket, io) {
+// 主函数
+const roomSocketHandler = function(socket, io) {
+  
+  // 加入房间（简化版，用于聊天室）
+  socket.on("join-room", (roomId) => {
+    socket.join(roomId)
+    console.log(`🏠 加入聊天室: ${roomId}, Socket ID: ${socket.id}`)
+  })
+  
+  // 离开房间
+  socket.on("leave-room", (roomId) => {
+    socket.leave(roomId)
+    console.log(`🚪 离开聊天室: ${roomId}, Socket ID: ${socket.id}`)
+  })
   
   // 加入群聊房间
   socket.on("join-group", async ({ roomId, userId }) => {
@@ -18,11 +31,11 @@ module.exports = function(socket, io) {
       // 加入 Socket.IO 房间
       socket.join(roomId)
       
-      // 记录用户连接
+      // 记录用户连接 - 使用 userId 而不是 socket.id
       if (!roomUsers.has(roomId)) {
         roomUsers.set(roomId, new Set())
       }
-      roomUsers.get(roomId).add(socket.id)
+      roomUsers.get(roomId).add(userId)
       
       console.log(`用户 [${userId}] 加入群聊 [${roomId}]`)
       
@@ -32,9 +45,12 @@ module.exports = function(socket, io) {
         timestamp: new Date()
       })
       
-      // 返回当前在线成员数
+      // 返回当前在线成员数（按 userId 去重）
       const onlineCount = roomUsers.get(roomId).size
-      io.to(roomId).emit("online-count", { count: onlineCount })
+      io.to(roomId).emit("online-count", { roomId: roomId, count: onlineCount })
+      
+      // 同时广播给所有客户端（用于更新聊天室列表）
+      io.emit("chatroom-online-update", { roomId: roomId, count: onlineCount })
       
     } catch (err) {
       console.error("加入群聊失败:", err)
@@ -46,8 +62,9 @@ module.exports = function(socket, io) {
   socket.on("leave-group", ({ roomId, userId }) => {
     socket.leave(roomId)
     
+    // 从房间用户列表中移除该用户
     if (roomUsers.has(roomId)) {
-      roomUsers.get(roomId).delete(socket.id)
+      roomUsers.get(roomId).delete(userId)
       if (roomUsers.get(roomId).size === 0) {
         roomUsers.delete(roomId)
       }
@@ -63,7 +80,10 @@ module.exports = function(socket, io) {
     
     // 更新在线人数
     const onlineCount = roomUsers.has(roomId) ? roomUsers.get(roomId).size : 0
-    io.to(roomId).emit("online-count", { count: onlineCount })
+    io.to(roomId).emit("online-count", { roomId: roomId, count: onlineCount })
+    
+    // 同时广播给所有客户端（用于更新聊天室列表）
+    io.emit("chatroom-online-update", { roomId: roomId, count: onlineCount })
   })
   
   // 发送群消息
@@ -158,18 +178,27 @@ module.exports = function(socket, io) {
   socket.on("disconnect", () => {
     console.log("用户断开连接 ->", socket.id)
     
-    // 清理房间用户记录
+    // 清理房间用户记录 - 使用 userId
     const roomId = socket.currentRoom
-    if (roomId && roomUsers.has(roomId)) {
-      roomUsers.get(roomId).delete(socket.id)
+    const userId = socket.userId
+    
+    if (roomId && userId && roomUsers.has(roomId)) {
+      roomUsers.get(roomId).delete(userId)
       
       if (roomUsers.get(roomId).size === 0) {
         roomUsers.delete(roomId)
       } else {
         // 更新在线人数
         const onlineCount = roomUsers.get(roomId).size
-        io.to(roomId).emit("online-count", { count: onlineCount })
+        io.to(roomId).emit("online-count", { roomId: roomId, count: onlineCount })
+        
+        // 同时广播给所有客户端（用于更新聊天室列表）
+        io.emit("chatroom-online-update", { roomId: roomId, count: onlineCount })
       }
     }
   })
 }
+
+// 导出主函数和 roomUsers
+module.exports = roomSocketHandler
+module.exports.roomUsers = roomUsers

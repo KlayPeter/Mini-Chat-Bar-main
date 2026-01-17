@@ -6,6 +6,8 @@ import Assistant from '../views/Assistant.vue'
 import Moments from '../views/Moments.vue'
 import Favorites from '../views/Favorites.vue'
 import GroupChat from '../views/GroupChat.vue'
+import ChatRoomDetail from '../views/ChatRoomDetail.vue'
+import ChatRoomWelcome from '../components/ChatRoomWelcome.vue'
 
 const routes = [
   {
@@ -26,9 +28,20 @@ const routes = [
         meta: { showContacts: true }
       },
       {
+        path: '/chatrooms',
+        name: 'chatrooms',
+        component: ChatRoomWelcome,
+        meta: { showChatRooms: true }
+      },
+      {
         path: '/chatdetail',
         name: 'chatdetail',
         component: Content
+      },
+      {
+        path: '/chatroom-detail',
+        name: 'chatroom-detail',
+        component: ChatRoomDetail
       },
       {
         path: '/chat-ai',
