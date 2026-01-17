@@ -315,6 +315,12 @@ function getLastMessage(group) {
     case 'video':
       displayContent = '[视频]'
       break
+    case 'code':
+      displayContent = '[代码]'
+      break
+    case 'chatroom_invite':
+      displayContent = '[聊天室邀请]'
+      break
     case 'text':
     default:
       displayContent = lastMsg.content || '[消息]'

@@ -6,7 +6,7 @@ const msgSchema = new mongoose.Schema({
     time: Date,
     messageType: {
         type: String,
-        enum: ['text', 'image', 'file'],
+        enum: ['text', 'image', 'file', 'video', 'audio', 'chatroom_invite'],
         default: 'text'
     },
     content: String, // 文本消息内容或文件名

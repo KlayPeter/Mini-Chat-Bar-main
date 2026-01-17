@@ -93,6 +93,14 @@
       @close="showPasswordDialog = false; passwordRoomInfo = null"
       @joined="handlePasswordJoined"
     />
+    
+    <!-- 加入确认对话框 -->
+    <JoinConfirmDialog
+      v-if="showJoinConfirmDialog && pendingJoinRoom"
+      :roomInfo="pendingJoinRoom"
+      @close="showJoinConfirmDialog = false; pendingJoinRoom = null"
+      @confirm="confirmJoinRoom"
+    />
   </div>
 </template>
 
@@ -105,6 +113,7 @@ import { io } from 'socket.io-client'
 import CreateChatRoomDialog from './CreateChatRoomDialog.vue'
 import JoinChatRoomDialog from './JoinChatRoomDialog.vue'
 import PasswordInputDialog from './PasswordInputDialog.vue'
+import JoinConfirmDialog from './JoinConfirmDialog.vue'
 import { useToast } from '../composables/useToast'
 
 const router = useRouter()
@@ -116,7 +125,9 @@ const selectedRoomId = ref('')
 const showCreateDialog = ref(false)
 const showJoinDialog = ref(false)
 const showPasswordDialog = ref(false)
+const showJoinConfirmDialog = ref(false)
 const passwordRoomInfo = ref(null)
+const pendingJoinRoom = ref(null)
 const activeTab = ref('joined') // 'joined' 或 'all'
 const currentUserId = ref('') // 存储当前用户ID
 const baseUrl = import.meta.env.VITE_BASE_URL
@@ -178,22 +189,29 @@ const filteredRooms = computed(() => {
 function selectRoom(room) {
   selectedRoomId.value = room.RoomID
   
-  // 检查是否是密码方式的聊天室且用户不是成员
+  // 检查是否是成员
   const isMember = room.Members?.some(m => String(m.userID) === String(currentUserId.value))
   
-  if (room.joinType === 'password' && !isMember) {
-    // 弹出密码输入框
-    passwordRoomInfo.value = {
-      roomId: room.RoomID,
-      roomName: room.RoomName
-    }
-    showPasswordDialog.value = true
-  } else {
-    // 直接跳转到聊天室详情页面
+  if (isMember) {
+    // 已经是成员，直接进入
     router.push({
       path: '/chatroom-detail',
       query: { roomId: room.RoomID }
     })
+  } else {
+    // 不是成员，根据类型处理
+    if (room.joinType === 'password') {
+      // 密码方式：弹出密码输入框
+      passwordRoomInfo.value = {
+        roomId: room.RoomID,
+        roomName: room.RoomName
+      }
+      showPasswordDialog.value = true
+    } else {
+      // 公开或邀请方式：显示加入确认弹窗
+      pendingJoinRoom.value = room
+      showJoinConfirmDialog.value = true
+    }
   }
 }
 
@@ -240,6 +258,40 @@ function handlePasswordJoined(room) {
       path: '/chatroom-detail',
       query: { roomId: room.RoomID }
     })
+  }
+}
+
+async function confirmJoinRoom() {
+  if (!pendingJoinRoom.value) return
+  
+  try {
+    const token = localStorage.getItem('token')
+    const room = pendingJoinRoom.value
+    
+    // 调用后端加入接口
+    const res = await axios.get(`${baseUrl}/room/${room.RoomID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    if (res.data.success) {
+      toast.success('已加入聊天室')
+      showJoinConfirmDialog.value = false
+      pendingJoinRoom.value = null
+      
+      // 刷新列表
+      await loadRooms()
+      
+      // 跳转到聊天室详情页
+      router.push({
+        path: '/chatroom-detail',
+        query: { roomId: room.RoomID }
+      })
+    }
+  } catch (err) {
+    console.error('加入聊天室失败:', err)
+    toast.error(err.response?.data?.message || '加入聊天室失败')
+    showJoinConfirmDialog.value = false
+    pendingJoinRoom.value = null
   }
 }
 

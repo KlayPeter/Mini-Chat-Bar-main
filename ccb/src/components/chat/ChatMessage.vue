@@ -161,6 +161,11 @@
             </div>
           </template>
 
+          <!-- 聊天室邀请卡片 -->
+          <template v-else-if="message.messageType === 'chatroom_invite'">
+            <ChatRoomInviteCard :inviteData="parseInviteData(message.content)" />
+          </template>
+
           <!-- 文本消息 -->
           <div v-else class="content">
             <span v-if="hasMentions" v-html="renderMentions(message.content)"></span>
@@ -180,6 +185,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Search, Camera, Microphone } from '@iconoir/vue'
+import ChatRoomInviteCard from '../ChatRoomInviteCard.vue'
 
 const props = defineProps({
   message: {
@@ -382,6 +388,19 @@ function handleQuotedMessageClick(event) {
   event.stopPropagation() // 防止触发消息本身的点击事件
   if (props.message && props.message.quotedMessage) {
     emit('jump-to-quoted-message', props.message.quotedMessage)
+  }
+}
+
+// 解析聊天室邀请数据
+function parseInviteData(content) {
+  try {
+    if (typeof content === 'string') {
+      return JSON.parse(content)
+    }
+    return content
+  } catch (err) {
+    console.error('解析邀请数据失败:', err)
+    return {}
   }
 }
 </script>

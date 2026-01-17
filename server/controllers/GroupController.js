@@ -157,6 +157,7 @@ exports.getGroupDetail = async (req, res) => {
   try {
     const { roomId } = req.params
     const userId = req.user.userId
+    const { preview } = req.query // 新增：preview 参数，用于预览不自动加入
 
     const room = await Room.findOne({ RoomID: roomId })
     if (!room) {
@@ -168,8 +169,26 @@ exports.getGroupDetail = async (req, res) => {
     
     // 如果是聊天室类型，允许非成员查看（但需要根据 joinType 判断是否可以加入）
     if (room.type === 'chatroom') {
-      // 如果不是成员，自动加入（根据 joinType 判断）
+      // 获取在线人数（从 roomUsers Map）
+      const roomSocketModule = require('../sockets/room')
+      const roomUsers = roomSocketModule.roomUsers
+      const roomObj = room.toObject()
+      roomObj.onlineCount = roomUsers.has(room.RoomID) ? roomUsers.get(room.RoomID).size : 0
+      
+      // 如果不是成员
       if (!isMember) {
+        // 如果是预览模式，不自动加入，返回需要加入的标记
+        if (preview === 'true') {
+          return res.json({
+            success: true,
+            room: roomObj,
+            needJoin: true,
+            isMember: false,
+            joinType: room.joinType
+          })
+        }
+        
+        // 非预览模式，根据 joinType 判断
         if (room.joinType === 'public') {
           // 公开聊天室，自动加入
           const userInfo = await Users.findOne({ uID: userId })
@@ -181,28 +200,26 @@ exports.getGroupDetail = async (req, res) => {
               joinedAt: new Date()
             })
             await room.save()
+            // 更新 roomObj
+            roomObj.Members = room.Members
           }
         } else if (room.joinType === 'invite' || room.joinType === 'password') {
           // 需要邀请码或密码的聊天室，返回聊天室信息但标记为未加入
           return res.json({
             success: true,
-            room: room,
+            room: roomObj,
             needJoin: true,
+            isMember: false,
             joinType: room.joinType
           })
         }
       }
       
-      // 获取在线人数（从 roomUsers Map）
-      const roomSocketModule = require('../sockets/room')
-      const roomUsers = roomSocketModule.roomUsers
-      const roomObj = room.toObject()
-      roomObj.onlineCount = roomUsers.has(room.RoomID) ? roomUsers.get(room.RoomID).size : 0
-      
       // 返回聊天室信息
       return res.json({
         success: true,
-        room: roomObj
+        room: roomObj,
+        isMember: isMember || room.joinType === 'public'
       })
     }
     

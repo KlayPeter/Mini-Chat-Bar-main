@@ -107,6 +107,20 @@ function handleRoomCreated(newRoom) {
   selectRoom(newRoom)
 }
 
+// 通过 roomId 选择房间（供父组件调用）
+function selectRoomById(roomId) {
+  const room = rooms.value.find(r => r.RoomID === roomId)
+  if (room) {
+    selectRoom(room)
+  }
+}
+
+// 暴露方法给父组件
+defineExpose({
+  selectRoomById,
+  loadRooms
+})
+
 onMounted(() => {
   loadRooms()
 })

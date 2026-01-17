@@ -151,7 +151,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { Code, FileText, HelpCircle, Send } from 'lucide-vue-next'
 import axios from 'axios'
 import Sidebar from '../components/Sidebar.vue'
@@ -164,6 +165,7 @@ import BottomNavbar from '../components/BottomNavbar.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
 import { useToast } from '../composables/useToast'
 
+const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
 
@@ -178,6 +180,7 @@ const showAIPanel = ref(false)
 const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
+const roomListRef = ref(null)
 
 // AI 助手上下文
 const aiChatContext = computed(() => {
@@ -299,13 +302,91 @@ function handleRoomUpdate() {
 }
 
 onMounted(async () => {
+  console.log('🎬 ChatRoom 组件挂载')
+  console.log('📍 当前路由:', route.path, '查询参数:', route.query)
+  
   const token = localStorage.getItem('token')
   const res = await axios.get(`${baseUrl}/api/user/info`, {
     headers: { Authorization: `Bearer ${token}` }
   })
   currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
   myAvatar.value = res.data.user?.uAvatar || '/images/avatar/default-avatar.webp'
+  
+  console.log('👤 当前用户ID:', currentUserId.value)
+  
+  // 检查是否有 roomId 参数（从邀请卡片跳转）
+  if (route.query.roomId) {
+    console.log('🎯 检测到 roomId 参数:', route.query.roomId)
+    await handleInviteNavigation(route.query.roomId)
+  } else {
+    console.log('ℹ️ 没有 roomId 参数')
+  }
 })
+
+// 监听路由变化，处理从其他页面跳转过来的情况
+watch(() => route.query.roomId, async (newRoomId, oldRoomId) => {
+  console.log('🔄 路由 roomId 变化:', oldRoomId, '->', newRoomId)
+  if (newRoomId && newRoomId !== oldRoomId) {
+    console.log('🎯 处理新的 roomId:', newRoomId)
+    await handleInviteNavigation(newRoomId)
+  }
+})
+
+async function handleInviteNavigation(roomId) {
+  try {
+    console.log('🔍 开始处理邀请导航，房间ID:', roomId)
+    const token = localStorage.getItem('token')
+    
+    // 获取聊天室详情（公开聊天室会自动加入）
+    console.log('📡 请求聊天室详情:', `${baseUrl}/room/${roomId}`)
+    const res = await axios.get(`${baseUrl}/room/${roomId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    console.log('📦 聊天室详情响应:', res.data)
+    
+    if (res.data.success && res.data.room) {
+      const room = res.data.room
+      console.log('🏠 聊天室信息:', room.RoomName, '类型:', room.joinType)
+      
+      // 如果需要加入（密码或邀请码）
+      if (res.data.needJoin) {
+        console.log('⚠️ 需要加入验证')
+        if (room.joinType === 'password') {
+          toast.info('该聊天室需要密码，请输入密码加入')
+          // 不自动选择房间，等待用户输入密码
+          return
+        }
+        // invite 类型的已经在 ChatRoomInviteCard 中处理过了
+        return
+      }
+      
+      console.log('✅ 开始选择并显示聊天室')
+      // 选择并显示聊天室
+      await handleSelectRoom(room)
+      
+      // 通知 ChatRoomList 刷新并更新选中状态
+      if (roomListRef.value) {
+        console.log('🔄 刷新聊天室列表')
+        await roomListRef.value.loadRooms()
+        if (roomListRef.value.selectRoomById) {
+          console.log('🎯 选中聊天室:', room.RoomID)
+          roomListRef.value.selectRoomById(room.RoomID)
+        }
+      } else {
+        console.warn('⚠️ roomListRef 不存在')
+      }
+      
+      console.log('🎉 邀请导航处理完成')
+    } else {
+      console.error('❌ 聊天室数据无效')
+    }
+  } catch (err) {
+    console.error('❌ 加载聊天室失败:', err)
+    console.error('错误详情:', err.response?.data)
+    toast.error(err.response?.data?.message || '加载聊天室失败')
+  }
+}
 </script>
 
 <style scoped lang="scss">

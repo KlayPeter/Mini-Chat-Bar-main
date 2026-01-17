@@ -8,7 +8,7 @@ const groupMessageSchema = new mongoose.Schema({
   content: { type: String },
   messageType: { 
     type: String, 
-    enum: ['text', 'image', 'file', 'video', 'system', 'code'],
+    enum: ['text', 'image', 'file', 'video', 'system', 'code', 'chatroom_invite'],
     default: 'text' 
   },
   fileInfo: {

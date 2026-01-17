@@ -277,6 +277,10 @@ watch(
       // 自动折叠列表（仅在聊天室详情页）
       if (newPath.includes('/chatroom-detail')) {
         isSection2Collapsed.value = true
+        // 显示聊天室列表
+        showlastchats.value = false
+        showcontacts.value = false
+        showchatrooms.value = true
       }
     } else if (newPath === '/' || newPath === '/chatbox') {
       showcontent.value = false
@@ -374,7 +378,7 @@ watch(
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 100;
+  z-index: 1;
   width: 28px;
   height: 56px;
   border: none;

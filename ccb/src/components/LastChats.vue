@@ -523,6 +523,35 @@ function formatDate(dateStr) {
   }
 }
 
+// 格式化消息内容显示
+function formatMessageContent(msgData) {
+  if (!msgData) return ''
+  
+  const messageType = msgData.messageType
+  const content = msgData.content
+  
+  // 根据消息类型返回友好的文本
+  switch (messageType) {
+    case 'chatroom_invite':
+      return '[聊天室邀请]'
+    case 'image':
+      return '[图片]'
+    case 'file':
+      return '[文件]'
+    case 'video':
+      return '[视频]'
+    case 'audio':
+    case 'voice':
+      return '[语音]'
+    case 'code':
+      return '[代码]'
+    case 'system':
+      return content || '[系统消息]'
+    default:
+      return content || ''
+  }
+}
+
 // 获取用户信息
 async function getinfo() {
   try {
@@ -589,7 +618,7 @@ async function getfriends() {
         )
         .then((msgRes) => ({
           id: friend.id,
-          lastMessage: msgRes.data?.content || '',
+          lastMessage: formatMessageContent(msgRes.data),
           lastTime: msgRes.data?.time || '',
         }))
         .catch((err) => {
@@ -657,7 +686,7 @@ async function updateFriendMessage(fromUserId, showRedDot = true) {
         }
       )
 
-      friends.value[senderIndex].lastMessage = msgRes.data?.content || ''
+      friends.value[senderIndex].lastMessage = formatMessageContent(msgRes.data)
       friends.value[senderIndex].lastTime = msgRes.data?.time || ''
       
       // 重新排序好友列表
@@ -704,7 +733,7 @@ function handlePrivateChatListUpdate(event) {
   const friendIndex = friends.value.findIndex(friend => friend.id.toString() === userId.toString())
   
   if (friendIndex !== -1) {
-    friends.value[friendIndex].lastMessage = message.content
+    friends.value[friendIndex].lastMessage = formatMessageContent(message)
     friends.value[friendIndex].lastTime = message.time || message.createdAt || new Date().toISOString()
     
     // 重新按时间排序，将刚更新的好友移到顶部

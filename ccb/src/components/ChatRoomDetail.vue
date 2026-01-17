@@ -52,18 +52,18 @@
       </div>
 
       <div class="members-section">
-        <h4>成员列表 ({{ room.Members?.length || 0 }})</h4>
+        <h4>成员列表 ({{ cachedMembers.length }})</h4>
         <div class="members-list">
           <div 
-            v-for="member in room.Members" 
+            v-for="member in cachedMembers" 
             :key="member.userID"
             class="member-item"
           >
             <img 
-              :src="member.Avatar.startsWith('http') ? member.Avatar : baseUrl + member.Avatar" 
+              :src="getMemberAvatar(member)" 
               alt="avatar" 
               class="member-avatar"
-              @error="e => e.target.src = baseUrl + '/images/avatar/default-avatar.webp'"
+              @error="handleAvatarError"
             />
             <span class="member-name">{{ member.Nickname }}</span>
             <span class="member-role" v-if="member.userID === room.Creator">创建者</span>
@@ -72,6 +72,11 @@
       </div>
       
       <div class="actions-section">
+        <button @click="showShareDialog = true" class="action-btn primary-btn">
+          <Share2 :size="18" />
+          分享邀请
+        </button>
+        
         <button v-if="isCreator" @click="dissolveRoom" class="action-btn danger-btn">
           解散聊天室
         </button>
@@ -80,15 +85,43 @@
         </button>
       </div>
     </div>
+    
+    <!-- 分享对话框 -->
+    <ShareRoomDialog
+      v-if="showShareDialog"
+      :room="room"
+      @close="showShareDialog = false"
+    />
+    
+    <!-- 退出确认对话框 -->
+    <ConfirmDialog
+      v-if="showLeaveConfirm"
+      title="退出聊天室"
+      message="确定要退出这个聊天室吗？"
+      @confirm="confirmLeaveRoom"
+      @cancel="showLeaveConfirm = false"
+    />
+    
+    <!-- 解散确认对话框 -->
+    <ConfirmDialog
+      v-if="showDissolveConfirm"
+      title="解散聊天室"
+      message="确定要解散这个聊天室吗？解散后将无法恢复！"
+      :isDanger="true"
+      @confirm="confirmDissolveRoom"
+      @cancel="showDissolveConfirm = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { X, Code, Copy } from 'lucide-vue-next'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { X, Code, Copy, Share2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
+import ShareRoomDialog from './ShareRoomDialog.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
   room: {
@@ -104,7 +137,18 @@ const baseUrl = import.meta.env.VITE_BASE_URL
 
 const currentUserId = ref('')
 const timeRemaining = ref({ text: '', isWarning: false })
+const showShareDialog = ref(false)
+const showLeaveConfirm = ref(false)
+const showDissolveConfirm = ref(false)
+const cachedMembers = ref([])
 let timeUpdateInterval = null
+
+// 缓存成员列表，避免频繁重新渲染
+watch(() => props.room.Members, (newMembers) => {
+  if (newMembers && JSON.stringify(newMembers) !== JSON.stringify(cachedMembers.value)) {
+    cachedMembers.value = [...newMembers]
+  }
+}, { immediate: true, deep: true })
 
 const joinTypeText = computed(() => {
   const typeMap = {
@@ -118,6 +162,24 @@ const joinTypeText = computed(() => {
 const isCreator = computed(() => {
   return currentUserId.value === props.room.Creator
 })
+
+// 获取成员头像 URL（避免每次重新计算）
+function getMemberAvatar(member) {
+  if (!member || !member.Avatar) {
+    return baseUrl + '/images/avatar/default-avatar.webp'
+  }
+  return member.Avatar.startsWith('http') ? member.Avatar : baseUrl + member.Avatar
+}
+
+// 处理头像加载错误（避免循环请求）
+const failedAvatars = new Set()
+function handleAvatarError(event) {
+  const imgSrc = event.target.src
+  if (!failedAvatars.has(imgSrc)) {
+    failedAvatars.add(imgSrc)
+    event.target.src = baseUrl + '/images/avatar/default-avatar.webp'
+  }
+}
 
 function updateTimeRemaining() {
   if (!props.room.expiresAt) return
@@ -155,7 +217,11 @@ function updateTimeRemaining() {
 }
 
 async function leaveRoom() {
-  if (!confirm('确定要退出这个聊天室吗？')) return
+  showLeaveConfirm.value = true
+}
+
+async function confirmLeaveRoom() {
+  showLeaveConfirm.value = false
   
   try {
     const token = localStorage.getItem('token')
@@ -177,7 +243,11 @@ async function leaveRoom() {
 }
 
 async function dissolveRoom() {
-  if (!confirm('确定要解散这个聊天室吗？解散后将无法恢复！')) return
+  showDissolveConfirm.value = true
+}
+
+async function confirmDissolveRoom() {
+  showDissolveConfirm.value = false
   
   try {
     const token = localStorage.getItem('token')
@@ -480,6 +550,7 @@ async function copyInviteCode() {
     &.secondary-btn {
       background: #f5f5f5;
       color: #666;
+      margin-top: 10px;
       
       &:hover {
         background: #e8e8e8;

@@ -1,6 +1,6 @@
 <template>
-  <div v-if="isVisible" class="confirm-overlay" @click="handleCancel">
-    <div class="confirm-dialog" @click.stop>
+  <div class="dialog-overlay" @click.self="$emit('cancel')">
+    <div class="dialog-container">
       <div class="dialog-header">
         <h3>{{ title }}</h3>
       </div>
@@ -10,17 +10,17 @@
       </div>
       
       <div class="dialog-footer">
-        <button class="cancel-btn" @click="handleCancel">{{ cancelText }}</button>
-        <button class="confirm-btn" @click="handleConfirm">{{ confirmText }}</button>
+        <button @click="$emit('cancel')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm')" class="confirm-btn" :class="{ danger: isDanger }">
+          确定
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     default: '确认'
@@ -29,51 +29,17 @@ const props = defineProps({
     type: String,
     required: true
   },
-  confirmText: {
-    type: String,
-    default: '确定'
-  },
-  cancelText: {
-    type: String,
-    default: '取消'
+  isDanger: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['confirm', 'cancel'])
-
-const isVisible = ref(false)
-
-// 显示确认弹窗
-function show() {
-  isVisible.value = true
-}
-
-// 隐藏确认弹窗
-function hide() {
-  isVisible.value = false
-}
-
-// 处理确认
-function handleConfirm() {
-  hide()
-  emit('confirm')
-}
-
-// 处理取消
-function handleCancel() {
-  hide()
-  emit('cancel')
-}
-
-// 暴露方法给父组件
-defineExpose({
-  show,
-  hide
-})
+defineEmits(['confirm', 'cancel'])
 </script>
 
 <style scoped lang="scss">
-.confirm-overlay {
+.dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -83,75 +49,94 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
-.confirm-dialog {
-  background: var(--bg-tertiary, white);
+.dialog-container {
+  background: white;
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dialog-header {
-  padding: 20px 20px 10px 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
   
   h3 {
     margin: 0;
     font-size: 18px;
-    color: #333;
     font-weight: 600;
+    color: #333;
   }
 }
 
 .dialog-body {
-  padding: 10px 20px 20px 20px;
+  padding: 24px;
   
   p {
     margin: 0;
+    font-size: 15px;
     color: #666;
-    font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 }
 
 .dialog-footer {
-  padding: 15px 20px 20px 20px;
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
   
   button {
-    padding: 8px 20px;
+    flex: 1;
+    padding: 10px 24px;
     border: none;
-    border-radius: 6px;
-    cursor: pointer;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.2s ease;
-    min-width: 70px;
+    cursor: pointer;
+    transition: all 0.2s;
   }
   
   .cancel-btn {
-    background: var(--bg-secondary, #f8f9fa);
-    color: var(--text-secondary, #6c757d);
-    border: 1px solid var(--border-color-light, #dee2e6);
+    background: #f5f5f5;
+    color: #666;
     
     &:hover {
-      background: var(--hover-bg, #e9ecef);
+      background: #e8e8e8;
     }
   }
   
   .confirm-btn {
-    background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
-    color: var(--text-inverse, white);
+    background: linear-gradient(135deg, rgb(185, 62, 62) 0%, rgb(165, 42, 42) 100%);
+    color: white;
     
     &:hover {
-      background: var(--primary-gradient, linear-gradient(135deg, rgba(140, 35, 35, 1) 0%, rgba(120, 25, 25, 1) 100%));
       transform: translateY(-1px);
-      box-shadow: var(--shadow-primary, 0 2px 8px rgba(165, 42, 42, 0.3));
+      box-shadow: 0 4px 12px rgba(165, 42, 42, 0.4);
+    }
+    
+    &.danger {
+      background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%);
+      
+      &:hover {
+        box-shadow: 0 4px 12px rgba(255, 77, 79, 0.4);
+      }
     }
   }
 }
