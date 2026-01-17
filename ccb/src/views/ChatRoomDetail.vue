@@ -54,15 +54,35 @@
             <span class="message-count">{{ codeMessages.length }} 条</span>
           </div>
           <div class="discussion-list" ref="discussionListRef">
+            <!-- AI 思考状态 -->
+            <div v-if="isAIThinking" class="ai-thinking">
+              <div class="thinking-avatar">
+                <img src="/images/ds.jpg" alt="AI" />
+              </div>
+              <div class="thinking-text">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                AI 正在思考...
+              </div>
+            </div>
+            
             <div 
               v-for="(message, index) in codeMessages" 
               :key="message._id || index" 
               :data-message-id="message._id"
               class="discussion-item"
             >
+              <!-- AI 消息 -->
+              <ChatRoomAIMessage 
+                v-if="message.from === 'AI' || message.isAI"
+                :message="message"
+                @copy="copyToClipboard"
+              />
+              
               <!-- 代码消息 -->
               <CodeMessage 
-                v-if="message.messageType === 'code'"
+                v-else-if="message.messageType === 'code'"
                 :message="message"
                 :isMyMessage="message.from === currentUserId"
                 :myAvatar="myAvatar"
@@ -143,6 +163,10 @@
           <button @click="insertQuestionTemplate" class="toolbar-btn" title="技术提问模板">
             <HelpCircle :size="20" />
           </button>
+          <button @click="insertAIMention" class="toolbar-btn ai-btn" title="询问 AI">
+            <Sparkles :size="18" />
+            <span class="ai-text">AI</span>
+          </button>
         </div>
         
         <!-- 代码输入面板 -->
@@ -205,7 +229,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { Code, FileText, HelpCircle, Send, MessageCircle } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -213,6 +237,7 @@ import ChatRoomDetail from '../components/ChatRoomDetail.vue'
 import CodeMessage from '../components/CodeMessage.vue'
 import CodeInput from '../components/CodeInput.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
+import ChatRoomAIMessage from '../components/ChatRoomAIMessage.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -234,6 +259,7 @@ const messageListRef = ref(null)
 const discussionListRef = ref(null)
 const replyingTo = ref(null) // 正在回复的消息
 const onlineCount = ref(0) // 在线人数
+const isAIThinking = ref(false) // AI 思考状态
 
 let socket = null
 
@@ -331,12 +357,27 @@ async function loadMessages() {
 function handleSendMessage() {
   if (!messageInput.value.trim()) return
   
+  const content = messageInput.value.trim()
+  
+  // 检测 @AI 标记
+  if (content.startsWith('@AI ') || content.startsWith('@ai ')) {
+    const question = content.replace(/^@AI /i, '').trim()
+    if (question) {
+      // 先发送用户的问题消息
+      sendMessage(content)
+      // 然后调用 AI
+      askAI(question)
+      messageInput.value = ''
+      return
+    }
+  }
+  
   // 如果有引用消息，发送时带上引用信息
   if (replyingTo.value) {
-    sendMessageWithReply(messageInput.value.trim(), replyingTo.value)
+    sendMessageWithReply(content, replyingTo.value)
     replyingTo.value = null
   } else {
-    sendMessage(messageInput.value.trim())
+    sendMessage(content)
   }
   
   messageInput.value = ''
@@ -512,6 +553,59 @@ async function sendMessageWithReply(content, quotedMsg) {
 
 function insertQuestionTemplate() {
   messageInput.value = `【问题描述】\n\n【相关代码】\n\n【报错信息】\n\n【已尝试方案】\n`
+}
+
+function insertAIMention() {
+  messageInput.value = '@AI '
+  // 聚焦输入框
+  nextTick(() => {
+    const textarea = document.querySelector('.message-input')
+    if (textarea) textarea.focus()
+  })
+}
+
+async function askAI(question) {
+  try {
+    isAIThinking.value = true
+    const token = localStorage.getItem('token')
+    
+    console.log('🤖 向 AI 提问:', question)
+    
+    const res = await axios.post(
+      `${baseUrl}/api/chatroom-ai/ask`,
+      {
+        roomId: currentRoom.value.RoomID,
+        question: question,
+        useRAG: true
+      },
+      { 
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 120000 // 2分钟超时
+      }
+    )
+    
+    if (res.data.success) {
+      toast.success('AI 回答已生成')
+      // AI 消息会通过 Socket.IO 实时推送，或者直接添加到消息列表
+      if (res.data.messageId) {
+        // 如果后端返回了消息ID，等待 Socket 推送
+        console.log('✅ AI 消息ID:', res.data.messageId)
+      }
+    }
+  } catch (err) {
+    console.error('❌ AI 问答失败:', err)
+    toast.error(err.response?.data?.message || 'AI 问答失败')
+  } finally {
+    isAIThinking.value = false
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast.success('已复制到剪贴板')
+  }).catch(() => {
+    toast.error('复制失败')
+  })
 }
 
 function formatTime(time) {
@@ -1089,18 +1183,38 @@ onUnmounted(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
+      gap: 4px;
       height: 32px;
+      padding: 0 12px;
       border: none;
       background: #f5f5f5;
       border-radius: 6px;
       cursor: pointer;
       color: #666;
       transition: all 0.2s;
+      font-size: 13px;
+      font-weight: 500;
       
       &:hover {
         background: #e8e8e8;
         color: #333;
+      }
+      
+      &.ai-btn {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        
+        .ai-text {
+          font-weight: 600;
+          font-size: 12px;
+        }
       }
     }
   }
@@ -1231,6 +1345,79 @@ onUnmounted(() => {
         cursor: not-allowed;
       }
     }
+  }
+}
+
+/* AI 思考状态 */
+.ai-thinking {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+  margin-bottom: 12px;
+  animation: fadeIn 0.3s ease-out;
+  
+  .thinking-avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+  }
+  
+  .thinking-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6366f1;
+    font-size: 14px;
+    font-weight: 500;
+    
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #6366f1;
+      animation: thinking 1.4s infinite;
+      
+      &:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      
+      &:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+    }
+  }
+}
+
+@keyframes thinking {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

@@ -31,6 +31,8 @@ const authRouter = require('./routes/auth')
 console.log('Auth路由导入成功')
 const agentRouter = require('./routes/agent')
 console.log('Agent路由导入成功')
+const chatroomAIRouter = require('./routes/chatroomAI')
+console.log('ChatroomAI路由导入成功')
 const auth = require('./middlewares/auth')
 console.log('Auth中间件导入成功')
 
@@ -120,6 +122,7 @@ app.use('/api/upload', uploadRouter)
 app.use('/api', dsRouter)
 app.use('/auth', authRouter)
 app.use('/api/agent', agentRouter)
+app.use('/api/chatroom-ai', chatroomAIRouter)
 
 // 静态文件服务 - 提供上传的文件访问
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
