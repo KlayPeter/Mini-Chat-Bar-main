@@ -11,6 +11,12 @@
       <span>多选</span>
     </div>
 
+    <!-- 收藏消息 -->
+    <div class="context-menu-item" @click="handleFavorite">
+      <i><Star class="menu-icon" :class="{ favorited: isFavorited }" /></i>
+      <span>{{ isFavorited ? '取消收藏' : '收藏' }}</span>
+    </div>
+
     <!-- 转发消息 -->
     <div class="context-menu-item" @click="$emit('forward-message', message)">
       <i><Send class="menu-icon" /></i>
@@ -71,7 +77,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Check, Send, Download, Copy, Undo, Trash, ChatBubble } from '@iconoir/vue'
+import { Check, Send, Download, Copy, Undo, Trash, ChatBubble, Star } from '@iconoir/vue'
 
 const props = defineProps({
   show: {
@@ -105,6 +111,10 @@ const props = defineProps({
   currentUserId: {
     type: String,
     default: ''
+  },
+  isFavorited: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -116,6 +126,7 @@ const emit = defineEmits([
   'delete-message',
   'recall-message',
   'quote-reply',
+  'favorite'
 ])
 
 // 是否可以下载文件
@@ -168,6 +179,12 @@ async function copyText() {
   
   emit('close')
 }
+
+// 收藏消息
+function handleFavorite() {
+  emit('favorite', props.message)
+  emit('close')
+}
 </script>
 
 <style scoped lang="scss">
@@ -216,6 +233,11 @@ async function copyText() {
         width: 16px;
         height: 16px;
         stroke-width: 1.5;
+        
+        &.favorited {
+          fill: #fbbf24;
+          color: #fbbf24;
+        }
       }
     }
 

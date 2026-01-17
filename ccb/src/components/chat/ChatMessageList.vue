@@ -127,6 +127,7 @@
       @delete-message="handleDeleteMessage"
       @recall-message="handleRecallMessage"
       @quote-reply="handleQuoteReply"
+      @favorite="handleFavorite"
     />
   </div>
 </template>
@@ -216,7 +217,8 @@ const emit = defineEmits([
   'quote-reply',
   'jump-to-quoted-message',
   'scroll-to-bottom',
-  'load-more'
+  'load-more',
+  'favorite'
 ])
 
 const messageListRef = ref(null)
@@ -460,6 +462,12 @@ function handleReEditMessage(message) {
 // 处理引用回复消息
 function handleQuoteReply(message) {
   emit('quote-reply', message)
+  hideContextMenu()
+}
+
+// 处理收藏消息
+function handleFavorite(message) {
+  emit('favorite', message)
   hideContextMenu()
 }
 

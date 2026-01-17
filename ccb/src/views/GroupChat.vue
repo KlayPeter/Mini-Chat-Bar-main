@@ -83,6 +83,7 @@
           @quote-reply="handleQuoteReply"
           @jump-to-quoted-message="handleJumpToQuotedMessage"
           @load-more="loadMoreMessages"
+          @favorite="handleFavorite"
         />
 
         <!-- 输入区域 -->
@@ -1001,6 +1002,33 @@ async function handleDeleteMessage(messageIndex) {
   if (confirmed) {
     messages.value.splice(messageIndex, 1)
     toast.success('消息已删除')
+  }
+}
+
+// 处理收藏消息
+async function handleFavorite(message) {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      toast.error('请先登录')
+      return
+    }
+    
+    // 添加收藏
+    await axios.post(
+      `${baseUrl}/api/favorites`,
+      {
+        messageId: message._id || message.id,
+        messageType: 'group',
+        chatId: currentGroup.value.RoomID
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    toast.success('收藏成功')
+  } catch (err) {
+    console.error('收藏失败:', err)
+    toast.error(err.response?.data?.message || '收藏失败')
   }
 }
 

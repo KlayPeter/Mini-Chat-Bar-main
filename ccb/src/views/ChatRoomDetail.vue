@@ -87,9 +87,16 @@
                 :isMyMessage="message.from === currentUserId"
                 :myAvatar="myAvatar"
                 @reply="handleReply(message)"
+                @favorite="handleFavorite"
+                @contextmenu.prevent="showContextMenu($event, message)"
               />
               <!-- 技术问题消息 -->
-              <div v-else class="question-message" :class="{ 'is-mine': message.from === currentUserId }">
+              <div 
+                v-else 
+                class="question-message" 
+                :class="{ 'is-mine': message.from === currentUserId }"
+                @contextmenu.prevent="showContextMenu($event, message)"
+              >
                 <div class="message-header">
                   <img 
                     v-if="message.fromAvatar"
@@ -124,7 +131,13 @@
             <h4>快速讨论</h4>
           </div>
           <div class="chat-messages" ref="messageListRef">
-            <div v-for="(message, index) in textMessages" :key="message._id || index" class="chat-message" :class="{ 'is-mine': message.from === currentUserId }">
+            <div 
+              v-for="(message, index) in textMessages" 
+              :key="message._id || index" 
+              class="chat-message" 
+              :class="{ 'is-mine': message.from === currentUserId }"
+              @contextmenu.prevent="showContextMenu($event, message)"
+            >
               <!-- 引用的消息 -->
               <div 
                 v-if="message.quotedMessage && message.quotedMessage.content" 
@@ -224,6 +237,16 @@
       :targetName="currentRoom.RoomName"
       @close="showSummaryDialog = false"
     />
+
+    <!-- 右键菜单 -->
+    <MessageContextMenu
+      :visible="contextMenu.visible"
+      :position="contextMenu.position"
+      :canDelete="contextMenu.message?.from === currentUserId"
+      :isFavorited="checkIfFavorited(contextMenu.message)"
+      @close="closeContextMenu"
+      @action="handleContextMenuAction"
+    />
   </div>
 </template>
 
@@ -238,6 +261,7 @@ import CodeMessage from '../components/CodeMessage.vue'
 import CodeInput from '../components/CodeInput.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
 import ChatRoomAIMessage from '../components/ChatRoomAIMessage.vue'
+import MessageContextMenu from '../components/MessageContextMenu.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -260,6 +284,13 @@ const discussionListRef = ref(null)
 const replyingTo = ref(null) // 正在回复的消息
 const onlineCount = ref(0) // 在线人数
 const isAIThinking = ref(false) // AI 思考状态
+
+// 右键菜单状态
+const contextMenu = ref({
+  visible: false,
+  position: { x: 0, y: 0 },
+  message: null
+})
 
 let socket = null
 
@@ -606,6 +637,128 @@ function copyToClipboard(text) {
   }).catch(() => {
     toast.error('复制失败')
   })
+}
+
+async function handleFavorite(data) {
+  try {
+    const token = localStorage.getItem('token')
+    
+    if (data.isFavorited) {
+      // 添加收藏
+      await axios.post(
+        `${baseUrl}/api/favorites`,
+        {
+          messageId: data.messageId,
+          messageType: 'chatroom',
+          chatId: currentRoom.value.RoomID
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('收藏成功')
+    } else {
+      // 取消收藏
+      await axios.delete(
+        `${baseUrl}/api/favorites/${data.messageId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('取消收藏')
+    }
+  } catch (err) {
+    console.error('收藏操作失败:', err)
+    toast.error(err.response?.data?.message || '操作失败')
+  }
+}
+
+// 右键菜单相关函数
+function showContextMenu(event, message) {
+  contextMenu.value = {
+    visible: true,
+    position: {
+      x: event.clientX,
+      y: event.clientY
+    },
+    message
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value.visible = false
+}
+
+function checkIfFavorited(message) {
+  // TODO: 实现检查收藏状态的逻辑
+  // 可以在加载消息时同时加载收藏状态，或者维护一个收藏ID的Set
+  return false
+}
+
+async function handleContextMenuAction(action) {
+  const message = contextMenu.value.message
+  if (!message) return
+  
+  try {
+    const token = localStorage.getItem('token')
+    
+    switch (action) {
+      case 'favorite':
+        // 切换收藏状态
+        const isFavorited = checkIfFavorited(message)
+        if (isFavorited) {
+          // 取消收藏
+          await axios.delete(
+            `${baseUrl}/api/favorites/${message._id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          toast.success('取消收藏')
+        } else {
+          // 添加收藏
+          await axios.post(
+            `${baseUrl}/api/favorites`,
+            {
+              messageId: message._id,
+              messageType: 'chatroom',
+              chatId: currentRoom.value.RoomID
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          toast.success('收藏成功')
+        }
+        break
+        
+      case 'copy':
+        // 复制消息内容
+        const textToCopy = message.codeInfo?.code || message.content || ''
+        await navigator.clipboard.writeText(textToCopy)
+        toast.success('已复制到剪贴板')
+        break
+        
+      case 'reply':
+        // 引用回复
+        handleReply(message)
+        break
+        
+      case 'forward':
+        // TODO: 实现转发功能
+        toast.info('转发功能开发中')
+        break
+        
+      case 'delete':
+        // 删除消息（仅自己的消息）
+        if (message.from === currentUserId.value) {
+          if (confirm('确定要删除这条消息吗？')) {
+            await axios.delete(
+              `${baseUrl}/room/${currentRoom.value.RoomID}/messages/${message._id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+            toast.success('消息已删除')
+            await loadMessages()
+          }
+        }
+        break
+    }
+  } catch (err) {
+    console.error('操作失败:', err)
+    toast.error(err.response?.data?.message || '操作失败')
+  }
 }
 
 function formatTime(time) {

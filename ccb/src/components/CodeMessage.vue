@@ -1,5 +1,9 @@
 <template>
-  <div class="code-message" :class="{ 'is-mine': isMyMessage }">
+  <div 
+    class="code-message" 
+    :class="{ 'is-mine': isMyMessage }"
+    @contextmenu.prevent="handleContextMenu"
+  >
     <div class="message-avatar">
       <img 
         v-if="avatarUrl"
@@ -30,10 +34,13 @@
         <button @click="handleReply" class="reply-btn-code" title="回复">
           <MessageCircle :size="16" />
         </button>
+        <button @click="toggleFavorite" class="favorite-btn" :class="{ favorited: isFavorited }" title="收藏代码">
+          <Star :size="16" :fill="isFavorited ? 'currentColor' : 'none'" />
+        </button>
         <button @click="copyCode" class="copy-btn" :class="{ copied }">
           <Check v-if="copied" :size="16" />
           <Copy v-else :size="16" />
-          <span>{{ copied ? '已复制' : '复制代码' }}</span>
+          <span>{{ copied ? '已复制' : '复制' }}</span>
         </button>
       </div>
       
@@ -53,26 +60,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Copy, Check, FileCode, MessageCircle } from 'lucide-vue-next'
-import Prism from 'prismjs'
-import 'prismjs/themes/prism-tomorrow.css'
-// 导入常用语言支持
-import 'prismjs/components/prism-javascript'
-import 'prismjs/components/prism-typescript'
-import 'prismjs/components/prism-python'
-import 'prismjs/components/prism-java'
-import 'prismjs/components/prism-css'
-import 'prismjs/components/prism-markup'
-import 'prismjs/components/prism-json'
-import 'prismjs/components/prism-go'
-import 'prismjs/components/prism-rust'
-import 'prismjs/components/prism-php'
-import 'prismjs/components/prism-ruby'
-import 'prismjs/components/prism-swift'
-import 'prismjs/components/prism-kotlin'
-import 'prismjs/components/prism-sql'
-import 'prismjs/components/prism-bash'
+import { ref, computed } from 'vue'
+import { Copy, Check, FileCode, MessageCircle, Star } from 'lucide-vue-next'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/atom-one-dark.css'
 
 const props = defineProps({
   message: {
@@ -89,31 +80,20 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['reply'])
+const emit = defineEmits(['reply', 'favorite', 'contextmenu'])
 
 const baseUrl = import.meta.env.VITE_BASE_URL
 const copied = ref(false)
+const isFavorited = ref(false)
 
-// 获取头像 URL（处理完整 URL 和相对路径）
+// 获取头像 URL
 const avatarUrl = computed(() => {
   const avatar = props.isMyMessage ? props.myAvatar : props.message.fromAvatar
   if (!avatar) return ''
-  // 如果是完整 URL，直接返回
   if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
     return avatar
   }
-  // 否则加上 baseUrl
   return baseUrl + avatar
-})
-
-// 调试日志
-console.log('🎨 CodeMessage 组件数据:', {
-  isMyMessage: props.isMyMessage,
-  myAvatar: props.myAvatar,
-  fromName: props.message.fromName,
-  fromAvatar: props.message.fromAvatar,
-  messageType: props.message.messageType,
-  avatarUrl: avatarUrl.value
 })
 
 const lineCount = computed(() => {
@@ -158,7 +138,8 @@ const languageDisplay = computed(() => {
     css: 'CSS',
     sql: 'SQL',
     bash: 'Bash',
-    json: 'JSON'
+    json: 'JSON',
+    vue: 'Vue'
   }
   return langMap[lang] || lang.toUpperCase()
 })
@@ -168,9 +149,20 @@ const highlightedCode = computed(() => {
   const language = props.message.codeInfo?.language || 'javascript'
   
   try {
-    return Prism.highlight(code, Prism.languages[language] || Prism.languages.javascript, language)
+    // 使用 highlight.js 进行语法高亮
+    const result = hljs.highlight(code, { 
+      language: language,
+      ignoreIllegals: true 
+    })
+    return result.value
   } catch (e) {
-    return code
+    // 如果指定语言失败，尝试自动检测
+    try {
+      const result = hljs.highlightAuto(code)
+      return result.value
+    } catch (err) {
+      return code
+    }
   }
 })
 
@@ -188,6 +180,18 @@ async function copyCode() {
 
 function handleReply() {
   emit('reply', props.message)
+}
+
+function toggleFavorite() {
+  isFavorited.value = !isFavorited.value
+  emit('favorite', {
+    messageId: props.message._id,
+    isFavorited: isFavorited.value
+  })
+}
+
+function handleContextMenu(event) {
+  emit('contextmenu', event)
 }
 </script>
 
@@ -296,16 +300,17 @@ function handleReply() {
       }
     }
     
-    .reply-btn-code {
+    .reply-btn-code,
+    .favorite-btn {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 6px 10px;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
       border: 1px solid #d0d0d0;
       background: white;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
       color: #666;
       transition: all 0.2s;
       flex-shrink: 0;
@@ -314,6 +319,20 @@ function handleReply() {
         background: #f5f5f5;
         border-color: rgb(165, 42, 42);
         color: rgb(165, 42, 42);
+      }
+    }
+    
+    .favorite-btn {
+      &.favorited {
+        background: #fef3c7;
+        border-color: #fbbf24;
+        color: #f59e0b;
+      }
+      
+      &:hover {
+        background: #fef3c7;
+        border-color: #fbbf24;
+        color: #f59e0b;
       }
     }
     
@@ -382,70 +401,9 @@ function handleReply() {
         font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
         font-size: 13px;
         line-height: 1.6;
-        color: #d4d4d4;
         
-        // 确保 Prism 高亮样式生效
-        &[class*="language-"] {
-          color: #d4d4d4;
-          text-shadow: none;
-        }
+        // highlight.js 样式会自动应用
       }
-    }
-  }
-  
-  // 增强 Prism 高亮颜色
-  :deep(.token) {
-    &.comment,
-    &.prolog,
-    &.doctype,
-    &.cdata {
-      color: #6a9955;
-    }
-    
-    &.punctuation {
-      color: #d4d4d4;
-    }
-    
-    &.property,
-    &.tag,
-    &.boolean,
-    &.number,
-    &.constant,
-    &.symbol,
-    &.deleted {
-      color: #b5cea8;
-    }
-    
-    &.selector,
-    &.attr-name,
-    &.string,
-    &.char,
-    &.builtin,
-    &.inserted {
-      color: #ce9178;
-    }
-    
-    &.operator,
-    &.entity,
-    &.url {
-      color: #d4d4d4;
-    }
-    
-    &.atrule,
-    &.attr-value,
-    &.keyword {
-      color: #c586c0;
-    }
-    
-    &.function,
-    &.class-name {
-      color: #dcdcaa;
-    }
-    
-    &.regex,
-    &.important,
-    &.variable {
-      color: #d16969;
     }
   }
   
