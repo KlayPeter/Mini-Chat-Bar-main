@@ -6,6 +6,10 @@
           <MessageCircle :size="20" />
           <h3>回复列表</h3>
           <span class="reply-count">{{ replies.length }} 条回复</span>
+          <!-- 显示问题状态 -->
+          <span v-if="questionMessage?.isQuestion" class="question-status-indicator" :class="questionMessage.questionStatus">
+            {{ questionMessage.questionStatus === 'solved' ? '✓ 已解决' : '○ 未解决' }}
+          </span>
         </div>
         <button @click="$emit('close')" class="close-btn">×</button>
       </div>
@@ -21,18 +25,12 @@
             v-for="reply in replies" 
             :key="reply._id"
             class="reply-item"
-            :class="{ 'is-solution': reply.isSolution, 'is-best': isBestAnswer(reply) }"
+            :class="{ 'is-solution': isSolutionForThisQuestion(reply) }"
           >
-            <!-- 最佳答案标记 -->
-            <div v-if="isBestAnswer(reply)" class="best-badge">
-              <Award :size="16" />
-              <span>最佳答案</span>
-            </div>
-            
-            <!-- 答案标记 -->
-            <div v-else-if="reply.isSolution" class="solution-badge">
+            <!-- 解决方案标记 -->
+            <div v-if="isSolutionForThisQuestion(reply)" class="solution-badge">
               <CheckCircle :size="16" />
-              <span>答案</span>
+              <span>✓ 解决方案</span>
             </div>
             
             <div class="reply-header">
@@ -67,22 +65,15 @@
                 <span>跳转到消息</span>
               </button>
               
+              <!-- 标记为解决方案（仅提问者可见，且问题未解决时） -->
               <button 
-                v-if="canMarkSolution && !reply.isSolution"
+                v-if="canMarkSolution && (!questionMessage.questionStatus || questionMessage.questionStatus !== 'solved')"
                 @click="$emit('mark-solution', reply._id)" 
                 class="action-btn solution-btn"
+                title="标记此回复为解决方案"
               >
                 <CheckCircle :size="14" />
-                <span>标记为答案</span>
-              </button>
-              
-              <button 
-                v-if="canMarkBest && reply.isSolution && !isBestAnswer(reply)"
-                @click="$emit('mark-best', reply._id)" 
-                class="action-btn best-btn"
-              >
-                <Award :size="14" />
-                <span>标记为最佳</span>
+                <span>标记为解决方案</span>
               </button>
             </div>
           </div>
@@ -94,7 +85,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { MessageCircle, Award, CheckCircle, ThumbsUp, ArrowRight } from 'lucide-vue-next'
+import { MessageCircle, ThumbsUp, ArrowRight, CheckCircle } from 'lucide-vue-next'
 
 const props = defineProps({
   visible: {
@@ -115,24 +106,32 @@ const props = defineProps({
   }
 })
 
-defineEmits(['close', 'jump', 'mark-solution', 'mark-best'])
+defineEmits(['close', 'jump', 'mark-solution'])
 
 const baseUrl = import.meta.env.VITE_BASE_URL
 
 const canMarkSolution = computed(() => {
-  // 只有问题消息才能标记答案
-  return props.questionMessage?.isQuestion && 
+  // 只有问题的提问者可以标记解决方案
+  const isQuestionOwner = props.questionMessage?.isQuestion && 
          String(props.questionMessage.from) === String(props.currentUserId)
-})
-
-const canMarkBest = computed(() => {
-  // 只有问题消息才能标记最佳答案
-  return props.questionMessage?.isQuestion && 
-         String(props.questionMessage.from) === String(props.currentUserId)
+  
+  console.log('🔍 canMarkSolution check:', {
+    isQuestion: props.questionMessage?.isQuestion,
+    questionFrom: props.questionMessage?.from,
+    currentUserId: props.currentUserId,
+    isOwner: isQuestionOwner
+  })
+  
+  return isQuestionOwner
 })
 
 function isBestAnswer(reply) {
-  return props.questionMessage?.bestAnswer === reply._id
+  return false // 已移除最佳答案功能
+}
+
+function isSolutionForThisQuestion(reply) {
+  // 检查这个回复是否是当前问题的解决方案
+  return reply.isSolution && reply.solutionTo === props.questionMessage?._id
 }
 
 function formatTime(time) {
@@ -231,6 +230,25 @@ function formatTime(time) {
       padding: 2px 8px;
       border-radius: 10px;
     }
+    
+    .question-status-indicator {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 12px;
+      
+      &.open {
+        color: #1a7f37;
+        background: #ffffff;
+        border: 1px solid #1a7f37;
+      }
+      
+      &.solved {
+        color: #ffffff;
+        background: #8250df;
+        border: 1px solid #8250df;
+      }
+    }
   }
   
   .close-btn {
@@ -310,30 +328,14 @@ function formatTime(time) {
   }
   
   &.is-solution {
-    background: #e8f5e9;
-    border-color: #4caf50;
+    background: linear-gradient(135deg, #f0e7ff 0%, #f5f0ff 100%);
+    border-color: #8250df;
+    box-shadow: 0 2px 12px rgba(130, 80, 223, 0.15);
   }
   
   &.is-best {
-    background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
-    border-color: #ffc107;
-    box-shadow: 0 2px 12px rgba(255, 193, 7, 0.2);
-  }
-  
-  .best-badge {
-    position: absolute;
-    top: -10px;
-    right: 16px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 12px;
-    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
-    color: white;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+    background: #f8f9fa;
+    border-color: #e0e0e0;
   }
   
   .solution-badge {
@@ -344,11 +346,12 @@ function formatTime(time) {
     align-items: center;
     gap: 4px;
     padding: 4px 12px;
-    background: #4caf50;
+    background: linear-gradient(135deg, #8250df 0%, #7c3aed 100%);
     color: white;
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(130, 80, 223, 0.3);
   }
   
   .reply-header {
@@ -443,24 +446,14 @@ function formatTime(time) {
       }
       
       &.solution-btn {
-        border-color: #4caf50;
-        color: #2e7d32;
+        background: linear-gradient(135deg, #8250df 0%, #7c3aed 100%);
+        color: white;
+        border-color: #8250df;
         
         &:hover {
-          background: #e8f5e9;
-          border-color: #4caf50;
-        }
-      }
-      
-      &.best-btn {
-        border-color: #ffc107;
-        color: #f57f17;
-        background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
-        
-        &:hover {
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-          border-color: #ffc107;
-          box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          border-color: #6d28d9;
+          box-shadow: 0 2px 8px rgba(130, 80, 223, 0.3);
         }
       }
     }

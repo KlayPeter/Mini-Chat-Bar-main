@@ -6,6 +6,9 @@ const auth = require('../middlewares/auth')
 // 标记为问题
 router.post('/:messageId/mark-question', auth, QuestionController.markAsQuestion)
 
+// 切换问题解决状态
+router.post('/:messageId/toggle-status', auth, QuestionController.toggleQuestionStatus)
+
 // 标记为答案
 router.post('/:messageId/mark-solution', auth, QuestionController.markAsSolution)
 

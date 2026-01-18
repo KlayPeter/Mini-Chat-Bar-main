@@ -592,20 +592,23 @@ exports.sendGroupMessage = async (req, res) => {
       _id: message._id,
       roomId: message.roomId,
       from: message.from,
-      fromName: message.fromName,
-      fromAvatar: message.fromAvatar,
+      fromName: message.fromName || userInfo.uName,
+      fromAvatar: message.fromAvatar || userInfo.uAvatar,
       content: message.content,
       messageType: message.messageType,
       fileInfo: message.fileInfo,
       codeInfo: message.codeInfo,
-      quotedMessage: message.quotedMessage,
-      isQuestion: message.isQuestion,
+      quotedMessage: message.quotedMessage || null,
+      isQuestion: message.isQuestion || false,
+      isSolution: message.isSolution || false,
+      solutionTo: message.solutionTo || null,
+      questionStatus: message.questionStatus || null,
       time: message.time,
       createdAt: message.time,
       status: message.status
     }
     
-    console.log('🔍 服务器最终返回的消息:', responseMessage)
+    console.log('🔍 服务器最终返回的消息:', JSON.stringify(responseMessage, null, 2))
     
     // 通过 Socket.IO 广播消息给房间内的所有用户
     const io = req.app.get('io')
@@ -661,7 +664,7 @@ exports.getGroupMessages = async (req, res) => {
     const messagesWithAvatar = await Promise.all(messages.map(async (msg) => {
       const msgObj = msg.toObject()
       // 如果消息没有头像且不是系统消息，尝试从群成员或用户表获取
-      if (!msgObj.fromAvatar && msgObj.from !== 'system') {
+      if (!msgObj.fromAvatar && msgObj.from !== 'system' && msgObj.from !== 'AI') {
         // 先从群成员中查找
         const member = room.Members.find(m => m.userID === msgObj.from)
         if (member && member.Avatar) {
@@ -682,22 +685,27 @@ exports.getGroupMessages = async (req, res) => {
         _id: msgObj._id,
         roomId: msgObj.roomId,
         from: msgObj.from,
-        fromName: msgObj.fromName,
-        fromAvatar: msgObj.fromAvatar,
+        fromName: msgObj.fromName || '未知用户',
+        fromAvatar: msgObj.fromAvatar || '',
         content: msgObj.content,
         messageType: msgObj.messageType,
         fileInfo: msgObj.fileInfo,
         codeInfo: msgObj.codeInfo,
-        quotedMessage: msgObj.quotedMessage,
+        quotedMessage: msgObj.quotedMessage || null,
         isQuestion: msgObj.isQuestion || false,
         isSolution: msgObj.isSolution || false,
+        solutionTo: msgObj.solutionTo || null,
+        questionStatus: msgObj.questionStatus || null,
         time: msgObj.time,
         createdAt: msgObj.time,
         status: msgObj.status
       }
     }))
 
-    console.log('📤 返回的消息示例:', messagesWithAvatar[0])
+    console.log('📤 返回的消息数量:', messagesWithAvatar.length)
+    if (messagesWithAvatar.length > 0) {
+      console.log('📤 第一条消息示例:', JSON.stringify(messagesWithAvatar[0], null, 2))
+    }
 
     res.json({
       success: true,

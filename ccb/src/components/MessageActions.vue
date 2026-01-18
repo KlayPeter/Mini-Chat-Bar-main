@@ -1,23 +1,12 @@
 <template>
   <div class="message-actions">
-    <!-- 点赞 -->
-    <button 
-      @click="$emit('upvote')" 
-      class="action-btn" 
-      :class="{ active: hasUpvoted }"
-      title="点赞"
-    >
-      <ThumbsUp :size="16" :fill="hasUpvoted ? 'currentColor' : 'none'" />
-      <span v-if="message.upvoteCount > 0">{{ message.upvoteCount }}</span>
-    </button>
-    
     <!-- 回复 -->
     <button @click="$emit('reply')" class="action-btn" title="回复">
       <MessageCircle :size="16" />
       <span>回复</span>
     </button>
     
-    <!-- 标记为问题 -->
+    <!-- 标记为问题（仅自己的消息且不是问题时显示） -->
     <button 
       v-if="canMarkQuestion"
       @click="$emit('mark-question')" 
@@ -28,34 +17,21 @@
       <span>标记问题</span>
     </button>
     
-    <!-- 标记为答案 -->
+    <!-- 收藏 -->
     <button 
-      v-if="showMarkSolution"
-      @click="$emit('mark-solution')" 
-      class="action-btn solution-btn"
-      title="标记为答案"
+      @click="$emit('favorite')" 
+      class="action-btn favorite-btn"
+      :class="{ active: isFavorited }"
+      title="收藏"
     >
-      <CheckCircle :size="16" />
-      <span>标记答案</span>
+      <Star :size="16" :fill="isFavorited ? 'currentColor' : 'none'" />
     </button>
-    
-    <!-- 标记最佳答案 -->
-    <button 
-      v-if="canMarkBestAnswer"
-      @click="$emit('mark-best-answer')" 
-      class="action-btn best-answer-btn"
-      title="标记为最佳答案"
-    >
-      <Award :size="16" />
-      <span>最佳答案</span>
-    </button>
-    
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { MessageCircle, ThumbsUp, HelpCircle, CheckCircle, Award } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { MessageCircle, HelpCircle, CheckCircle, Star } from 'lucide-vue-next'
 
 const props = defineProps({
   message: {
@@ -70,31 +46,16 @@ const props = defineProps({
     type: String,
     required: true
   },
-  replyingToQuestion: {
-    type: String,
-    default: null
+  isFavorited: {
+    type: Boolean,
+    default: false
   }
 })
 
-defineEmits(['reply', 'upvote', 'mark-question', 'mark-solution', 'mark-best-answer'])
-
-const hasUpvoted = computed(() => {
-  return props.message.upvotes?.includes(props.currentUserId) || false
-})
+defineEmits(['reply', 'mark-question', 'favorite'])
 
 const canMarkQuestion = computed(() => {
   return props.isMyMessage && !props.message.isQuestion && props.message.messageType === 'text'
-})
-
-const showMarkSolution = computed(() => {
-  return props.replyingToQuestion && !props.message.isSolution
-})
-
-const canMarkBestAnswer = computed(() => {
-  // 只有提问者可以标记最佳答案
-  return props.message.isSolution && 
-         props.message.solutionTo && 
-         !props.message.bestAnswer
 })
 </script>
 
@@ -105,6 +66,8 @@ const canMarkBestAnswer = computed(() => {
   gap: 6px;
   margin-top: 8px;
   flex-wrap: wrap;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .action-btn {
@@ -127,42 +90,27 @@ const canMarkBestAnswer = computed(() => {
     transform: translateY(-1px);
   }
   
-  &.active {
-    background: rgba(165, 42, 42, 0.1);
-    border-color: rgb(165, 42, 42);
-    color: rgb(165, 42, 42);
-  }
-  
   &.question-btn {
-    border-color: #ffc107;
-    color: #856404;
-    
     &:hover {
       background: #fff3cd;
       border-color: #ffc107;
+      color: #856404;
     }
   }
   
-  &.solution-btn {
-    border-color: #17a2b8;
-    color: #0c5460;
-    
+  &.solved-btn {
     &:hover {
-      background: #d1ecf1;
-      border-color: #17a2b8;
+      background: #d4edda;
+      border-color: #28a745;
+      color: #155724;
     }
   }
   
-  &.best-answer-btn {
-    border-color: #ffc107;
-    color: #856404;
-    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
-    
-    &:hover {
-      background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-      border-color: #ffc107;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+  &.favorite-btn {
+    &.active {
+      background: rgba(165, 42, 42, 0.1);
+      border-color: rgb(165, 42, 42);
+      color: rgb(165, 42, 42);
     }
   }
 }

@@ -332,6 +332,19 @@ function formatResult(result) {
   margin-bottom: 16px;
   align-items: flex-start;
   
+  &.is-mine {
+    flex-direction: row-reverse;
+    
+    .code-content {
+      align-items: flex-end;
+    }
+    
+    .code-header {
+      background: linear-gradient(135deg, #fef5f5 0%, #fff 100%);
+      border: 1px solid rgba(165, 42, 42, 0.15);
+    }
+  }
+  
   .message-avatar {
     width: 40px;
     height: 40px;

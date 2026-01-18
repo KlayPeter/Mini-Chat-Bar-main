@@ -79,7 +79,7 @@
             <CodeMessage 
               v-else-if="message.messageType === 'code'"
               :message="message"
-              :isMyMessage="message.from === currentUserId"
+              :isMyMessage="String(message.from) === String(currentUserId)"
               :myAvatar="myAvatar"
               @reply="handleReply(message)"
               @favorite="handleFavorite"
@@ -91,16 +91,22 @@
               class="text-message" 
               :class="{ 'is-mine': String(message.from) === String(currentUserId) }"
             >
-              <!-- 问题/答案标记 -->
+              <!-- 问题状态标记 -->
               <QuestionBadge
-                v-if="message.isQuestion || message.isSolution"
+                v-if="message.isQuestion"
                 :message="message"
-                :isBestAnswer="isMessageBestAnswer(message)"
                 class="message-badge"
+                @jump-to-solution="jumpToSolution"
               />
+              
+              <!-- 解决方案标记 -->
+              <div v-if="message.isSolution && message.solutionTo" class="solution-badge-main">
+                <CheckCircle :size="14" />
+                <span>解决方案</span>
+              </div>
               <!-- 引用的消息 -->
               <div 
-                v-if="message.quotedMessage" 
+                v-if="message.quotedMessage && message.quotedMessage.id" 
                 class="quoted-message"
                 @click="scrollToMessage(message.quotedMessage.id)"
               >
@@ -114,14 +120,16 @@
               </div>
               
               <div class="message-header">
-                <img 
-                  v-if="message.fromAvatar"
-                  :src="message.fromAvatar.startsWith('http') ? message.fromAvatar : baseUrl + message.fromAvatar" 
-                  class="user-avatar" 
-                  @error="e => e.target.style.display = 'none'"
-                />
-                <div v-else class="user-avatar-placeholder">
-                  {{ (message.fromName || '?')[0].toUpperCase() }}
+                <div class="user-avatar-wrapper">
+                  <img 
+                    v-if="message.fromAvatar"
+                    :src="getAvatarUrl(message.fromAvatar)" 
+                    class="user-avatar" 
+                    @error="e => { console.warn('头像加载失败:', e.target.src); e.target.src = '/images/avatar/default-avatar.webp' }"
+                  />
+                  <div v-else class="user-avatar-placeholder">
+                    {{ (message.fromName || '?')[0].toUpperCase() }}
+                  </div>
                 </div>
                 <div class="message-info">
                   <span class="user-name" :class="{ 'is-me': String(message.from) === String(currentUserId) }">
@@ -139,12 +147,10 @@
                 :message="message"
                 :isMyMessage="String(message.from) === String(currentUserId)"
                 :currentUserId="currentUserId"
-                :replyingToQuestion="replyingToQuestion"
+                :isFavorited="checkIfFavorited(message)"
                 @reply="handleReply(message)"
-                @upvote="handleUpvote(message)"
                 @mark-question="handleMarkQuestion(message)"
-                @mark-solution="handleMarkSolution(message)"
-                @mark-best-answer="handleMarkBestAnswer(message)"
+                @favorite="handleToggleFavorite(message)"
               />
               
               <!-- 回复数量气泡（所有有回复的消息都显示） -->
@@ -278,14 +284,13 @@
       @close="showReplyList = false"
       @jump="jumpToMessage"
       @mark-solution="markSolutionFromList"
-      @mark-best="markBestFromList"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -297,7 +302,6 @@ import ChatRoomAIMessage from '../components/ChatRoomAIMessage.vue'
 import MessageContextMenu from '../components/MessageContextMenu.vue'
 import MessageActions from '../components/MessageActions.vue'
 import QuestionBadge from '../components/QuestionBadge.vue'
-import QuotedMessage from '../components/QuotedMessage.vue'
 import ReplyList from '../components/ReplyList.vue'
 import { useToast } from '../composables/useToast'
 
@@ -318,11 +322,11 @@ const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
 const replyingTo = ref(null) // 正在回复的消息
-const replyingToQuestion = ref(null) // 正在回复的问题
 const onlineCount = ref(0) // 在线人数
 const isAIThinking = ref(false) // AI 思考状态
 const showReplyList = ref(false) // 显示回复列表
 const currentQuestionForReply = ref(null) // 当前查看回复的问题
+const favoriteIds = ref(new Set()) // 收藏的消息ID集合
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -383,6 +387,17 @@ async function loadMessages() {
     )
     if (res.data.success) {
       messages.value = res.data.messages
+      console.log('📥 加载的消息数量:', messages.value.length)
+      if (messages.value.length > 0) {
+        const lastMessage = messages.value[messages.value.length - 1]
+        console.log('📥 最后一条消息示例:', JSON.stringify(lastMessage, null, 2))
+        console.log('📥 消息头像字段:', {
+          fromAvatar: lastMessage.fromAvatar,
+          fromName: lastMessage.fromName,
+          from: lastMessage.from,
+          messageType: lastMessage.messageType
+        })
+      }
       scrollToBottom()
     }
   } catch (err) {
@@ -439,12 +454,18 @@ function cancelReply() {
 }
 
 function scrollToMessage(messageId) {
-  if (!messageId) return
+  if (!messageId) {
+    console.warn('⚠️ scrollToMessage: messageId 为空')
+    return
+  }
+  
+  console.log('🔍 尝试滚动到消息:', messageId)
   
   // 查找目标消息元素
   const targetElement = document.querySelector(`[data-message-id="${messageId}"]`)
   
   if (targetElement && messageListRef.value) {
+    console.log('✅ 找到目标元素，开始滚动')
     // 滚动到目标消息
     targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
     
@@ -454,33 +475,13 @@ function scrollToMessage(messageId) {
       targetElement.classList.remove('highlight-message')
     }, 2000)
   } else {
+    console.warn('⚠️ 未找到目标元素:', {
+      messageId,
+      targetElement: !!targetElement,
+      messageListRef: !!messageListRef.value,
+      allMessageElements: document.querySelectorAll('[data-message-id]').length
+    })
     toast.info('原消息未找到')
-  }
-}
-
-// 点赞
-async function handleUpvote(message) {
-  try {
-    const res = await axios.post(
-      `${baseUrl}/api/question/${message._id}/upvote`,
-      {},
-      { headers: getAuthHeaders() }
-    )
-    
-    const msg = messages.value.find(m => m._id === message._id)
-    if (msg) {
-      msg.upvoteCount = res.data.upvoteCount
-      msg.upvotes = msg.upvotes || []
-      if (res.data.upvoted) {
-        msg.upvotes.push(currentUserId.value)
-      } else {
-        msg.upvotes = msg.upvotes.filter(id => id !== currentUserId.value)
-      }
-    }
-    toast.success(res.data.upvoted ? '已点赞' : '已取消点赞')
-  } catch (err) {
-    console.error('点赞失败:', err)
-    toast.error('操作失败')
   }
 }
 
@@ -506,65 +507,104 @@ async function handleMarkQuestion(message) {
   }
 }
 
-// 标记为答案
-async function handleMarkSolution(message) {
-  if (!replyingToQuestion.value) {
-    toast.error('请先回复一个问题')
-    return
-  }
+// 标记为解决方案（从回复列表调用）
+async function markSolutionFromList(answerId) {
+  if (!currentQuestionForReply.value) return
   
   try {
-    await axios.post(
-      `${baseUrl}/api/question/${message._id}/mark-solution`,
-      { questionId: replyingToQuestion.value },
+    const response = await axios.post(
+      `${baseUrl}/api/question/${answerId}/mark-solution`,
+      { questionId: currentQuestionForReply.value._id },
       { headers: getAuthHeaders() }
     )
     
-    const msg = messages.value.find(m => m._id === message._id)
-    if (msg) {
-      msg.isSolution = true
-      msg.solutionTo = replyingToQuestion.value
+    console.log('✅ 标记解决方案成功:', response.data)
+    
+    // 更新答案消息的属性
+    const answer = messages.value.find(m => m._id === answerId)
+    if (answer) {
+      answer.isSolution = true
+      answer.solutionTo = currentQuestionForReply.value._id
+      console.log('✅ 答案消息已更新:', {
+        answerId: answer._id,
+        isSolution: answer.isSolution,
+        solutionTo: answer.solutionTo
+      })
+    } else {
+      console.warn('⚠️ 未找到答案消息:', answerId)
     }
     
-    replyingToQuestion.value = null
-    toast.success('已标记为答案')
+    // 更新问题状态为已解决
+    const question = messages.value.find(m => m._id === currentQuestionForReply.value._id)
+    if (question) {
+      question.questionStatus = 'solved'
+      console.log('✅ 问题状态已更新为 solved:', question._id)
+    } else {
+      console.warn('⚠️ 未找到问题消息:', currentQuestionForReply.value._id)
+    }
+    
+    // 更新当前问题引用
+    if (currentQuestionForReply.value) {
+      currentQuestionForReply.value.questionStatus = 'solved'
+    }
+    
+    toast.success('已标记为解决方案，问题已解决')
+    showReplyList.value = false
   } catch (err) {
-    console.error('标记失败:', err)
+    console.error('❌ 标记失败:', err)
     toast.error(err.response?.data?.message || '标记失败')
   }
 }
 
-// 标记最佳答案
-async function handleMarkBestAnswer(message) {
-  if (!message.solutionTo) return
+// 切换收藏状态
+async function handleToggleFavorite(message) {
+  const isFavorited = checkIfFavorited(message)
   
   try {
-    await axios.post(
-      `${baseUrl}/api/question/${message.solutionTo}/best-answer`,
-      { answerId: message._id },
-      { headers: getAuthHeaders() }
-    )
-    
-    const question = messages.value.find(m => m._id === message.solutionTo)
-    if (question) {
-      question.bestAnswer = message._id
-      question.questionStatus = 'solved'
+    if (isFavorited) {
+      await axios.delete(
+        `${baseUrl}/api/favorites/${message._id}`,
+        { headers: getAuthHeaders() }
+      )
+      toast.success('取消收藏')
+    } else {
+      await axios.post(
+        `${baseUrl}/api/favorites`,
+        {
+          messageId: message._id,
+          messageType: 'chatroom',
+          chatId: currentRoom.value.RoomID
+        },
+        { headers: getAuthHeaders() }
+      )
+      toast.success('收藏成功')
     }
-    
-    toast.success('已标记为最佳答案')
   } catch (err) {
-    console.error('标记失败:', err)
-    toast.error(err.response?.data?.message || '标记失败')
+    console.error('收藏操作失败:', err)
+    toast.error(err.response?.data?.message || '操作失败')
   }
 }
 
 // 引用消息（已移除，使用回复功能代替）
 
-// 判断是否为最佳答案
-function isMessageBestAnswer(message) {
-  if (!message.solutionTo) return false
-  const question = messages.value.find(m => m._id === message.solutionTo)
-  return question?.bestAnswer === message._id
+// 判断消息是否已收藏
+function checkIfFavorited(message) {
+  if (!message) return false
+  return favoriteIds.value.has(message._id)
+}
+
+// 加载用户收藏列表
+async function loadFavorites() {
+  try {
+    const res = await axios.get(`${baseUrl}/api/favorites`, {
+      headers: getAuthHeaders()
+    })
+    if (res.data.success) {
+      favoriteIds.value = new Set(res.data.favorites.map(f => f.messageId))
+    }
+  } catch (err) {
+    console.error('加载收藏失败:', err)
+  }
 }
 
 // 获取问题的回复列表
@@ -591,57 +631,35 @@ function jumpToMessage(messageId) {
   scrollToMessage(messageId)
 }
 
-// 从回复列表标记答案
-async function markSolutionFromList(answerId) {
-  if (!currentQuestionForReply.value) return
+// 跳转到解决方案
+function jumpToSolution(questionId) {
+  console.log('🔍 查找解决方案:', {
+    questionId,
+    totalMessages: messages.value.length,
+    messagesWithSolution: messages.value.filter(m => m.isSolution).length
+  })
   
-  try {
-    await axios.post(
-      `${baseUrl}/api/question/${answerId}/mark-solution`,
-      { questionId: currentQuestionForReply.value._id },
-      { headers: getAuthHeaders() }
-    )
-    
-    const msg = messages.value.find(m => m._id === answerId)
-    if (msg) {
-      msg.isSolution = true
-      msg.solutionTo = currentQuestionForReply.value._id
+  // 查找这个问题的解决方案
+  const solution = messages.value.find(msg => {
+    const match = msg.isSolution && msg.solutionTo === questionId
+    if (msg.isSolution) {
+      console.log('  - 找到解决方案消息:', {
+        messageId: msg._id,
+        isSolution: msg.isSolution,
+        solutionTo: msg.solutionTo,
+        matches: match
+      })
     }
-    
-    toast.success('已标记为答案')
-  } catch (err) {
-    console.error('标记失败:', err)
-    toast.error(err.response?.data?.message || '标记失败')
-  }
-}
-
-// 从回复列表标记最佳答案
-async function markBestFromList(answerId) {
-  if (!currentQuestionForReply.value) return
+    return match
+  })
   
-  try {
-    await axios.post(
-      `${baseUrl}/api/question/${currentQuestionForReply.value._id}/best-answer`,
-      { answerId: answerId },
-      { headers: getAuthHeaders() }
-    )
-    
-    if (currentQuestionForReply.value) {
-      currentQuestionForReply.value.bestAnswer = answerId
-      currentQuestionForReply.value.questionStatus = 'solved'
-    }
-    
-    // 更新消息列表中的问题
-    const question = messages.value.find(m => m._id === currentQuestionForReply.value._id)
-    if (question) {
-      question.bestAnswer = answerId
-      question.questionStatus = 'solved'
-    }
-    
-    toast.success('已标记为最佳答案')
-  } catch (err) {
-    console.error('标记失败:', err)
-    toast.error(err.response?.data?.message || '标记失败')
+  if (solution) {
+    console.log('✅ 找到解决方案，跳转到:', solution._id)
+    scrollToMessage(solution._id)
+    toast.success('已跳转到解决方案')
+  } else {
+    console.warn('⚠️ 未找到解决方案')
+    toast.info('未找到解决方案')
   }
 }
 
@@ -672,6 +690,13 @@ function initSocket() {
   })
 
   socket.on('group-message', (data) => {
+    console.log('📨 收到新消息:', JSON.stringify(data, null, 2))
+    console.log('📨 消息头像字段:', {
+      fromAvatar: data.fromAvatar,
+      fromName: data.fromName,
+      from: data.from
+    })
+    
     if (currentRoom.value && data.roomId === currentRoom.value.RoomID) {
       const exists = messages.value.some(msg => msg._id === data._id)
       if (!exists) {
@@ -849,12 +874,6 @@ function closeContextMenu() {
   contextMenu.value.visible = false
 }
 
-function checkIfFavorited(message) {
-  // TODO: 实现检查收藏状态的逻辑
-  // 可以在加载消息时同时加载收藏状态，或者维护一个收藏ID的Set
-  return false
-}
-
 async function handleContextMenuAction(action) {
   const message = contextMenu.value.message
   if (!message) return
@@ -934,11 +953,29 @@ function formatTime(time) {
   })
 }
 
+function getAvatarUrl(avatar) {
+  if (!avatar) return ''
+  
+  // 如果是完整的 HTTP URL，直接返回
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    console.log('🖼️ 头像URL (HTTP):', avatar)
+    return avatar
+  }
+  
+  // 如果是相对路径（以 / 开头），说明是静态资源，不需要拼接 baseUrl
+  if (avatar.startsWith('/')) {
+    console.log('🖼️ 头像URL (静态资源):', avatar)
+    return avatar
+  }
+  
+  // 否则拼接 baseUrl
+  const url = baseUrl + avatar
+  console.log('🖼️ 头像URL (拼接):', { original: avatar, baseUrl, final: url })
+  return url
+}
+
 function scrollToBottom() {
   nextTick(() => {
-    if (discussionListRef.value) {
-      discussionListRef.value.scrollTop = discussionListRef.value.scrollHeight
-    }
     if (messageListRef.value) {
       messageListRef.value.scrollTop = messageListRef.value.scrollHeight
     }
@@ -978,6 +1015,7 @@ watch(() => route.query.roomId, (newRoomId, oldRoomId) => {
 onMounted(async () => {
   await loadCurrentUser()
   await loadRoom()
+  await loadFavorites()
   initSocket()
 })
 
@@ -1476,6 +1514,15 @@ onUnmounted(() => {
     max-width: 70%;
     align-self: flex-start;
     position: relative;
+    transition: all 0.2s;
+    
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      
+      .message-actions {
+        opacity: 1;
+      }
+    }
     
     &.is-mine {
       align-self: flex-end;
@@ -1492,6 +1539,23 @@ onUnmounted(() => {
       position: absolute;
       top: -8px;
       right: -8px;
+      z-index: 1;
+    }
+    
+    .solution-badge-main {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #8250df 0%, #7c3aed 100%);
+      color: white;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(130, 80, 223, 0.3);
       z-index: 1;
     }
     
@@ -1560,6 +1624,13 @@ onUnmounted(() => {
       display: flex;
       align-items: center;
       gap: 10px;
+      
+      .user-avatar-wrapper {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        position: relative;
+      }
       
       .user-avatar {
         width: 32px;
