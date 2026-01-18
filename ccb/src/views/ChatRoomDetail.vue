@@ -24,8 +24,12 @@
           <div class="info">
             <h3>{{ currentRoom.RoomName }}</h3>
             <div class="room-stats">
-              <span v-if="currentRoom.techDirection" class="tech-tag">
+              <span v-if="currentRoom.techDirection" class="tech-tag" :class="`tech-${currentRoom.techDirection.toLowerCase()}`">
                 {{ currentRoom.techDirection }}
+              </span>
+              <span class="room-status" :class="roomStatusClass">
+                <component :is="roomStatusIcon" :size="14" />
+                {{ roomStatusText }}
               </span>
               <span class="online-count">
                 <span class="online-dot"></span>
@@ -36,6 +40,11 @@
           </div>
         </div>
         <div class="header-actions">
+          <!-- 倒计时显示 -->
+          <div v-if="timeRemaining" class="countdown-display">
+            <Clock :size="16" />
+            <span class="countdown-text">{{ timeRemaining }}</span>
+          </div>
           <button @click="showSummaryDialog = true" class="summary-btn" title="AI 生成总结">
             <FileText class="action-icon" />
           </button>
@@ -89,7 +98,11 @@
             <div 
               v-else-if="message.messageType === 'text'"
               class="text-message" 
-              :class="{ 'is-mine': String(message.from) === String(currentUserId) }"
+              :class="{ 
+                'is-mine': String(message.from) === String(currentUserId),
+                'has-question-open': message.isQuestion && message.questionStatus === 'open',
+                'has-question-solved': message.isQuestion && message.questionStatus === 'solved'
+              }"
             >
               <!-- 问题状态标记 -->
               <QuestionBadge
@@ -290,7 +303,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -327,6 +340,16 @@ const isAIThinking = ref(false) // AI 思考状态
 const showReplyList = ref(false) // 显示回复列表
 const currentQuestionForReply = ref(null) // 当前查看回复的问题
 const favoriteIds = ref(new Set()) // 收藏的消息ID集合
+const timeRemaining = ref('') // 剩余时间
+const roomStatusClass = ref('') // 聊天室状态样式
+const roomStatusText = ref('') // 聊天室状态文本
+const roomStatusIcon = computed(() => {
+  // 返回图标组件
+  if (roomStatusClass.value === 'ending-soon') return Hourglass
+  if (roomStatusClass.value === 'active') return Flame
+  if (roomStatusClass.value === 'expired') return Clock
+  return MessageSquare
+})
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -370,6 +393,7 @@ async function loadRoom() {
     if (res.data.success) {
       currentRoom.value = res.data.room
       await loadMessages()
+      startCountdown() // 启动倒计时
     }
   } catch (err) {
     console.error('加载聊天室失败:', err)
@@ -387,17 +411,6 @@ async function loadMessages() {
     )
     if (res.data.success) {
       messages.value = res.data.messages
-      console.log('📥 加载的消息数量:', messages.value.length)
-      if (messages.value.length > 0) {
-        const lastMessage = messages.value[messages.value.length - 1]
-        console.log('📥 最后一条消息示例:', JSON.stringify(lastMessage, null, 2))
-        console.log('📥 消息头像字段:', {
-          fromAvatar: lastMessage.fromAvatar,
-          fromName: lastMessage.fromName,
-          from: lastMessage.from,
-          messageType: lastMessage.messageType
-        })
-      }
       scrollToBottom()
     }
   } catch (err) {
@@ -454,33 +467,17 @@ function cancelReply() {
 }
 
 function scrollToMessage(messageId) {
-  if (!messageId) {
-    console.warn('⚠️ scrollToMessage: messageId 为空')
-    return
-  }
+  if (!messageId) return
   
-  console.log('🔍 尝试滚动到消息:', messageId)
-  
-  // 查找目标消息元素
   const targetElement = document.querySelector(`[data-message-id="${messageId}"]`)
   
   if (targetElement && messageListRef.value) {
-    console.log('✅ 找到目标元素，开始滚动')
-    // 滚动到目标消息
     targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    
-    // 添加高亮效果
     targetElement.classList.add('highlight-message')
     setTimeout(() => {
       targetElement.classList.remove('highlight-message')
     }, 2000)
   } else {
-    console.warn('⚠️ 未找到目标元素:', {
-      messageId,
-      targetElement: !!targetElement,
-      messageListRef: !!messageListRef.value,
-      allMessageElements: document.querySelectorAll('[data-message-id]').length
-    })
     toast.info('原消息未找到')
   }
 }
@@ -512,35 +509,23 @@ async function markSolutionFromList(answerId) {
   if (!currentQuestionForReply.value) return
   
   try {
-    const response = await axios.post(
+    await axios.post(
       `${baseUrl}/api/question/${answerId}/mark-solution`,
       { questionId: currentQuestionForReply.value._id },
       { headers: getAuthHeaders() }
     )
-    
-    console.log('✅ 标记解决方案成功:', response.data)
     
     // 更新答案消息的属性
     const answer = messages.value.find(m => m._id === answerId)
     if (answer) {
       answer.isSolution = true
       answer.solutionTo = currentQuestionForReply.value._id
-      console.log('✅ 答案消息已更新:', {
-        answerId: answer._id,
-        isSolution: answer.isSolution,
-        solutionTo: answer.solutionTo
-      })
-    } else {
-      console.warn('⚠️ 未找到答案消息:', answerId)
     }
     
     // 更新问题状态为已解决
     const question = messages.value.find(m => m._id === currentQuestionForReply.value._id)
     if (question) {
       question.questionStatus = 'solved'
-      console.log('✅ 问题状态已更新为 solved:', question._id)
-    } else {
-      console.warn('⚠️ 未找到问题消息:', currentQuestionForReply.value._id)
     }
     
     // 更新当前问题引用
@@ -551,7 +536,7 @@ async function markSolutionFromList(answerId) {
     toast.success('已标记为解决方案，问题已解决')
     showReplyList.value = false
   } catch (err) {
-    console.error('❌ 标记失败:', err)
+    console.error('标记失败:', err)
     toast.error(err.response?.data?.message || '标记失败')
   }
 }
@@ -633,32 +618,14 @@ function jumpToMessage(messageId) {
 
 // 跳转到解决方案
 function jumpToSolution(questionId) {
-  console.log('🔍 查找解决方案:', {
-    questionId,
-    totalMessages: messages.value.length,
-    messagesWithSolution: messages.value.filter(m => m.isSolution).length
-  })
-  
-  // 查找这个问题的解决方案
-  const solution = messages.value.find(msg => {
-    const match = msg.isSolution && msg.solutionTo === questionId
-    if (msg.isSolution) {
-      console.log('  - 找到解决方案消息:', {
-        messageId: msg._id,
-        isSolution: msg.isSolution,
-        solutionTo: msg.solutionTo,
-        matches: match
-      })
-    }
-    return match
-  })
+  const solution = messages.value.find(msg => 
+    msg.isSolution && msg.solutionTo === questionId
+  )
   
   if (solution) {
-    console.log('✅ 找到解决方案，跳转到:', solution._id)
     scrollToMessage(solution._id)
     toast.success('已跳转到解决方案')
   } else {
-    console.warn('⚠️ 未找到解决方案')
     toast.info('未找到解决方案')
   }
 }
@@ -690,13 +657,6 @@ function initSocket() {
   })
 
   socket.on('group-message', (data) => {
-    console.log('📨 收到新消息:', JSON.stringify(data, null, 2))
-    console.log('📨 消息头像字段:', {
-      fromAvatar: data.fromAvatar,
-      fromName: data.fromName,
-      from: data.from
-    })
-    
     if (currentRoom.value && data.roomId === currentRoom.value.RoomID) {
       const exists = messages.value.some(msg => msg._id === data._id)
       if (!exists) {
@@ -858,7 +818,58 @@ async function handleFavorite(data) {
   }
 }
 
-// 右键菜单相关函数
+// 计算倒计时和状态
+function updateRoomStatus() {
+  if (!currentRoom.value || !currentRoom.value.expiresAt) {
+    timeRemaining.value = ''
+    return
+  }
+  
+  const now = new Date()
+  const expiresAt = new Date(currentRoom.value.expiresAt)
+  const diff = expiresAt - now
+  
+  if (diff <= 0) {
+    timeRemaining.value = '已结束'
+    roomStatusClass.value = 'expired'
+    roomStatusText.value = '已结束'
+    return
+  }
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  
+  if (hours > 0) {
+    timeRemaining.value = `剩余 ${hours} 小时 ${minutes} 分`
+  } else {
+    timeRemaining.value = `剩余 ${minutes} 分钟`
+  }
+  
+  if (hours < 1) {
+    roomStatusClass.value = 'ending-soon'
+    roomStatusText.value = '即将结束'
+  } else if (hours < 6) {
+    roomStatusClass.value = 'active'
+    roomStatusText.value = '活跃中'
+  } else {
+    roomStatusClass.value = 'normal'
+    roomStatusText.value = '进行中'
+  }
+}
+
+// 启动倒计时更新
+let countdownInterval = null
+function startCountdown() {
+  updateRoomStatus()
+  countdownInterval = setInterval(updateRoomStatus, 60000) // 每分钟更新一次
+}
+
+function stopCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval)
+    countdownInterval = null
+  }
+}
 function showContextMenu(event, message) {
   contextMenu.value = {
     visible: true,
@@ -956,22 +967,15 @@ function formatTime(time) {
 function getAvatarUrl(avatar) {
   if (!avatar) return ''
   
-  // 如果是完整的 HTTP URL，直接返回
   if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-    console.log('🖼️ 头像URL (HTTP):', avatar)
     return avatar
   }
   
-  // 如果是相对路径（以 / 开头），说明是静态资源，不需要拼接 baseUrl
   if (avatar.startsWith('/')) {
-    console.log('🖼️ 头像URL (静态资源):', avatar)
     return avatar
   }
   
-  // 否则拼接 baseUrl
-  const url = baseUrl + avatar
-  console.log('🖼️ 头像URL (拼接):', { original: avatar, baseUrl, final: url })
-  return url
+  return baseUrl + avatar
 }
 
 function scrollToBottom() {
@@ -1021,6 +1025,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cleanupSocket()
+  stopCountdown()
 })
 </script>
 
@@ -1112,50 +1117,122 @@ onUnmounted(() => {
         align-items: center;
         gap: 10px;
         font-size: 12px;
-      }
-      
-      .tech-tag {
-        font-size: 11px;
-        padding: 2px 8px;
-        background: rgb(165, 42, 42);
-        color: white;
-        border-radius: 3px;
-        font-weight: 600;
-        text-transform: uppercase;
-      }
-      
-      .online-count {
-        color: #52c41a;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 4px;
         
-        .online-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #52c41a;
-          animation: pulse 2s infinite;
+        .tech-tag {
+          font-size: 11px;
+          padding: 2px 8px;
+          color: white;
+          border-radius: 3px;
+          font-weight: 600;
+          text-transform: uppercase;
+          background: rgb(165, 42, 42);
+          
+          &.tech-react {
+            background: linear-gradient(135deg, #61dafb 0%, #0088cc 100%);
+            color: #003d5c;
+          }
+          
+          &.tech-vue {
+            background: linear-gradient(135deg, #42b883 0%, #35495e 100%);
+          }
+          
+          &.tech-node,
+          &.tech-nodejs {
+            background: linear-gradient(135deg, #68a063 0%, #3c873a 100%);
+          }
+          
+          &.tech-javascript,
+          &.tech-js {
+            background: linear-gradient(135deg, #f7df1e 0%, #e6c700 100%);
+            color: #333;
+          }
+          
+          &.tech-typescript,
+          &.tech-ts {
+            background: linear-gradient(135deg, #3178c6 0%, #235a97 100%);
+          }
+          
+          &.tech-python {
+            background: linear-gradient(135deg, #3776ab 0%, #ffd43b 100%);
+            color: #333;
+          }
+          
+          &.tech-java {
+            background: linear-gradient(135deg, #f89820 0%, #e76f00 100%);
+          }
+          
+          &.tech-go,
+          &.tech-golang {
+            background: linear-gradient(135deg, #00add8 0%, #007d9c 100%);
+          }
+          
+          &.tech-rust {
+            background: linear-gradient(135deg, #ce422b 0%, #a33018 100%);
+          }
+          
+          &.tech-php {
+            background: linear-gradient(135deg, #8892be 0%, #4f5b93 100%);
+          }
+          
+          &.tech-cpp {
+            background: linear-gradient(135deg, #00599c 0%, #004482 100%);
+          }
         }
-      }
-      
-      @keyframes pulse {
-        0%, 100% {
-          opacity: 1;
+        
+        .room-status {
+          font-size: 11px;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          
+          svg {
+            flex-shrink: 0;
+          }
+          
+          &.active {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+          }
+          
+          &.ending-soon {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            animation: pulse-warning 2s infinite;
+          }
+          
+          &.normal {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+          }
+          
+          &.expired {
+            background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+            color: #374151;
+          }
         }
-        50% {
-          opacity: 0.5;
+        
+        .online-count {
+          color: #52c41a;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          
+          .online-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #52c41a;
+            animation: pulse 2s infinite;
+          }
         }
-      }
-      
-      .member-count {
-        color: #999;
-      }
-      
-      span {
-        font-size: 12px;
-        color: #999;
+        
+        .member-count {
+          color: #999;
+        }
       }
     }
   }
@@ -1163,6 +1240,28 @@ onUnmounted(() => {
   .header-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
+    
+    .countdown-display {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #92400e;
+      border: 1px solid #fbbf24;
+      
+      svg {
+        flex-shrink: 0;
+      }
+      
+      .countdown-text {
+        white-space: nowrap;
+      }
+    }
     
     button {
       width: 32px;
@@ -1192,6 +1291,24 @@ onUnmounted(() => {
         font-size: 16px;
       }
     }
+  }
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 
@@ -1515,6 +1632,19 @@ onUnmounted(() => {
     align-self: flex-start;
     position: relative;
     transition: all 0.2s;
+    border-left: 4px solid transparent;
+    
+    /* 问题消息左侧彩色边框 - Open */
+    &.has-question-open {
+      border-left-color: #1a7f37;
+      background: linear-gradient(90deg, rgba(26, 127, 55, 0.03) 0%, white 100%);
+    }
+    
+    /* 问题消息左侧彩色边框 - Solved */
+    &.has-question-solved {
+      border-left-color: #8250df;
+      background: linear-gradient(90deg, rgba(130, 80, 223, 0.03) 0%, white 100%);
+    }
     
     &:hover {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -1528,6 +1658,7 @@ onUnmounted(() => {
       align-self: flex-end;
       background: linear-gradient(135deg, #fef5f5 0%, #fff 100%);
       border: 1px solid rgba(165, 42, 42, 0.15);
+      border-left: 1px solid rgba(165, 42, 42, 0.15);
       
       .message-badge {
         left: -8px;
