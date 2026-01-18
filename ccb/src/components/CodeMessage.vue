@@ -65,7 +65,7 @@
       
       <div class="code-description" v-if="message.content && message.content !== '发送了一段代码'">
         <MessageCircle :size="14" />
-        <span>{{ message.content }}</span>
+        <MessageContent :content="message.content" />
       </div>
       
       <!-- 代码执行结果 -->
@@ -136,6 +136,7 @@ import { Copy, Check, FileCode, MessageCircle, Star, Play, Loader, Terminal, Che
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css'
 import axios from 'axios'
+import MessageContent from './MessageContent.vue'
 
 const props = defineProps({
   message: {

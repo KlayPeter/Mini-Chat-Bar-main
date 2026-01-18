@@ -21,6 +21,9 @@ router.patch('/:questionId/status', auth, QuestionController.updateQuestionStatu
 // 点赞
 router.post('/:messageId/upvote', auth, QuestionController.upvoteMessage)
 
+// Emoji 反应
+router.post('/:messageId/reaction', auth, QuestionController.toggleReaction)
+
 // 获取问题的答案
 router.get('/:questionId/answers', auth, QuestionController.getQuestionAnswers)
 

@@ -151,20 +151,43 @@
                   <span class="message-time">{{ formatTime(message.time || message.createdAt) }}</span>
                 </div>
               </div>
-              <div class="message-content">
-                {{ message.content }}
+              <MessageContent :content="message.content" />
+              
+              <!-- 消息底部区域：操作按钮 + Emoji 反应 -->
+              <div class="message-footer">
+                <!-- 消息操作按钮 -->
+                <MessageActions
+                  :message="message"
+                  :isMyMessage="String(message.from) === String(currentUserId)"
+                  :currentUserId="currentUserId"
+                  :isFavorited="checkIfFavorited(message)"
+                  @reply="handleReply(message)"
+                  @mark-question="handleMarkQuestion(message)"
+                  @favorite="handleToggleFavorite(message)"
+                />
+                
+                <!-- Emoji 反应（添加按钮） -->
+                <EmojiReactions
+                  :reactions="message.reactions || []"
+                  :currentUserId="currentUserId"
+                  @toggle-reaction="(emoji) => handleToggleReaction(message._id, emoji)"
+                />
               </div>
               
-              <!-- 消息操作按钮 -->
-              <MessageActions
-                :message="message"
-                :isMyMessage="String(message.from) === String(currentUserId)"
-                :currentUserId="currentUserId"
-                :isFavorited="checkIfFavorited(message)"
-                @reply="handleReply(message)"
-                @mark-question="handleMarkQuestion(message)"
-                @favorite="handleToggleFavorite(message)"
-              />
+              <!-- 已有的 Emoji 反应显示 -->
+              <div v-if="message.reactions && message.reactions.length > 0" class="reactions-display">
+                <button
+                  v-for="reaction in getReactionCounts(message.reactions)"
+                  :key="reaction.emoji"
+                  class="reaction-bubble"
+                  :class="{ 'is-active': reaction.hasReacted }"
+                  @click="handleToggleReaction(message._id, reaction.emoji)"
+                  :title="reaction.users.join(', ')"
+                >
+                  <component :is="getEmojiIcon(reaction.emoji)" :size="14" />
+                  <span class="count">{{ reaction.count }}</span>
+                </button>
+              </div>
               
               <!-- 回复数量气泡（所有有回复的消息都显示） -->
               <div 
@@ -303,7 +326,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -316,6 +339,8 @@ import MessageContextMenu from '../components/MessageContextMenu.vue'
 import MessageActions from '../components/MessageActions.vue'
 import QuestionBadge from '../components/QuestionBadge.vue'
 import ReplyList from '../components/ReplyList.vue'
+import EmojiReactions from '../components/EmojiReactions.vue'
+import MessageContent from '../components/MessageContent.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -570,6 +595,63 @@ async function handleToggleFavorite(message) {
   }
 }
 
+// 切换 Emoji 反应
+async function handleToggleReaction(messageId, emoji) {
+  try {
+    const res = await axios.post(
+      `${baseUrl}/api/question/${messageId}/reaction`,
+      { emoji },
+      { headers: getAuthHeaders() }
+    )
+    
+    if (res.data.success) {
+      // 更新本地消息的 reactions
+      const message = messages.value.find(m => m._id === messageId)
+      if (message) {
+        message.reactions = res.data.reactions
+      }
+    }
+  } catch (err) {
+    console.error('切换反应失败:', err)
+    toast.error(err.response?.data?.message || '操作失败')
+  }
+}
+
+// 获取 Emoji 图标组件
+function getEmojiIcon(type) {
+  const iconMap = {
+    'thumbsup': ThumbsUp,
+    'heart': Heart,
+    'party': PartyPopper,
+    'bulb': Lightbulb,
+    'question': QuestionIcon
+  }
+  return iconMap[type] || ThumbsUp
+}
+
+// 统计每种 emoji 的数量和用户
+function getReactionCounts(reactions) {
+  const counts = {}
+  
+  reactions.forEach(reaction => {
+    if (!counts[reaction.emoji]) {
+      counts[reaction.emoji] = {
+        emoji: reaction.emoji,
+        count: 0,
+        users: [],
+        hasReacted: false
+      }
+    }
+    counts[reaction.emoji].count++
+    counts[reaction.emoji].users.push(reaction.userName || '未知用户')
+    if (reaction.userId === currentUserId.value) {
+      counts[reaction.emoji].hasReacted = true
+    }
+  })
+  
+  return Object.values(counts)
+}
+
 // 引用消息（已移除，使用回复功能代替）
 
 // 判断消息是否已收藏
@@ -663,6 +745,13 @@ function initSocket() {
         messages.value.push(data)
         scrollToBottom()
       }
+    }
+  })
+  
+  socket.on('message-reaction-updated', (data) => {
+    const message = messages.value.find(m => m._id === data.messageId)
+    if (message) {
+      message.reactions = data.reactions
     }
   })
 
@@ -1812,6 +1901,52 @@ onUnmounted(() => {
       color: #333;
       word-wrap: break-word;
       white-space: pre-wrap;
+    }
+    
+    .message-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    
+    .reactions-display {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    
+    .reaction-bubble {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border: 1px solid #e0e0e0;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #666;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: #f5f5f5;
+        border-color: rgb(165, 42, 42);
+        transform: translateY(-1px);
+      }
+      
+      &.is-active {
+        background: linear-gradient(135deg, rgba(165, 42, 42, 0.1) 0%, rgba(165, 42, 42, 0.05) 100%);
+        border-color: rgb(165, 42, 42);
+        color: rgb(165, 42, 42);
+        font-weight: 600;
+      }
+      
+      .count {
+        font-size: 11px;
+        font-weight: 600;
+      }
     }
   }
   

@@ -276,6 +276,68 @@ class QuestionController {
   }
   
   /**
+   * 添加/移除 Emoji 反应
+   */
+  static async toggleReaction(req, res) {
+    try {
+      const { messageId } = req.params
+      const { emoji } = req.body // thumbsup, heart, party, bulb, question
+      const userId = req.user.userId
+      
+      const message = await GroupMessage.findById(messageId)
+      if (!message) {
+        return res.status(404).json({ message: '消息不存在' })
+      }
+      
+      // 获取用户信息
+      const Users = require('../models/Users')
+      const userInfo = await Users.findOne({ uID: userId })
+      
+      // 初始化 reactions 数组
+      if (!message.reactions) {
+        message.reactions = []
+      }
+      
+      // 检查用户是否已经对这个 emoji 做出反应
+      const existingReactionIndex = message.reactions.findIndex(
+        r => r.emoji === emoji && r.userId === userId
+      )
+      
+      if (existingReactionIndex > -1) {
+        // 移除反应
+        message.reactions.splice(existingReactionIndex, 1)
+      } else {
+        // 添加反应
+        message.reactions.push({
+          emoji,
+          userId,
+          userName: userInfo?.uName || '未知用户',
+          createdAt: new Date()
+        })
+      }
+      
+      await message.save()
+      
+      // 通过 Socket.IO 通知
+      const io = req.app.get('io')
+      if (io) {
+        io.to(message.roomId).emit('message-reaction-updated', {
+          messageId: message._id,
+          reactions: message.reactions
+        })
+      }
+      
+      res.json({ 
+        success: true, 
+        reactions: message.reactions
+      })
+    } catch (err) {
+      console.error('切换反应失败:', err)
+      res.status(500).json({ message: '操作失败', error: err.message })
+    }
+  }
+  
+  /**
    * 获取问题的所有答案
    */
   static async getQuestionAnswers(req, res) {

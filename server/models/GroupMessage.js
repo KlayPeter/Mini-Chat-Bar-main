@@ -49,6 +49,13 @@ const groupMessageSchema = new mongoose.Schema({
   // 点赞/投票
   upvotes: [{ type: String }], // 点赞用户ID列表
   upvoteCount: { type: Number, default: 0 },
+  // Emoji 反应
+  reactions: [{
+    emoji: { type: String, required: true }, // emoji 类型：thumbsup, heart, party, bulb, question
+    userId: { type: String, required: true }, // 反应的用户ID
+    userName: { type: String }, // 用户名
+    createdAt: { type: Date, default: Date.now }
+  }],
   time: { type: Date, default: Date.now, index: true },
   status: { 
     type: String, 
