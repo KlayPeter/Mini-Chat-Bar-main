@@ -1,9 +1,15 @@
 <template>
   <div class="sidebar">
     <div class="logo">
-      <div class="logo-container" @click="toAI">
-        <span class="ai-text">AI</span>
-      </div>
+      <!-- AI 数字人助手 -->
+      <AIDigitalAssistant
+        :mode="currentMode"
+        :insights="aiInsights"
+        :aiSpeech="aiSpeech"
+        @click="handleAIClick"
+        @refresh="handleAIRefresh"
+        @action="handleAIAction"
+      />
     </div>
     <div class="toolbar">
       <ul>
@@ -43,18 +49,55 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
 import { ChatBubble, User, Group, Star, Code } from '@iconoir/vue'
-const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI', 'showchatrooms'])
+import AIDigitalAssistant from './AIDigitalAssistant.vue'
+
+const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI', 'showchatrooms', 'refreshInsights', 'aiAction'])
 const router = useRouter()
 const route = useRoute()
 
 const avatar = ref('')
 const activeTab = ref('chat')
+const aiInsights = ref({ suggestions: [] })
+const aiSpeech = ref('') // AI 播报文本
+
+// 根据当前路由判断 AI 助手模式
+const currentMode = computed(() => {
+  const path = route.path
+  if (path === '/chatrooms' || path.includes('/chatroom-detail')) {
+    return 'chatroom' // 聊天室模式
+  } else if (path === '/group-chat') {
+    return 'group' // 群聊模式
+  } else {
+    return 'chat' // 私聊模式
+  }
+})
+
+// 处理 AI 点击
+function handleAIClick() {
+  if (currentMode.value === 'chatroom') {
+    // 聊天室模式：刷新智能提示
+    emit('refreshInsights')
+  } else {
+    // 其他模式：打开 AI 对话框
+    emit('toggleAI')
+  }
+}
+
+// 处理 AI 刷新
+function handleAIRefresh() {
+  emit('refreshInsights')
+}
+
+// 处理 AI 操作
+function handleAIAction(action) {
+  emit('aiAction', action)
+}
 
 // 根据当前路由设置activeTab
 function updateActiveTab() {
@@ -77,6 +120,14 @@ function updateActiveTab() {
 // 监听路由变化
 watch(() => route.path, () => {
   updateActiveTab()
+})
+
+// 暴露方法供父组件调用
+defineExpose({
+  updateAIInsights: (insights, speech = '') => {
+    aiInsights.value = insights
+    aiSpeech.value = speech
+  }
 })
 
 function toAI() {

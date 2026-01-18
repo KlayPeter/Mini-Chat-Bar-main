@@ -3,7 +3,12 @@
     <div class="container">
       <!-- 侧边栏 -->
       <div class="section1">
-        <Sidebar @toggleAI="toggleAIPanel" />
+        <Sidebar 
+          ref="sidebarRef"
+          @toggleAI="toggleAIPanel" 
+          @refreshInsights="refreshAIInsights"
+          @aiAction="handleAIAction"
+        />
       </div>
 
       <!-- 聊天室列表 -->
@@ -220,6 +225,7 @@ const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
 const roomListRef = ref(null)
+const sidebarRef = ref(null)
 const replyingToQuestion = ref(null)
 const quotingMessage = ref(null)
 
@@ -239,9 +245,64 @@ function toggleAIPanel() {
   showAIPanel.value = !showAIPanel.value
 }
 
+// 刷新 AI 智能提示
+async function refreshAIInsights() {
+  if (!currentRoom.value) return
+  
+  try {
+    console.log('🔄 刷新 AI 智能提示...')
+    const token = localStorage.getItem('token')
+    const res = await axios.get(
+      `${baseUrl}/api/chatroom-ai/insights/${currentRoom.value.RoomID}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    console.log('✅ AI 智能提示响应:', res.data)
+    
+    if (res.data.success && sidebarRef.value) {
+      // 更新侧边栏的 AI 助手数据，包括 AI 播报文本
+      sidebarRef.value.updateAIInsights(
+        {
+          suggestions: res.data.suggestions || [],
+          ...res.data.insights
+        },
+        res.data.aiSpeech || ''
+      )
+    }
+  } catch (err) {
+    console.error('❌ 刷新 AI 智能提示失败:', err)
+  }
+}
+
+// 处理 AI 操作
+function handleAIAction(action) {
+  console.log('AI 操作:', action)
+  // 根据不同的操作类型执行相应的逻辑
+  switch (action.type) {
+    case 'view_questions':
+    case 'show_all':
+      // 滚动到第一个未解决的问题
+      const firstQuestion = messages.value.find(m => m.isQuestion && m.questionStatus === 'open')
+      if (firstQuestion) {
+        scrollToMessage(firstQuestion._id)
+      }
+      break
+    case 'ai_help':
+    case 'ai_answer':
+      // 触发 AI 回答
+      if (action.questions && action.questions.length > 0) {
+        handleAIProactiveAnswer(action.questions[0].id)
+      }
+      break
+  }
+}
+
 async function handleSelectRoom(room) {
   currentRoom.value = room
   showChatArea.value = true
+  
+  // 立即刷新 AI 智能提示（不延迟）
+  await refreshAIInsights()
   
   localStorage.setItem('lastChatContext', JSON.stringify({
     chatType: 'chatroom',

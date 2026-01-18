@@ -54,6 +54,16 @@
         </div>
       </div>
 
+      <!-- AI 智能提示下拉 -->
+      <AIInsightsDropdown
+        v-if="aiInsights.totalOpenQuestions > 0 || aiInsights.hotTopics?.length > 0"
+        :insights="aiInsights"
+        :aiSpeech="aiSpeech"
+        @jump-to-question="scrollToMessage"
+        @ai-answer="handleAIProactiveAnswer"
+        @show-all-questions="showAllQuestions"
+      />
+
       <!-- 消息列表 - 统一单栏布局 -->
       <div class="message-area">
         <div class="messages-container" ref="messageListRef">
@@ -341,6 +351,7 @@ import QuestionBadge from '../components/QuestionBadge.vue'
 import ReplyList from '../components/ReplyList.vue'
 import EmojiReactions from '../components/EmojiReactions.vue'
 import MessageContent from '../components/MessageContent.vue'
+import AIInsightsDropdown from '../components/AIInsightsDropdown.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -368,6 +379,8 @@ const favoriteIds = ref(new Set()) // 收藏的消息ID集合
 const timeRemaining = ref('') // 剩余时间
 const roomStatusClass = ref('') // 聊天室状态样式
 const roomStatusText = ref('') // 聊天室状态文本
+const aiInsights = ref({ suggestions: [] }) // AI 智能提示
+const aiSpeech = ref('') // AI 播报文本
 const roomStatusIcon = computed(() => {
   // 返回图标组件
   if (roomStatusClass.value === 'ending-soon') return Hourglass
@@ -437,10 +450,119 @@ async function loadMessages() {
     if (res.data.success) {
       messages.value = res.data.messages
       scrollToBottom()
+      
+      // 加载完消息后，获取 AI 智能提示
+      loadAIInsights()
     }
   } catch (err) {
     console.error('加载消息失败:', err)
     toast.error('加载消息失败')
+  }
+}
+
+// 加载 AI 智能提示
+async function loadAIInsights() {
+  if (!currentRoom.value) return
+  
+  try {
+    console.log('🔍 开始加载 AI 智能提示...')
+    const res = await axios.get(
+      `${baseUrl}/api/chatroom-ai/insights/${currentRoom.value.RoomID}`,
+      { headers: getAuthHeaders() }
+    )
+    
+    console.log('✅ AI 智能提示响应:', res.data)
+    
+    if (res.data.success) {
+      aiInsights.value = res.data.insights
+      aiSpeech.value = res.data.aiSpeech || ''
+      console.log('📊 AI 智能提示数据:', aiInsights.value)
+      console.log('🗣️ AI 播报文本:', aiSpeech.value)
+      console.log('💡 建议数量:', res.data.suggestions?.length || 0)
+      
+      // 直接使用 suggestions
+      if (res.data.suggestions && res.data.suggestions.length > 0) {
+        aiInsights.value.suggestions = res.data.suggestions
+        console.log('✨ 已设置建议:', aiInsights.value.suggestions)
+      }
+    }
+  } catch (err) {
+    console.error('❌ 加载 AI 智能提示失败:', err)
+    console.error('错误详情:', err.response?.data || err.message)
+    
+    // 临时：添加模拟数据用于测试 UI
+    if (err.response?.status === 404) {
+      console.log('🧪 使用模拟数据测试 UI')
+      aiInsights.value.suggestions = [
+        {
+          type: 'open_questions',
+          icon: '🔍',
+          text: '检测到 3 个未解决问题',
+          action: 'show_all',
+          count: 3
+        },
+        {
+          type: 'ai_help',
+          icon: '💡',
+          text: 'AI 可以帮助回答 2 个问题',
+          action: 'ai_answer',
+          questions: [
+            {
+              id: 'test1',
+              content: 'React Hooks 怎么使用？',
+              fromName: '测试用户',
+              minutesAgo: 15,
+              replyCount: 0
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+
+// AI 主动回答问题
+async function handleAIProactiveAnswer(questionId) {
+  try {
+    isAIThinking.value = true
+    
+    const res = await axios.post(
+      `${baseUrl}/api/chatroom-ai/proactive-answer`,
+      {
+        roomId: currentRoom.value.RoomID,
+        questionId: questionId
+      },
+      { 
+        headers: getAuthHeaders(),
+        timeout: 120000
+      }
+    )
+    
+    if (res.data.success) {
+      toast.success('AI 已回答该问题')
+      // 重新加载智能提示
+      loadAIInsights()
+    }
+  } catch (err) {
+    console.error('AI 主动回答失败:', err)
+    toast.error(err.response?.data?.message || 'AI 回答失败')
+  } finally {
+    isAIThinking.value = false
+  }
+}
+
+// 显示所有未解决问题
+function showAllQuestions() {
+  // 滚动到第一个未解决的问题
+  const firstOpenQuestion = messages.value.find(m => 
+    m.isQuestion && m.questionStatus === 'open'
+  )
+  
+  if (firstOpenQuestion) {
+    scrollToMessage(firstOpenQuestion._id)
+    toast.info('已定位到第一个未解决问题')
+  } else {
+    toast.info('暂无未解决问题')
   }
 }
 
@@ -744,6 +866,11 @@ function initSocket() {
       if (!exists) {
         messages.value.push(data)
         scrollToBottom()
+        
+        // 新消息到达时，刷新智能提示
+        setTimeout(() => {
+          loadAIInsights()
+        }, 2000)
       }
     }
   })
@@ -948,15 +1075,26 @@ function updateRoomStatus() {
 
 // 启动倒计时更新
 let countdownInterval = null
+let insightsInterval = null
+
 function startCountdown() {
   updateRoomStatus()
   countdownInterval = setInterval(updateRoomStatus, 60000) // 每分钟更新一次
+  
+  // 每 2 分钟刷新一次智能提示
+  insightsInterval = setInterval(() => {
+    loadAIInsights()
+  }, 120000)
 }
 
 function stopCountdown() {
   if (countdownInterval) {
     clearInterval(countdownInterval)
     countdownInterval = null
+  }
+  if (insightsInterval) {
+    clearInterval(insightsInterval)
+    insightsInterval = null
   }
 }
 function showContextMenu(event, message) {
