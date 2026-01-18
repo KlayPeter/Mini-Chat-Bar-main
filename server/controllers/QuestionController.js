@@ -51,6 +51,7 @@ class QuestionController {
     try {
       const { messageId } = req.params
       const { questionId } = req.body
+      const userId = req.user.userId
       
       const message = await GroupMessage.findById(messageId)
       const question = await GroupMessage.findById(questionId)
@@ -63,21 +64,30 @@ class QuestionController {
         return res.status(400).json({ message: '目标消息不是问题' })
       }
       
+      // 只有提问者可以标记解决方案
+      if (question.from !== userId) {
+        return res.status(403).json({ message: '只有提问者可以标记解决方案' })
+      }
+      
       message.isSolution = true
       message.solutionTo = questionId
       await message.save()
       
+      // 自动将问题标记为已解决
+      question.questionStatus = 'solved'
+      await question.save()
+      
       // 通过 Socket.IO 通知
       const io = req.app.get('io')
       if (io) {
-        io.to(message.roomId).emit('message-updated', {
-          messageId: message._id,
-          isSolution: true,
-          solutionTo: questionId
+        io.to(message.roomId).emit('question-solved', {
+          questionId: question._id,
+          answerId: message._id,
+          questionStatus: 'solved'
         })
       }
       
-      res.json({ success: true, message: '已标记为答案' })
+      res.json({ success: true, message: '已标记为解决方案，问题已解决' })
     } catch (err) {
       console.error('标记答案失败:', err)
       res.status(500).json({ message: '标记失败', error: err.message })
@@ -133,6 +143,48 @@ class QuestionController {
     } catch (err) {
       console.error('标记最佳答案失败:', err)
       res.status(500).json({ message: '标记失败', error: err.message })
+    }
+  }
+  
+  /**
+   * 切换问题解决状态
+   */
+  static async toggleQuestionStatus(req, res) {
+    try {
+      const { messageId } = req.params
+      const { status } = req.body
+      const userId = req.user.userId
+      
+      const message = await GroupMessage.findById(messageId)
+      if (!message) {
+        return res.status(404).json({ message: '消息不存在' })
+      }
+      
+      if (!message.isQuestion) {
+        return res.status(400).json({ message: '该消息不是问题' })
+      }
+      
+      // 只有提问者可以切换状态
+      if (message.from !== userId) {
+        return res.status(403).json({ message: '只有提问者可以切换状态' })
+      }
+      
+      message.questionStatus = status
+      await message.save()
+      
+      // 通过 Socket.IO 通知
+      const io = req.app.get('io')
+      if (io) {
+        io.to(message.roomId).emit('message-updated', {
+          messageId: message._id,
+          questionStatus: status
+        })
+      }
+      
+      res.json({ success: true, message: '状态已更新', questionStatus: status })
+    } catch (err) {
+      console.error('切换状态失败:', err)
+      res.status(500).json({ message: '切换失败', error: err.message })
     }
   }
   
