@@ -34,12 +34,21 @@ const groupMessageSchema = new mongoose.Schema({
       default: 'text'
     }
   },
-  // 新增：问题标记
+  // 问题标记
   isQuestion: { type: Boolean, default: false },
-  // 新增：解决方案标记
+  questionStatus: { 
+    type: String, 
+    enum: ['open', 'solved', 'closed'],
+    default: 'open'
+  },
+  // 解决方案标记
   isSolution: { type: Boolean, default: false },
-  // 新增：关联的问题ID
-  solutionTo: { type: String },
+  solutionTo: { type: String }, // 关联的问题消息ID
+  // 最佳答案
+  bestAnswer: { type: String }, // 最佳答案消息ID
+  // 点赞/投票
+  upvotes: [{ type: String }], // 点赞用户ID列表
+  upvoteCount: { type: Number, default: 0 },
   time: { type: Date, default: Date.now, index: true },
   status: { 
     type: String, 

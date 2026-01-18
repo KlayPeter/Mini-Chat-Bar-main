@@ -62,7 +62,26 @@
           <!-- 消息列表 -->
           <div class="message-list-wrapper">
             <div class="messages-container" ref="messageListRef">
-              <div v-for="(message, index) in messages" :key="message._id || index" class="message-wrapper">
+              <div 
+                v-for="(message, index) in messages" 
+                :key="message._id || index" 
+                class="message-wrapper"
+                :data-message-id="message._id"
+              >
+                <!-- 引用的消息 -->
+                <QuotedMessage
+                  v-if="message.quotedMessage"
+                  :quotedMessage="message.quotedMessage"
+                  @jump-to="scrollToMessage"
+                />
+                
+                <!-- 问题/答案标记 -->
+                <QuestionBadge
+                  v-if="message.isQuestion || message.isSolution"
+                  :message="message"
+                  :isBestAnswer="isMessageBestAnswer(message)"
+                />
+                
                 <!-- 代码消息 -->
                 <CodeMessage 
                   v-if="message.messageType === 'code'"
@@ -86,6 +105,23 @@
                   <div class="message-avatar" v-if="message.from === currentUserId && message.messageType !== 'system'">
                     <img :src="baseUrl + myAvatar" alt="avatar" />
                   </div>
+                </div>
+                
+                <!-- 消息操作按钮 - 移到消息外面 -->
+                <div style="background: #f0f0f0; padding: 8px; margin: 4px 0; border-radius: 4px;">
+                  <MessageActions
+                    v-if="message.messageType !== 'system' && message.messageType !== 'code'"
+                    :message="message"
+                    :isMyMessage="message.from === currentUserId"
+                    :currentUserId="currentUserId"
+                    :replyingToQuestion="replyingToQuestion"
+                    @reply="handleReply(message)"
+                    @upvote="handleUpvote(message)"
+                    @mark-question="handleMarkQuestion(message)"
+                    @mark-solution="handleMarkSolution(message)"
+                    @mark-best-answer="handleMarkBestAnswer(message)"
+                    @quote="handleQuote(message)"
+                  />
                 </div>
               </div>
             </div>
@@ -163,6 +199,9 @@ import CodeMessage from '../components/CodeMessage.vue'
 import CodeInput from '../components/CodeInput.vue'
 import BottomNavbar from '../components/BottomNavbar.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
+import QuestionBadge from '../components/QuestionBadge.vue'
+import MessageActions from '../components/MessageActions.vue'
+import QuotedMessage from '../components/QuotedMessage.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -181,6 +220,8 @@ const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
 const roomListRef = ref(null)
+const replyingToQuestion = ref(null)
+const quotingMessage = ref(null)
 
 // AI 助手上下文
 const aiChatContext = computed(() => {
@@ -287,6 +328,160 @@ async function sendMessage(content) {
 
 function insertQuestionTemplate() {
   messageInput.value = `【问题描述】\n\n【相关代码】\n\n【报错信息】\n\n【已尝试方案】\n`
+}
+
+// 判断消息是否为最佳答案
+function isMessageBestAnswer(message) {
+  if (!message.solutionTo) return false
+  const question = messages.value.find(m => m._id === message.solutionTo)
+  return question?.bestAnswer === message._id
+}
+
+// 处理回复
+function handleReply(message) {
+  if (message.isQuestion) {
+    replyingToQuestion.value = message._id
+    toast.info('回复问题模式，发送的消息将标记为答案')
+  }
+  messageInput.value = `@${message.fromName} `
+}
+
+// 处理点赞
+async function handleUpvote(message) {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.post(
+      `${baseUrl}/api/question/${message._id}/upvote`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 更新本地消息
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.upvoteCount = res.data.upvoteCount
+      msg.upvotes = msg.upvotes || []
+      if (res.data.upvoted) {
+        msg.upvotes.push(currentUserId.value)
+      } else {
+        msg.upvotes = msg.upvotes.filter(id => id !== currentUserId.value)
+      }
+    }
+  } catch (err) {
+    console.error('点赞失败:', err)
+    toast.error('操作失败')
+  }
+}
+
+// 标记为问题
+async function handleMarkQuestion(message) {
+  try {
+    const token = localStorage.getItem('token')
+    await axios.post(
+      `${baseUrl}/api/question/${message._id}/mark-question`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 更新本地消息
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.isQuestion = true
+      msg.questionStatus = 'open'
+    }
+    
+    toast.success('已标记为问题')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 标记为答案
+async function handleMarkSolution(message) {
+  if (!replyingToQuestion.value) {
+    toast.error('请先回复一个问题')
+    return
+  }
+  
+  try {
+    const token = localStorage.getItem('token')
+    await axios.post(
+      `${baseUrl}/api/question/${message._id}/mark-solution`,
+      { questionId: replyingToQuestion.value },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 更新本地消息
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.isSolution = true
+      msg.solutionTo = replyingToQuestion.value
+    }
+    
+    replyingToQuestion.value = null
+    toast.success('已标记为答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 标记最佳答案
+async function handleMarkBestAnswer(message) {
+  if (!message.solutionTo) return
+  
+  try {
+    const token = localStorage.getItem('token')
+    await axios.post(
+      `${baseUrl}/api/question/${message.solutionTo}/best-answer`,
+      { answerId: message._id },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 更新本地消息
+    const question = messages.value.find(m => m._id === message.solutionTo)
+    if (question) {
+      question.bestAnswer = message._id
+      question.questionStatus = 'solved'
+    }
+    
+    toast.success('已标记为最佳答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 引用消息
+function handleQuote(message) {
+  quotingMessage.value = {
+    id: message._id,
+    content: message.content,
+    fromName: message.fromName,
+    messageType: message.messageType
+  }
+  messageInput.value = `> ${message.fromName}: ${message.content.substring(0, 50)}...\n\n`
+}
+
+// 复制消息
+async function handleCopy(message) {
+  try {
+    await navigator.clipboard.writeText(message.content)
+    toast.success('已复制')
+  } catch (err) {
+    toast.error('复制失败')
+  }
+}
+
+// 滚动到指定消息
+function scrollToMessage(messageId) {
+  const element = document.querySelector(`[data-message-id="${messageId}"]`)
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    element.classList.add('highlight')
+    setTimeout(() => element.classList.remove('highlight'), 2000)
+  }
 }
 
 function scrollToBottom() {
@@ -804,3 +999,25 @@ async function handleInviteNavigation(roomId) {
   }
 }
 </style>
+
+
+/* 消息高亮动画 */
+.message-wrapper {
+  margin-bottom: 16px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.3s;
+  
+  &.highlight {
+    animation: highlight-flash 2s ease-in-out;
+  }
+}
+
+@keyframes highlight-flash {
+  0%, 100% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(165, 42, 42, 0.1);
+  }
+}

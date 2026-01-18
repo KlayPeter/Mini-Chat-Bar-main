@@ -45,127 +45,148 @@
         </div>
       </div>
 
-      <!-- 消息列表 - 双栏布局 -->
+      <!-- 消息列表 - 统一单栏布局 -->
       <div class="message-area">
-        <!-- 左侧：代码和问题讨论区 -->
-        <div class="main-discussion">
-          <div class="discussion-header">
-            <h4>技术讨论</h4>
-            <span class="message-count">{{ codeMessages.length }} 条</span>
-          </div>
-          <div class="discussion-list" ref="discussionListRef">
-            <!-- AI 思考状态 -->
-            <div v-if="isAIThinking" class="ai-thinking">
-              <div class="thinking-avatar">
-                <img src="/images/ds.jpg" alt="AI" />
-              </div>
-              <div class="thinking-text">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-                AI 正在思考...
-              </div>
+        <div class="messages-container" ref="messageListRef">
+          <!-- AI 思考状态 -->
+          <div v-if="isAIThinking" class="ai-thinking">
+            <div class="thinking-avatar">
+              <img src="/images/ds.jpg" alt="AI" />
             </div>
+            <div class="thinking-text">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+              AI 正在思考...
+            </div>
+          </div>
+          
+          <!-- 所有消息按时间顺序显示 -->
+          <div 
+            v-for="(message, index) in messages" 
+            :key="message._id || index" 
+            :data-message-id="message._id"
+            class="message-wrapper"
+          >
+            <!-- AI 消息 -->
+            <ChatRoomAIMessage 
+              v-if="message.from === 'AI' || message.isAI"
+              :message="message"
+              @copy="copyToClipboard"
+            />
             
+            <!-- 代码消息 -->
+            <CodeMessage 
+              v-else-if="message.messageType === 'code'"
+              :message="message"
+              :isMyMessage="message.from === currentUserId"
+              :myAvatar="myAvatar"
+              @reply="handleReply(message)"
+              @favorite="handleFavorite"
+            />
+            
+            <!-- 普通文本消息 -->
             <div 
-              v-for="(message, index) in codeMessages" 
-              :key="message._id || index" 
-              :data-message-id="message._id"
-              class="discussion-item"
+              v-else-if="message.messageType === 'text'"
+              class="text-message" 
+              :class="{ 'is-mine': String(message.from) === String(currentUserId) }"
             >
-              <!-- AI 消息 -->
-              <ChatRoomAIMessage 
-                v-if="message.from === 'AI' || message.isAI"
+              <!-- 问题/答案标记 -->
+              <QuestionBadge
+                v-if="message.isQuestion || message.isSolution"
                 :message="message"
-                @copy="copyToClipboard"
+                :isBestAnswer="isMessageBestAnswer(message)"
+                class="message-badge"
               />
-              
-              <!-- 代码消息 -->
-              <CodeMessage 
-                v-else-if="message.messageType === 'code'"
-                :message="message"
-                :isMyMessage="message.from === currentUserId"
-                :myAvatar="myAvatar"
-                @reply="handleReply(message)"
-                @favorite="handleFavorite"
-                @contextmenu.prevent="showContextMenu($event, message)"
-              />
-              <!-- 技术问题消息 -->
-              <div 
-                v-else 
-                class="question-message" 
-                :class="{ 'is-mine': message.from === currentUserId }"
-                @contextmenu.prevent="showContextMenu($event, message)"
-              >
-                <div class="message-header">
-                  <img 
-                    v-if="message.fromAvatar"
-                    :src="message.fromAvatar.startsWith('http') ? message.fromAvatar : baseUrl + message.fromAvatar" 
-                    class="user-avatar" 
-                    @error="e => e.target.style.display = 'none'"
-                  />
-                  <div v-else class="user-avatar-placeholder">
-                    {{ (message.fromName || '?')[0].toUpperCase() }}
-                  </div>
-                  <div class="message-info">
-                    <span class="user-name" :class="{ 'is-me': message.from === currentUserId }">
-                      {{ message.fromName || '未知用户' }}
-                    </span>
-                    <span class="message-time">{{ formatTime(message.time || message.createdAt) }}</span>
-                  </div>
-                  <button @click="handleReply(message)" class="reply-btn" title="回复">
-                    <MessageCircle :size="16" />
-                  </button>
-                </div>
-                <div class="message-content">
-                  {{ message.content }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 右侧：快速讨论区（弹幕式） -->
-        <div class="quick-chat">
-          <div class="chat-header-mini">
-            <h4>快速讨论</h4>
-          </div>
-          <div class="chat-messages" ref="messageListRef">
-            <div 
-              v-for="(message, index) in textMessages" 
-              :key="message._id || index" 
-              class="chat-message" 
-              :class="{ 'is-mine': message.from === currentUserId }"
-              @contextmenu.prevent="showContextMenu($event, message)"
-            >
               <!-- 引用的消息 -->
               <div 
-                v-if="message.quotedMessage && message.quotedMessage.content" 
+                v-if="message.quotedMessage" 
                 class="quoted-message"
                 @click="scrollToMessage(message.quotedMessage.id)"
               >
-                <MessageCircle :size="12" />
-                <span class="quoted-text">
-                  {{ message.quotedMessage.fromName }}: 
-                  {{ (message.quotedMessage.content || '').substring(0, 30) }}{{ (message.quotedMessage.content || '').length > 30 ? '...' : '' }}
-                </span>
+                <div class="quoted-header">
+                  <MessageCircle :size="12" />
+                  <span class="quoted-user">{{ message.quotedMessage.fromName || '未知用户' }}</span>
+                </div>
+                <div class="quoted-content">
+                  {{ (message.quotedMessage.content || '').substring(0, 80) }}{{ (message.quotedMessage.content || '').length > 80 ? '...' : '' }}
+                </div>
               </div>
               
-              <!-- 消息内容 -->
-              <div class="message-main">
-                <div class="message-header-line">
-                  <span class="msg-time">{{ formatTime(message.time || message.createdAt) }}</span>
-                  <span class="msg-user" :class="{ 'is-me': message.from === currentUserId }">
+              <div class="message-header">
+                <img 
+                  v-if="message.fromAvatar"
+                  :src="message.fromAvatar.startsWith('http') ? message.fromAvatar : baseUrl + message.fromAvatar" 
+                  class="user-avatar" 
+                  @error="e => e.target.style.display = 'none'"
+                />
+                <div v-else class="user-avatar-placeholder">
+                  {{ (message.fromName || '?')[0].toUpperCase() }}
+                </div>
+                <div class="message-info">
+                  <span class="user-name" :class="{ 'is-me': String(message.from) === String(currentUserId) }">
                     {{ message.fromName || '未知用户' }}
                   </span>
+                  <span class="message-time">{{ formatTime(message.time || message.createdAt) }}</span>
                 </div>
-                <div class="msg-text">{{ message.content }}</div>
+              </div>
+              <div class="message-content">
+                {{ message.content }}
+              </div>
+              
+              <!-- 消息操作按钮 -->
+              <MessageActions
+                :message="message"
+                :isMyMessage="String(message.from) === String(currentUserId)"
+                :currentUserId="currentUserId"
+                :replyingToQuestion="replyingToQuestion"
+                @reply="handleReply(message)"
+                @upvote="handleUpvote(message)"
+                @mark-question="handleMarkQuestion(message)"
+                @mark-solution="handleMarkSolution(message)"
+                @mark-best-answer="handleMarkBestAnswer(message)"
+              />
+              
+              <!-- 回复数量气泡（所有有回复的消息都显示） -->
+              <div 
+                v-if="getReplyCount(message._id) > 0"
+                class="reply-count-badge"
+                @click="showReplies(message)"
+              >
+                <MessageCircle :size="14" />
+                <span>{{ getReplyCount(message._id) }} 条回复</span>
+              </div>
+            </div>
+            
+            <!-- 系统消息 -->
+            <div v-else-if="message.messageType === 'system'" class="system-message">
+              {{ message.content }}
+            </div>
+            
+            <!-- 其他类型消息（兜底） -->
+            <div v-else class="text-message">
+              <div class="message-header">
+                <img 
+                  v-if="message.fromAvatar"
+                  :src="message.fromAvatar.startsWith('http') ? message.fromAvatar : baseUrl + message.fromAvatar" 
+                  class="user-avatar" 
+                  @error="e => e.target.style.display = 'none'"
+                />
+                <div v-else class="user-avatar-placeholder">
+                  {{ (message.fromName || '?')[0].toUpperCase() }}
+                </div>
+                <div class="message-info">
+                  <span class="user-name">{{ message.fromName || '未知用户' }}</span>
+                  <span class="message-time">{{ formatTime(message.time || message.createdAt) }}</span>
+                </div>
+              </div>
+              <div class="message-content">
+                {{ message.content }}
               </div>
             </div>
           </div>
         </div>
       </div>
-
       <!-- 输入区域 -->
       <div class="input-container">
         <!-- 工具栏 -->
@@ -247,6 +268,18 @@
       @close="closeContextMenu"
       @action="handleContextMenuAction"
     />
+    
+    <!-- 回复列表弹窗 -->
+    <ReplyList
+      :visible="showReplyList"
+      :replies="currentQuestionForReply ? getQuestionReplies(currentQuestionForReply._id) : []"
+      :questionMessage="currentQuestionForReply"
+      :currentUserId="currentUserId"
+      @close="showReplyList = false"
+      @jump="jumpToMessage"
+      @mark-solution="markSolutionFromList"
+      @mark-best="markBestFromList"
+    />
   </div>
 </template>
 
@@ -262,6 +295,10 @@ import CodeInput from '../components/CodeInput.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
 import ChatRoomAIMessage from '../components/ChatRoomAIMessage.vue'
 import MessageContextMenu from '../components/MessageContextMenu.vue'
+import MessageActions from '../components/MessageActions.vue'
+import QuestionBadge from '../components/QuestionBadge.vue'
+import QuotedMessage from '../components/QuotedMessage.vue'
+import ReplyList from '../components/ReplyList.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -280,10 +317,12 @@ const showSummaryDialog = ref(false)
 const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
-const discussionListRef = ref(null)
 const replyingTo = ref(null) // 正在回复的消息
+const replyingToQuestion = ref(null) // 正在回复的问题
 const onlineCount = ref(0) // 在线人数
 const isAIThinking = ref(false) // AI 思考状态
+const showReplyList = ref(false) // 显示回复列表
+const currentQuestionForReply = ref(null) // 当前查看回复的问题
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -294,43 +333,22 @@ const contextMenu = ref({
 
 let socket = null
 
-// 分离代码/问题消息和普通文本消息
-const codeMessages = computed(() => {
-  const filtered = messages.value.filter(msg => 
-    msg.messageType === 'code' || msg.isQuestion || msg.messageType === 'system'
-  )
-  console.log('🔍 代码消息列表:', filtered.map(m => ({
-    type: m.messageType,
-    from: m.from,
-    fromName: m.fromName,
-    fromAvatar: m.fromAvatar,
-    isQuestion: m.isQuestion
-  })))
-  return filtered
-})
-
-const textMessages = computed(() => {
-  const filtered = messages.value.filter(msg => 
-    msg.messageType === 'text' && !msg.isQuestion
-  )
-  console.log('🔍 文本消息列表:', filtered.map(m => ({
-    from: m.from,
-    fromName: m.fromName,
-    content: m.content
-  })))
-  return filtered
-})
+// 获取 token 的辅助函数
+function getAuthHeaders() {
+  const token = localStorage.getItem('token')
+  return { Authorization: `Bearer ${token}` }
+}
 
 async function loadCurrentUser() {
   try {
-    const token = localStorage.getItem('token')
     const res = await axios.get(`${baseUrl}/api/user/info`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: getAuthHeaders()
     })
     currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
     myAvatar.value = res.data.user?.uAvatar || '/images/avatar/default-avatar.webp'
   } catch (err) {
     console.error('获取用户信息失败:', err)
+    toast.error('获取用户信息失败')
   }
 }
 
@@ -342,9 +360,8 @@ async function loadRoom() {
   }
 
   try {
-    const token = localStorage.getItem('token')
     const res = await axios.get(`${baseUrl}/room/${roomId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: getAuthHeaders()
     })
     if (res.data.success) {
       currentRoom.value = res.data.room
@@ -360,23 +377,12 @@ async function loadMessages() {
   if (!currentRoom.value) return
   
   try {
-    const token = localStorage.getItem('token')
     const res = await axios.get(
-      `${baseUrl}/room/${currentRoom.value.RoomID}/messages?limit=50`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${baseUrl}/room/${currentRoom.value.RoomID}/messages?limit=100`,
+      { headers: getAuthHeaders() }
     )
     if (res.data.success) {
       messages.value = res.data.messages
-      console.log('📨 加载的消息数量:', messages.value.length)
-      console.log('📨 第一条消息详情:', messages.value[0])
-      console.log('👤 当前用户ID:', currentUserId.value)
-      
-      // 检查消息分类
-      const code = messages.value.filter(msg => msg.messageType === 'code' || msg.isQuestion || msg.messageType === 'system')
-      const text = messages.value.filter(msg => msg.messageType === 'text' && !msg.isQuestion)
-      console.log('💬 代码/问题消息数量:', code.length)
-      console.log('💬 普通文本消息数量:', text.length)
-      
       scrollToBottom()
     }
   } catch (err) {
@@ -438,7 +444,7 @@ function scrollToMessage(messageId) {
   // 查找目标消息元素
   const targetElement = document.querySelector(`[data-message-id="${messageId}"]`)
   
-  if (targetElement && discussionListRef.value) {
+  if (targetElement && messageListRef.value) {
     // 滚动到目标消息
     targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
     
@@ -452,6 +458,193 @@ function scrollToMessage(messageId) {
   }
 }
 
+// 点赞
+async function handleUpvote(message) {
+  try {
+    const res = await axios.post(
+      `${baseUrl}/api/question/${message._id}/upvote`,
+      {},
+      { headers: getAuthHeaders() }
+    )
+    
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.upvoteCount = res.data.upvoteCount
+      msg.upvotes = msg.upvotes || []
+      if (res.data.upvoted) {
+        msg.upvotes.push(currentUserId.value)
+      } else {
+        msg.upvotes = msg.upvotes.filter(id => id !== currentUserId.value)
+      }
+    }
+    toast.success(res.data.upvoted ? '已点赞' : '已取消点赞')
+  } catch (err) {
+    console.error('点赞失败:', err)
+    toast.error('操作失败')
+  }
+}
+
+// 标记为问题
+async function handleMarkQuestion(message) {
+  try {
+    await axios.post(
+      `${baseUrl}/api/question/${message._id}/mark-question`,
+      {},
+      { headers: getAuthHeaders() }
+    )
+    
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.isQuestion = true
+      msg.questionStatus = 'open'
+    }
+    
+    toast.success('已标记为问题')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 标记为答案
+async function handleMarkSolution(message) {
+  if (!replyingToQuestion.value) {
+    toast.error('请先回复一个问题')
+    return
+  }
+  
+  try {
+    await axios.post(
+      `${baseUrl}/api/question/${message._id}/mark-solution`,
+      { questionId: replyingToQuestion.value },
+      { headers: getAuthHeaders() }
+    )
+    
+    const msg = messages.value.find(m => m._id === message._id)
+    if (msg) {
+      msg.isSolution = true
+      msg.solutionTo = replyingToQuestion.value
+    }
+    
+    replyingToQuestion.value = null
+    toast.success('已标记为答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 标记最佳答案
+async function handleMarkBestAnswer(message) {
+  if (!message.solutionTo) return
+  
+  try {
+    await axios.post(
+      `${baseUrl}/api/question/${message.solutionTo}/best-answer`,
+      { answerId: message._id },
+      { headers: getAuthHeaders() }
+    )
+    
+    const question = messages.value.find(m => m._id === message.solutionTo)
+    if (question) {
+      question.bestAnswer = message._id
+      question.questionStatus = 'solved'
+    }
+    
+    toast.success('已标记为最佳答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 引用消息（已移除，使用回复功能代替）
+
+// 判断是否为最佳答案
+function isMessageBestAnswer(message) {
+  if (!message.solutionTo) return false
+  const question = messages.value.find(m => m._id === message.solutionTo)
+  return question?.bestAnswer === message._id
+}
+
+// 获取问题的回复列表
+function getQuestionReplies(questionId) {
+  return messages.value.filter(msg => 
+    msg.quotedMessage?.id === questionId && msg._id !== questionId
+  )
+}
+
+// 获取问题的回复数量
+function getReplyCount(questionId) {
+  return getQuestionReplies(questionId).length
+}
+
+// 显示回复列表
+function showReplies(questionMessage) {
+  currentQuestionForReply.value = questionMessage
+  showReplyList.value = true
+}
+
+// 从回复列表跳转到消息
+function jumpToMessage(messageId) {
+  showReplyList.value = false
+  scrollToMessage(messageId)
+}
+
+// 从回复列表标记答案
+async function markSolutionFromList(answerId) {
+  if (!currentQuestionForReply.value) return
+  
+  try {
+    await axios.post(
+      `${baseUrl}/api/question/${answerId}/mark-solution`,
+      { questionId: currentQuestionForReply.value._id },
+      { headers: getAuthHeaders() }
+    )
+    
+    const msg = messages.value.find(m => m._id === answerId)
+    if (msg) {
+      msg.isSolution = true
+      msg.solutionTo = currentQuestionForReply.value._id
+    }
+    
+    toast.success('已标记为答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
+// 从回复列表标记最佳答案
+async function markBestFromList(answerId) {
+  if (!currentQuestionForReply.value) return
+  
+  try {
+    await axios.post(
+      `${baseUrl}/api/question/${currentQuestionForReply.value._id}/best-answer`,
+      { answerId: answerId },
+      { headers: getAuthHeaders() }
+    )
+    
+    if (currentQuestionForReply.value) {
+      currentQuestionForReply.value.bestAnswer = answerId
+      currentQuestionForReply.value.questionStatus = 'solved'
+    }
+    
+    // 更新消息列表中的问题
+    const question = messages.value.find(m => m._id === currentQuestionForReply.value._id)
+    if (question) {
+      question.bestAnswer = answerId
+      question.questionStatus = 'solved'
+    }
+    
+    toast.success('已标记为最佳答案')
+  } catch (err) {
+    console.error('标记失败:', err)
+    toast.error(err.response?.data?.message || '标记失败')
+  }
+}
+
 function initSocket() {
   socket = io(baseUrl, {
     transports: ['websocket', 'polling'],
@@ -461,14 +654,12 @@ function initSocket() {
 
   socket.on('connect', () => {
     console.log('✅ Socket 已连接')
-    // 加入当前聊天室
     if (currentRoom.value) {
       socket.emit('join-room', currentRoom.value.RoomID)
       socket.emit('join-group', {
         roomId: currentRoom.value.RoomID,
         userId: currentUserId.value
       })
-      console.log(`🏠 加入聊天室: ${currentRoom.value.RoomID}`)
     }
   })
 
@@ -476,18 +667,12 @@ function initSocket() {
     console.log('❌ Socket 已断开')
   })
 
-  // 监听在线人数更新
   socket.on('online-count', (data) => {
-    console.log('👥 在线人数更新:', data.count)
     onlineCount.value = data.count
   })
 
   socket.on('group-message', (data) => {
-    console.log('📨 收到新消息:', data)
-    
-    // 检查是否是当前聊天室的消息
     if (currentRoom.value && data.roomId === currentRoom.value.RoomID) {
-      // 检查消息是否已存在（避免重复）
       const exists = messages.value.some(msg => msg._id === data._id)
       if (!exists) {
         messages.value.push(data)
@@ -498,6 +683,7 @@ function initSocket() {
 
   socket.on('connect_error', (error) => {
     console.error('Socket 连接错误:', error)
+    toast.error('连接失败，请刷新页面')
   })
 }
 
@@ -514,7 +700,6 @@ function cleanupSocket() {
 
 async function handleSendCode(codeData) {
   try {
-    const token = localStorage.getItem('token')
     await axios.post(
       `${baseUrl}/room/${currentRoom.value.RoomID}/messages`,
       {
@@ -526,12 +711,10 @@ async function handleSendCode(codeData) {
           fileName: codeData.fileName
         }
       },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: getAuthHeaders() }
     )
     
     showCodeInput.value = false
-    await loadMessages()
-    scrollToBottom()
     toast.success('代码发送成功')
   } catch (err) {
     console.error('发送代码失败:', err)
@@ -541,7 +724,6 @@ async function handleSendCode(codeData) {
 
 async function sendMessage(content) {
   try {
-    const token = localStorage.getItem('token')
     await axios.post(
       `${baseUrl}/room/${currentRoom.value.RoomID}/messages`,
       {
@@ -549,11 +731,8 @@ async function sendMessage(content) {
         messageType: 'text',
         isQuestion: content.includes('【问题描述】')
       },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: getAuthHeaders() }
     )
-    
-    await loadMessages()
-    scrollToBottom()
   } catch (err) {
     console.error('发送消息失败:', err)
     toast.error('发送消息失败')
@@ -562,7 +741,6 @@ async function sendMessage(content) {
 
 async function sendMessageWithReply(content, quotedMsg) {
   try {
-    const token = localStorage.getItem('token')
     await axios.post(
       `${baseUrl}/room/${currentRoom.value.RoomID}/messages`,
       {
@@ -570,11 +748,9 @@ async function sendMessageWithReply(content, quotedMsg) {
         messageType: 'text',
         quotedMessage: quotedMsg
       },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: getAuthHeaders() }
     )
     
-    await loadMessages()
-    scrollToBottom()
     toast.success('回复发送成功')
   } catch (err) {
     console.error('发送回复失败:', err)
@@ -598,9 +774,6 @@ function insertAIMention() {
 async function askAI(question) {
   try {
     isAIThinking.value = true
-    const token = localStorage.getItem('token')
-    
-    console.log('🤖 向 AI 提问:', question)
     
     const res = await axios.post(
       `${baseUrl}/api/chatroom-ai/ask`,
@@ -610,18 +783,13 @@ async function askAI(question) {
         useRAG: true
       },
       { 
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 120000 // 2分钟超时
+        headers: getAuthHeaders(),
+        timeout: 120000
       }
     )
     
     if (res.data.success) {
       toast.success('AI 回答已生成')
-      // AI 消息会通过 Socket.IO 实时推送，或者直接添加到消息列表
-      if (res.data.messageId) {
-        // 如果后端返回了消息ID，等待 Socket 推送
-        console.log('✅ AI 消息ID:', res.data.messageId)
-      }
     }
   } catch (err) {
     console.error('❌ AI 问答失败:', err)
@@ -641,10 +809,7 @@ function copyToClipboard(text) {
 
 async function handleFavorite(data) {
   try {
-    const token = localStorage.getItem('token')
-    
     if (data.isFavorited) {
-      // 添加收藏
       await axios.post(
         `${baseUrl}/api/favorites`,
         {
@@ -652,14 +817,13 @@ async function handleFavorite(data) {
           messageType: 'chatroom',
           chatId: currentRoom.value.RoomID
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders() }
       )
       toast.success('收藏成功')
     } else {
-      // 取消收藏
       await axios.delete(
         `${baseUrl}/api/favorites/${data.messageId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders() }
       )
       toast.success('取消收藏')
     }
@@ -696,21 +860,16 @@ async function handleContextMenuAction(action) {
   if (!message) return
   
   try {
-    const token = localStorage.getItem('token')
-    
     switch (action) {
       case 'favorite':
-        // 切换收藏状态
         const isFavorited = checkIfFavorited(message)
         if (isFavorited) {
-          // 取消收藏
           await axios.delete(
             `${baseUrl}/api/favorites/${message._id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers: getAuthHeaders() }
           )
           toast.success('取消收藏')
         } else {
-          // 添加收藏
           await axios.post(
             `${baseUrl}/api/favorites`,
             {
@@ -718,36 +877,32 @@ async function handleContextMenuAction(action) {
               messageType: 'chatroom',
               chatId: currentRoom.value.RoomID
             },
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers: getAuthHeaders() }
           )
           toast.success('收藏成功')
         }
         break
         
       case 'copy':
-        // 复制消息内容
         const textToCopy = message.codeInfo?.code || message.content || ''
         await navigator.clipboard.writeText(textToCopy)
         toast.success('已复制到剪贴板')
         break
         
       case 'reply':
-        // 引用回复
         handleReply(message)
         break
         
       case 'forward':
-        // TODO: 实现转发功能
         toast.info('转发功能开发中')
         break
         
       case 'delete':
-        // 删除消息（仅自己的消息）
         if (message.from === currentUserId.value) {
           if (confirm('确定要删除这条消息吗？')) {
             await axios.delete(
               `${baseUrl}/room/${currentRoom.value.RoomID}/messages/${message._id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: getAuthHeaders() }
             )
             toast.success('消息已删除')
             await loadMessages()
@@ -1002,312 +1157,13 @@ onUnmounted(() => {
   }
 }
 
-/* 双栏布局 */
+/* 消息区域 - 单栏布局 */
 .message-area {
   flex: 1;
-  display: flex;
-  gap: 1px;
-  background: #e8e8e8;
   overflow: hidden;
-}
-
-/* 左侧：技术讨论区 */
-.main-discussion {
-  flex: 0 0 70%;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  overflow: hidden;
-  
-  .discussion-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e8e8e8;
-    background: #fafafa;
-    flex-shrink: 0;
-    
-    h4 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .message-count {
-      font-size: 12px;
-      color: #999;
-      background: #f0f0f0;
-      padding: 2px 8px;
-      border-radius: 10px;
-    }
-  }
-  
-  .discussion-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background: #d0d0d0;
-      border-radius: 3px;
-      
-      &:hover {
-        background: #b0b0b0;
-      }
-    }
-  }
-  
-  .discussion-item {
-    animation: slideIn 0.2s ease-out;
-    
-    &.highlight-message {
-      animation: highlight 2s ease-out;
-    }
-  }
-  
-  @keyframes highlight {
-    0% {
-      background: rgba(165, 42, 42, 0.2);
-      transform: scale(1.02);
-    }
-    50% {
-      background: rgba(165, 42, 42, 0.1);
-    }
-    100% {
-      background: transparent;
-      transform: scale(1);
-    }
-  }
-  
-  /* 技术问题消息样式（类似群聊） */
-  .question-message {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 3px solid #e0e0e0;
-    transition: all 0.2s;
-    
-    &.is-mine {
-      border-left-color: rgb(165, 42, 42);
-    }
-    
-    .message-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      
-      .user-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      
-      .user-avatar-placeholder {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, rgb(165, 42, 42) 0%, rgb(140, 30, 30) 100%);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 600;
-        flex-shrink: 0;
-      }
-      
-      .message-info {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        flex: 1;
-        
-        .user-name {
-          font-size: 13px;
-          font-weight: 600;
-          color: #333;
-          
-          &.is-me {
-            color: rgb(165, 42, 42);
-          }
-        }
-        
-        .message-time {
-          font-size: 11px;
-          color: #999;
-        }
-      }
-      
-      .reply-btn {
-        margin-left: auto;
-        padding: 4px 8px;
-        border: none;
-        background: transparent;
-        color: #999;
-        border-radius: 4px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        transition: all 0.2s;
-        
-        &:hover {
-          background: #f0f0f0;
-          color: rgb(165, 42, 42);
-        }
-      }
-    }
-    
-    .message-content {
-      font-size: 14px;
-      color: #333;
-      line-height: 1.6;
-      padding-left: 42px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-  }
-}
-
-/* 右侧：快速讨论区（弹幕式） */
-.quick-chat {
-  flex: 0 0 30%;
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
-  overflow: hidden;
-  
-  .chat-header-mini {
-    padding: 12px 16px;
-    border-bottom: 1px solid #e8e8e8;
-    background: #ffffff;
-    flex-shrink: 0;
-    
-    h4 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-    }
-  }
-  
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background: #d0d0d0;
-      border-radius: 2px;
-      
-      &:hover {
-        background: #b0b0b0;
-      }
-    }
-  }
-  
-  /* 弹幕式消息 */
-  .chat-message {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 12px;
-    background: #ffffff;
-    border-radius: 6px;
-    font-size: 13px;
-    line-height: 1.5;
-    animation: slideIn 0.2s ease-out;
-    transition: background 0.2s;
-    
-    &:hover {
-      background: #f0f2f5;
-    }
-    
-    .quoted-message {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      background: #f8f9fa;
-      border-left: 2px solid rgb(165, 42, 42);
-      border-radius: 4px;
-      font-size: 11px;
-      color: #666;
-      cursor: pointer;
-      transition: all 0.2s;
-      
-      &:hover {
-        background: #e8e8e8;
-        border-left-color: rgb(185, 62, 62);
-        transform: translateX(2px);
-      }
-      
-      .quoted-text {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-    
-    .message-main {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    
-    .message-header-line {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .msg-time {
-      font-size: 11px;
-      color: #999;
-      flex-shrink: 0;
-    }
-    
-    .msg-user {
-      font-weight: 600;
-      font-size: 14px;
-      color: #333;
-      flex-shrink: 0;
-      
-      &.is-me {
-        color: rgb(165, 42, 42);
-      }
-    }
-    
-    .msg-text {
-      color: #333;
-      font-size: 13px;
-      line-height: 1.6;
-      word-break: break-word;
-      padding-left: 2px;
-    }
-  }
 }
 
 @keyframes slideIn {
@@ -1571,6 +1427,211 @@ onUnmounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 移动端适配 */
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #d0d0d0;
+      border-radius: 3px;
+      
+      &:hover {
+        background: #b0b0b0;
+      }
+    }
+  }
+  
+  .message-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: slideIn 0.2s ease-out;
+    
+    &.highlight-message {
+      animation: highlight-flash 2s ease-in-out;
+    }
+  }
+  
+  /* 文本消息样式 */
+  .text-message {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    max-width: 70%;
+    align-self: flex-start;
+    position: relative;
+    
+    &.is-mine {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #fef5f5 0%, #fff 100%);
+      border: 1px solid rgba(165, 42, 42, 0.15);
+      
+      .message-badge {
+        left: -8px;
+        right: auto;
+      }
+    }
+    
+    .message-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      z-index: 1;
+    }
+    
+    .quoted-message {
+      padding: 8px 12px;
+      background: rgba(165, 42, 42, 0.05);
+      border-left: 3px solid rgb(165, 42, 42);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+      
+      &:hover {
+        background: rgba(165, 42, 42, 0.1);
+        transform: translateX(2px);
+      }
+      
+      .quoted-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        color: rgb(165, 42, 42);
+        font-size: 11px;
+        font-weight: 600;
+      }
+      
+      .quoted-content {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+    
+    .reply-count-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(165, 42, 42, 0.1) 0%, rgba(165, 42, 42, 0.05) 100%);
+      border: 1px solid rgba(165, 42, 42, 0.2);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      color: rgb(165, 42, 42);
+      font-weight: 500;
+      transition: all 0.2s;
+      margin-top: 8px;
+      
+      svg {
+        flex-shrink: 0;
+      }
+      
+      &:hover {
+        background: linear-gradient(135deg, rgba(165, 42, 42, 0.15) 0%, rgba(165, 42, 42, 0.08) 100%);
+        border-color: rgba(165, 42, 42, 0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(165, 42, 42, 0.15);
+      }
+    }
+    
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      
+      .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      
+      .user-avatar-placeholder {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgb(165, 42, 42) 0%, rgb(140, 30, 30) 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      
+      .message-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        
+        .user-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #333;
+          
+          &.is-me {
+            color: rgb(165, 42, 42);
+          }
+        }
+        
+        .message-time {
+          font-size: 11px;
+          color: #999;
+        }
+      }
+    }
+    
+    .message-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+  }
+  
+  /* 系统消息 */
+  .system-message {
+    text-align: center;
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 16px;
+    font-size: 12px;
+    color: #999;
+    align-self: center;
+    max-width: 80%;
+  }
+
+@keyframes highlight-flash {
+  0%, 100% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(165, 42, 42, 0.1);
+    border-radius: 12px;
   }
 }
 
