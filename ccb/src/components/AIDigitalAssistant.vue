@@ -29,6 +29,7 @@
         <div 
           v-if="currentMessage && bubblePosition" 
           class="speech-bubble"
+          :class="{ 'bottom-nav': isBottomNav }"
           :style="{
             left: bubblePosition.left + 'px',
             top: bubblePosition.top + 'px'
@@ -85,6 +86,7 @@ const messageQueue = ref([]) // 消息队列
 const isProcessingQueue = ref(false) // 是否正在处理队列
 const avatarRef = ref(null) // 头像元素引用
 const bubblePosition = ref(null) // 气泡位置
+const isBottomNav = ref(false) // 是否在底部导航栏
 
 let typingInterval = null
 let blinkInterval = null
@@ -278,9 +280,32 @@ const updateBubblePosition = () => {
   if (!avatarRef.value) return
   
   const rect = avatarRef.value.getBoundingClientRect()
-  bubblePosition.value = {
-    left: rect.right + 10, // 头像右侧 10px
-    top: rect.top // 与头像顶部对齐
+  const isMobile = window.innerWidth <= 768
+  const isBottom = rect.bottom > window.innerHeight - 100 // 判断是否在底部
+  
+  isBottomNav.value = isBottom
+  
+  if (isBottom) {
+    // 在底部导航栏：气泡显示在上方，居中对齐
+    const bubbleWidth = 300 // 气泡宽度
+    const centerLeft = rect.left + (rect.width / 2) - (bubbleWidth / 2)
+    
+    bubblePosition.value = {
+      left: Math.max(10, Math.min(centerLeft, window.innerWidth - bubbleWidth - 10)), // 确保不超出屏幕
+      top: rect.top - 90 // 在头像上方90px
+    }
+  } else if (isMobile) {
+    // 移动端其他位置：气泡显示在右侧
+    bubblePosition.value = {
+      left: Math.min(rect.right + 10, window.innerWidth - 310),
+      top: rect.top
+    }
+  } else {
+    // PC端：气泡显示在右侧
+    bubblePosition.value = {
+      left: rect.right + 10,
+      top: rect.top
+    }
   }
 }
 
@@ -428,6 +453,12 @@ defineExpose({
   &:active {
     transform: scale(0.95);
   }
+  
+  // 移动端适配
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+  }
 }
 
 .avatar-glow {
@@ -568,6 +599,12 @@ defineExpose({
   border: 2px solid white;
   border-radius: 50%;
   animation: dot-pulse 2s ease-in-out infinite;
+  
+  @media (max-width: 768px) {
+    width: 10px;
+    height: 10px;
+    border-width: 1.5px;
+  }
 }
 
 @keyframes dot-pulse {
@@ -592,6 +629,28 @@ defineExpose({
   border: 2px solid rgb(165, 42, 42);
   z-index: 10000;
   pointer-events: auto;
+  
+  // 移动端适配
+  @media (max-width: 768px) {
+    min-width: 180px;
+    max-width: calc(100vw - 100px);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    
+    // 确保气泡不超出屏幕
+    &[style*="left"] {
+      left: auto !important;
+      right: 10px !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    min-width: 150px;
+    max-width: calc(100vw - 80px);
+    padding: 8px 12px;
+    font-size: 12px;
+  }
 }
 
 .bubble-tail {
@@ -617,6 +676,44 @@ defineExpose({
   }
 }
 
+// 底部导航栏的气泡尾巴
+.speech-bubble.bottom-nav .bubble-tail {
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  bottom: -8px;
+  border-right: 8px solid transparent;
+  border-left: 8px solid transparent;
+  border-top: 8px solid rgb(165, 42, 42);
+  border-bottom: none;
+  
+  &::after {
+    left: -7px;
+    top: -10px;
+    border-right: 7px solid transparent;
+    border-left: 7px solid transparent;
+    border-top: 7px solid white;
+    border-bottom: none;
+  }
+}
+
+// 移动端非底部导航栏：尾巴指向右侧
+@media (max-width: 768px) {
+  .speech-bubble:not(.bottom-nav) .bubble-tail {
+    left: auto;
+    right: -8px;
+    border-right: none;
+    border-left: 8px solid rgb(165, 42, 42);
+    
+    &::after {
+      left: auto;
+      right: 2px;
+      border-right: none;
+      border-left: 7px solid white;
+    }
+  }
+}
+
 .bubble-content {
   display: flex;
   flex-direction: column;
@@ -629,6 +726,15 @@ defineExpose({
   line-height: 1.5;
   color: #333;
   font-weight: 500;
+  
+  @media (max-width: 768px) {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 11px;
+  }
 }
 
 .bubble-actions {
@@ -651,6 +757,17 @@ defineExpose({
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(165, 42, 42, 0.3);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 4px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 3px 6px;
+    font-size: 9px;
   }
 }
 

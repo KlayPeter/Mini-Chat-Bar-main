@@ -331,6 +331,9 @@
       @jump="jumpToMessage"
       @mark-solution="markSolutionFromList"
     />
+    
+    <!-- 移动端底部导航栏 -->
+    <BottomNavbar class="mobile-only" />
   </div>
 </template>
 
@@ -352,6 +355,7 @@ import ReplyList from '../components/ReplyList.vue'
 import EmojiReactions from '../components/EmojiReactions.vue'
 import MessageContent from '../components/MessageContent.vue'
 import AIInsightsDropdown from '../components/AIInsightsDropdown.vue'
+import BottomNavbar from '../components/BottomNavbar.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -1298,6 +1302,14 @@ onUnmounted(() => {
   position: relative;
 }
 
+.mobile-only {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: block;
+  }
+}
+
 .welcome-state {
   display: flex;
   flex-direction: column;
@@ -2145,11 +2157,23 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .chatroom-detail-container {
+    height: 100vh;
+    padding-bottom: 60px; // 为底部导航栏留空间
+  }
+  
+  .chatroom-content {
+    height: calc(100vh - 60px); // 减去底部导航栏高度
+  }
+  
   .mobile-only {
     display: block;
   }
   
   .chat-header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    
     .back-btn {
       display: flex;
       align-items: center;
@@ -2171,6 +2195,188 @@ onUnmounted(() => {
       i {
         font-style: normal;
       }
+    }
+    
+    .room-info {
+      flex: 1;
+      min-width: 0;
+      
+      .room-avatar-wrapper {
+        width: 36px;
+        height: 36px;
+        
+        .room-icon-header {
+          width: 36px;
+          height: 36px;
+        }
+      }
+      
+      .info {
+        h3 {
+          font-size: 15px;
+        }
+        
+        .room-stats {
+          flex-wrap: wrap;
+          gap: 6px;
+          font-size: 11px;
+          
+          .tech-tag {
+            font-size: 10px;
+            padding: 2px 6px;
+          }
+          
+          .room-status,
+          .online-count,
+          .member-count {
+            font-size: 11px;
+          }
+        }
+      }
+    }
+    
+    .header-actions {
+      gap: 6px;
+      
+      .countdown-display {
+        padding: 4px 8px;
+        font-size: 11px;
+        
+        svg {
+          width: 14px;
+          height: 14px;
+        }
+      }
+      
+      .summary-btn,
+      .detail-btn {
+        width: 32px;
+        height: 32px;
+        
+        .action-icon {
+          width: 16px;
+          height: 16px;
+        }
+        
+        i {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  .message-area {
+    padding: 12px;
+    
+    .messages-container {
+      gap: 12px;
+    }
+  }
+  
+  .ai-thinking {
+    padding: 10px 12px;
+    
+    .thinking-avatar {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .thinking-text {
+      font-size: 13px;
+    }
+  }
+  
+  .input-area {
+    padding: 10px 12px;
+    gap: 8px;
+    
+    .input-wrapper {
+      .message-input {
+        padding: 8px 12px;
+        font-size: 14px;
+        min-height: 40px;
+        max-height: 100px;
+      }
+      
+      .input-actions {
+        padding: 6px 10px;
+        
+        button {
+          width: 28px;
+          height: 28px;
+          
+          svg {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+    }
+    
+    .send-button {
+      width: 40px;
+      height: 40px;
+      
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-header {
+    padding: 8px 10px;
+    
+    .room-info {
+      .info {
+        h3 {
+          font-size: 14px;
+        }
+        
+        .room-stats {
+          font-size: 10px;
+          
+          .tech-tag {
+            font-size: 9px;
+            padding: 2px 5px;
+          }
+        }
+      }
+    }
+    
+    .header-actions {
+      .countdown-display {
+        font-size: 10px;
+        padding: 3px 6px;
+      }
+      
+      .summary-btn,
+      .detail-btn {
+        width: 30px;
+        height: 30px;
+      }
+    }
+  }
+  
+  .message-area {
+    padding: 10px;
+  }
+  
+  .input-area {
+    padding: 8px 10px;
+    
+    .input-wrapper {
+      .message-input {
+        font-size: 13px;
+        padding: 7px 10px;
+      }
+    }
+    
+    .send-button {
+      width: 36px;
+      height: 36px;
     }
   }
 }

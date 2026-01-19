@@ -1,5 +1,13 @@
 <template>
   <div class="bottom-navbar">
+    <!-- AI 数字人 - 放在最左边 -->
+    <div class="ai-assistant-wrapper">
+      <AIDigitalAssistant 
+        mode="general"
+        @click="showAIPanel"
+      />
+    </div>
+    
     <div
       class="nav-item"
       @click="chat"
@@ -23,6 +31,14 @@
     >
       <font-awesome-icon icon="users" />
       <span>群聊</span>
+    </div>
+    <div 
+      class="nav-item" 
+      @click="toChatRoom" 
+      :class="{ active: activeTab === 'chatroom' }"
+    >
+      <font-awesome-icon icon="comments" />
+      <span>聊天室</span>
     </div>
     <div
       class="nav-item"
@@ -79,6 +95,7 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
+import AIDigitalAssistant from './AIDigitalAssistant.vue'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
 const router = useRouter()
@@ -93,6 +110,8 @@ function updateActiveTab() {
   const path = route.path
   if (path === '/group-chat') {
     activeTab.value = 'group'
+  } else if (path === '/chatroom' || path.includes('/chatroom')) {
+    activeTab.value = 'chatroom'
   } else if (path === '/favorites') {
     activeTab.value = 'favorites'
   } else if (path === '/contacts') {
@@ -122,6 +141,11 @@ function toGroupChat() {
   router.push('/group-chat')
 }
 
+function toChatRoom() {
+  activeTab.value = 'chatroom'
+  router.push('/chatroom')
+}
+
 function togithub() {
   hideProfile()
   activeTab.value = 'favorites'
@@ -131,6 +155,11 @@ function togithub() {
 function showProfile() {
   activeTab.value = 'profile'
   showProfileModal.value = true
+}
+
+function showAIPanel() {
+  // 触发AI助手面板
+  router.push('/chat-ai')
 }
 
 function hideProfile() {
@@ -165,7 +194,8 @@ onMounted(async () => {
       // 如果是当前用户的头像更新，则更新本地头像
       const currentUserId = localStorage.getItem('userId')
       if (data.userId.toString() === currentUserId.toString()) {
-        avatar.value = data.newAvatarUrl      }
+        avatar.value = data.newAvatarUrl
+      }
     })
   } catch (err) {
     console.error('用户头像获取失败：', err)
@@ -195,6 +225,18 @@ onBeforeUnmount(() => {
   margin: 0 8px;
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+
+  .ai-assistant-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    
+    // PC端隐藏（因为侧边栏已经有了）
+    @media (min-width: 769px) {
+      display: none;
+    }
+  }
 
   .nav-item {
     display: flex;
@@ -403,35 +445,40 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .bottom-navbar {
     height: 65px;
-    padding: 8px;
+    padding: 8px 4px;
     margin: 0;
     border-radius: 0;
     background: var(--bg-primary, #ffffff);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 
+    .ai-assistant-wrapper {
+      padding: 0 4px;
+    }
+
     .nav-item {
-      padding: 6px 10px;
-      min-width: 48px;
+      padding: 6px 4px;
+      min-width: 45px;
+      flex: 1;
 
       svg {
-        font-size: 22px;
+        font-size: 20px;
         margin-bottom: 3px;
       }
 
       .ai-icon {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
         margin-bottom: 3px;
       }
 
       .avatar-wrapper {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         margin-bottom: 3px;
       }
 
       span {
-        font-size: 11px;
+        font-size: 10px;
       }
 
       &.active {
@@ -445,31 +492,35 @@ onBeforeUnmount(() => {
 @media (max-width: 480px) {
   .bottom-navbar {
     height: 60px;
-    padding: 6px;
+    padding: 6px 2px;
+
+    .ai-assistant-wrapper {
+      padding: 0 2px;
+    }
 
     .nav-item {
-      padding: 4px 8px;
-      min-width: 45px;
+      padding: 4px 4px;
+      min-width: 40px;
 
       svg {
-        font-size: 20px;
+        font-size: 18px;
         margin-bottom: 2px;
       }
 
       .ai-icon {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         margin-bottom: 2px;
       }
 
       .avatar-wrapper {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         margin-bottom: 2px;
       }
 
       span {
-        font-size: 10px;
+        font-size: 9px;
       }
     }
   }

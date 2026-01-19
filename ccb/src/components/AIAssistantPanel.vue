@@ -483,17 +483,32 @@ onMounted(() => {
     border-bottom: 1px solid var(--border-color, #e9ecef);
     background: var(--bg-secondary, #f8f9fa);
 
+    @media (max-width: 768px) {
+      padding: 10px 12px;
+      flex-wrap: wrap;
+    }
+
     .header-left {
       display: flex;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      flex: 1;
+
+      @media (max-width: 768px) {
+        gap: 6px;
+        width: 100%;
+      }
 
       h4 {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
         color: var(--text-primary, #333);
+        
+        @media (max-width: 768px) {
+          font-size: 14px;
+        }
       }
 
       .role-selector {
@@ -556,6 +571,10 @@ onMounted(() => {
         background: var(--bg-tertiary, white);
         transition: all 0.2s;
 
+        @media (max-width: 768px) {
+          padding: 3px 8px;
+        }
+
         &:hover { 
           border-color: var(--primary-color);
         }
@@ -576,6 +595,11 @@ onMounted(() => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          
+          @media (max-width: 768px) {
+            font-size: 11px;
+            max-width: 80px;
+          }
         }
 
         .toggle-switch {
@@ -692,9 +716,18 @@ onMounted(() => {
     flex-direction: column;
     gap: 16px;
 
+    @media (max-width: 768px) {
+      padding: 12px;
+      gap: 12px;
+    }
+
     .message {
       display: flex;
       gap: 10px;
+
+      @media (max-width: 768px) {
+        gap: 8px;
+      }
 
       &.is-user {
         flex-direction: row-reverse;
@@ -717,6 +750,11 @@ onMounted(() => {
         overflow: hidden;
         flex-shrink: 0;
 
+        @media (max-width: 768px) {
+          width: 32px;
+          height: 32px;
+        }
+
         img {
           width: 100%;
           height: 100%;
@@ -729,6 +767,10 @@ onMounted(() => {
         flex-direction: column;
         max-width: 80%;
 
+        @media (max-width: 768px) {
+          max-width: 75%;
+        }
+
         .message-text {
           background: var(--bg-secondary, #f0f0f0);
           padding: 10px 14px;
@@ -736,6 +778,11 @@ onMounted(() => {
           font-size: 14px;
           line-height: 1.5;
           color: var(--text-primary, #333);
+
+          @media (max-width: 768px) {
+            padding: 8px 12px;
+            font-size: 13px;
+          }
 
           &.loading {
             display: flex;
@@ -878,6 +925,11 @@ onMounted(() => {
     gap: 8px;
     background: var(--bg-tertiary, #fff);
 
+    @media (max-width: 768px) {
+      padding: 10px;
+      gap: 6px;
+    }
+
     textarea {
       flex: 1;
       padding: 10px 12px;
@@ -891,6 +943,13 @@ onMounted(() => {
       min-height: 72px; /* 约3行高度 */
       max-height: 120px;
       line-height: 1.5;
+
+      @media (max-width: 768px) {
+        padding: 8px 10px;
+        font-size: 13px;
+        min-height: 60px;
+        max-height: 100px;
+      }
 
       &::placeholder {
         color: #999;
@@ -920,6 +979,12 @@ onMounted(() => {
       transition: all 0.2s;
       align-self: flex-end;
       height: 36px;
+
+      @media (max-width: 768px) {
+        padding: 0 16px;
+        font-size: 13px;
+        height: 32px;
+      }
 
       &:hover:not(:disabled) {
         opacity: 0.9;

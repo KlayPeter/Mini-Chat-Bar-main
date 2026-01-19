@@ -6,6 +6,7 @@ import Assistant from '../views/Assistant.vue'
 import Moments from '../views/Moments.vue'
 import Favorites from '../views/Favorites.vue'
 import GroupChat from '../views/GroupChat.vue'
+import ChatRoom from '../views/ChatRoom.vue'
 import ChatRoomDetail from '../views/ChatRoomDetail.vue'
 import ChatRoomWelcome from '../components/ChatRoomWelcome.vue'
 
@@ -68,6 +69,11 @@ const routes = [
   {
     path: "/group-chat",
     component: GroupChat,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: "/chatroom",
+    component: ChatRoom,
     meta: { requiresAuth: true }
   },
   {

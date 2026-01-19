@@ -666,6 +666,14 @@ async function handleInviteNavigation(roomId) {
   overflow: hidden;
 }
 
+.mobile-only {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: block;
+  }
+}
+
 .container {
   border-radius: 1rem;
   flex: 1;
@@ -682,6 +690,14 @@ async function handleInviteNavigation(roomId) {
 
 .mobile-only {
   display: none;
+}
+
+.mobile-only {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: block;
+  }
 }
 
 .section1,
@@ -1018,16 +1034,33 @@ async function handleInviteNavigation(roomId) {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .group-chat-container {
+    height: 100vh;
+    padding-bottom: 60px; // 为底部导航栏留空间
+  }
+  
+  .container {
+    border-radius: 0;
+    margin: 0;
+    height: calc(100vh - 60px); // 减去底部导航栏高度
+    box-shadow: none;
+    flex-direction: column;
+  }
+  
   .mobile-only {
     display: block;
   }
   
   .section1 {
-    display: none;
+    display: none; // 移动端隐藏侧边栏
   }
   
   .section2 {
     width: 100%;
+    flex: 1;
+    border-radius: 0;
+    margin: 0;
+    border: none;
   }
   
   .section3-wrapper {
@@ -1035,8 +1068,9 @@ async function handleInviteNavigation(roomId) {
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 60px; // 留出底部导航栏空间
     z-index: 100;
+    background: white;
     transform: translateX(100%);
     transition: transform 0.3s ease;
     
@@ -1045,7 +1079,16 @@ async function handleInviteNavigation(roomId) {
     }
   }
   
+  .section3 {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    margin: 0;
+  }
+  
   .chat-header {
+    padding: 10px 12px;
+    
     .back-btn {
       display: flex;
       align-items: center;
@@ -1068,14 +1111,181 @@ async function handleInviteNavigation(roomId) {
         font-style: normal;
       }
     }
+    
+    .group-info {
+      flex: 1;
+      min-width: 0;
+      
+      .group-avatar-wrapper {
+        width: 36px;
+        height: 36px;
+        
+        .room-icon-header {
+          width: 36px;
+          height: 36px;
+        }
+      }
+      
+      .info {
+        h3 {
+          font-size: 15px;
+        }
+        
+        .tech-tag,
+        span {
+          font-size: 12px;
+        }
+      }
+    }
+    
+    .header-actions {
+      gap: 6px;
+      
+      .summary-btn,
+      .detail-btn {
+        width: 32px;
+        height: 32px;
+        
+        .action-icon {
+          width: 16px;
+          height: 16px;
+        }
+        
+        i {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  .message-list-wrapper {
+    padding: 12px;
+  }
+  
+  .messages-container {
+    gap: 12px;
+  }
+  
+  .message-item {
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .message-content {
+      max-width: 75%;
+      
+      .message-bubble {
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+      
+      .sender-name {
+        font-size: 12px;
+      }
+      
+      .message-time {
+        font-size: 11px;
+      }
+    }
+  }
+  
+  .input-area {
+    padding: 10px 12px;
+    gap: 8px;
+    
+    .input-wrapper {
+      .message-input {
+        padding: 8px 12px;
+        font-size: 14px;
+        min-height: 40px;
+        max-height: 100px;
+      }
+      
+      .input-actions {
+        padding: 6px 10px;
+        
+        button {
+          width: 28px;
+          height: 28px;
+          
+          svg {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+    }
+    
+    .send-button {
+      width: 40px;
+      height: 40px;
+      
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-header {
+    padding: 8px 10px;
+    
+    .group-info {
+      .info {
+        h3 {
+          font-size: 14px;
+        }
+        
+        .tech-tag,
+        span {
+          font-size: 11px;
+        }
+      }
+    }
+    
+    .header-actions {
+      .summary-btn,
+      .detail-btn {
+        width: 30px;
+        height: 30px;
+      }
+    }
+  }
+  
+  .message-list-wrapper {
+    padding: 10px;
+  }
+  
+  .message-item {
+    .message-content {
+      .message-bubble {
+        font-size: 13px;
+        padding: 7px 10px;
+      }
+    }
+  }
+  
+  .input-area {
+    padding: 8px 10px;
+    
+    .input-wrapper {
+      .message-input {
+        font-size: 13px;
+        padding: 7px 10px;
+      }
+    }
+    
+    .send-button {
+      width: 36px;
+      height: 36px;
+    }
   }
 }
 </style>
 
-
-/* 消息高亮动画 */
-.message-wrapper {
-  margin-bottom: 16px;
   padding: 8px;
   border-radius: 8px;
   transition: background 0.3s;

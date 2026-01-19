@@ -88,7 +88,7 @@
       </div>
 
       <!-- 收藏详情 -->
-      <div class="section3-wrapper">
+      <div class="section3-wrapper" :class="{ 'show-detail': showDetailOnMobile }">
         <div class="section3">
           <div v-if="!selectedFavorite" class="welcome-state">
             <Star :size="64" class="welcome-icon" />
@@ -96,6 +96,11 @@
           </div>
           
           <div v-else class="favorite-detail">
+            <!-- 移动端返回按钮 -->
+            <button v-if="showDetailOnMobile" class="mobile-back-btn" @click="backToList">
+              ← 返回
+            </button>
+            
             <div class="detail-header">
               <div class="detail-info">
                 <h3>{{ selectedFavorite.sourceName || '未知来源' }}</h3>
@@ -175,6 +180,9 @@
         </div>
       </div>
     </div>
+    
+    <!-- 移动端底部导航栏 -->
+    <BottomNavbar class="mobile-only" />
   </div>
 </template>
 
@@ -185,6 +193,7 @@ import { Star, Trash2, Copy, Search, X, Download, FileText, Video, Music } from 
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
 import Sidebar from '../components/Sidebar.vue'
+import BottomNavbar from '../components/BottomNavbar.vue'
 
 const router = useRouter()
 const baseUrl = import.meta.env.VITE_BASE_URL
@@ -197,6 +206,7 @@ const filterMessageType = ref('')
 const filterContentType = ref('')
 const searchQuery = ref('')
 const searchTimeout = ref(null)
+const showDetailOnMobile = ref(false) // 移动端显示详情
 
 function handleshowchat() {
   router.push('/')
@@ -212,6 +222,15 @@ function showAI() {
 
 function selectFavorite(favorite) {
   selectedFavorite.value = favorite
+  // 移动端：显示详情页
+  if (window.innerWidth <= 768) {
+    showDetailOnMobile.value = true
+  }
+}
+
+function backToList() {
+  showDetailOnMobile.value = false
+  selectedFavorite.value = null
 }
 
 function getItemTitle(favorite) {
@@ -429,6 +448,14 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+.mobile-only {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: block;
+  }
 }
 
 .container {
@@ -1057,12 +1084,323 @@ onMounted(() => {
   .favorites-page {
     height: 100vh;
     overflow: hidden;
+    padding-bottom: 60px; // 为底部导航栏留空间
   }
 
   .container {
     border-radius: 0;
     margin: 0;
-    height: 100vh;
+    height: calc(100vh - 60px); // 减去底部导航栏高度
+    flex-direction: column;
+  }
+  
+  .section1 {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 60px;
+    border-radius: 0;
+  }
+  
+  .section2 {
+    flex: 1;
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  
+  .section3-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    
+    &.show-detail {
+      transform: translateX(0);
+    }
+  }
+  
+  .section3 {
+    margin: 0;
+    border-radius: 0;
+    height: 100%;
+  }
+  
+  // 添加返回按钮样式
+  .mobile-back-btn {
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    background: white;
+    border: none;
+    border-bottom: 1px solid #e8e8e8;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgb(165, 42, 42);
+    cursor: pointer;
+    z-index: 10;
+    display: none;
+    text-align: left;
+    
+    @media (max-width: 768px) {
+      display: block;
+    }
+    
+    &:active {
+      background: #f8f9fa;
+    }
+  }
+  
+  // 移动端优化
+  .favorites-list-panel {
+    .panel-header {
+      padding: 12px 16px;
+      
+      h2 {
+        font-size: 16px;
+      }
+      
+      .stats-mini .stat {
+        font-size: 12px;
+      }
+    }
+    
+    .filters {
+      padding: 10px 16px;
+      flex-wrap: wrap;
+      
+      .filter-select {
+        min-width: 0;
+        font-size: 12px;
+      }
+    }
+    
+    .search-box {
+      padding: 10px 16px;
+      
+      .search-input {
+        padding: 8px 32px;
+        font-size: 14px;
+      }
+      
+      .search-icon {
+        left: 24px;
+      }
+      
+      .clear-btn {
+        right: 24px;
+      }
+    }
+  }
+  
+  .favorite-item {
+    padding: 12px 16px;
+    
+    .item-content {
+      .item-text {
+        .item-title {
+          font-size: 14px;
+          
+          .sender-name {
+            font-size: 13px;
+          }
+        }
+        
+        .item-preview {
+          font-size: 12px;
+        }
+      }
+      
+      .item-meta {
+        .item-badge {
+          font-size: 10px;
+          padding: 2px 8px;
+        }
+        
+        .item-time {
+          font-size: 10px;
+        }
+      }
+    }
+  }
+  
+  .favorite-detail {
+    .detail-header {
+      padding: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+      
+      .detail-info {
+        width: 100%;
+        
+        h3 {
+          font-size: 16px;
+        }
+        
+        .detail-meta {
+          flex-wrap: wrap;
+          gap: 8px;
+          
+          .type-badge,
+          .sender-info {
+            font-size: 11px;
+            padding: 3px 8px;
+          }
+          
+          .detail-time {
+            font-size: 12px;
+          }
+        }
+      }
+      
+      .detail-actions {
+        width: 100%;
+        
+        .remove-btn {
+          width: 100%;
+          justify-content: center;
+          padding: 10px 16px;
+        }
+      }
+    }
+    
+    .code-content {
+      .code-header {
+        padding: 10px 16px;
+        flex-wrap: wrap;
+        
+        .language {
+          font-size: 11px;
+        }
+        
+        .filename {
+          font-size: 12px;
+          width: 100%;
+          margin-top: 4px;
+        }
+        
+        .copy-code-btn {
+          font-size: 11px;
+          padding: 5px 10px;
+        }
+      }
+      
+      pre {
+        padding: 16px;
+        
+        code {
+          font-size: 12px;
+        }
+      }
+    }
+    
+    .text-content {
+      padding: 16px;
+      
+      p {
+        font-size: 14px;
+      }
+    }
+    
+    .image-content {
+      .image-info {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+        
+        .file-name {
+          width: 100%;
+          font-size: 13px;
+        }
+        
+        .download-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+    
+    .file-content {
+      padding: 32px 16px;
+      
+      .file-icon {
+        margin-bottom: 16px;
+      }
+      
+      .file-details {
+        .file-name {
+          font-size: 14px;
+        }
+        
+        .file-size {
+          font-size: 13px;
+        }
+        
+        .download-file-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+        }
+      }
+    }
+  }
+  
+  // 移除伪元素返回按钮（改用真实按钮）
+}
+
+@media (max-width: 480px) {
+  .favorites-list-panel {
+    .panel-header h2 {
+      font-size: 15px;
+    }
+    
+    .filters {
+      .filter-select {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+    }
+  }
+  
+  .favorite-item {
+    padding: 10px 12px;
+    
+    .item-content {
+      .item-text .item-title {
+        font-size: 13px;
+      }
+    }
+  }
+  
+  .favorite-detail {
+    .detail-header {
+      padding: 12px;
+      
+      .detail-info h3 {
+        font-size: 15px;
+      }
+    }
+    
+    .code-content {
+      .code-header {
+        padding: 8px 12px;
+      }
+      
+      pre {
+        padding: 12px;
+        
+        code {
+          font-size: 11px;
+        }
+      }
+    }
   }
 }
 </style>
