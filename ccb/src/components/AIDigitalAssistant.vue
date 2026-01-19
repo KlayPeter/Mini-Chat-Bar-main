@@ -397,10 +397,13 @@ onMounted(() => {
       })
     }
   } else {
-    // 其他模式：延迟显示欢迎消息
+    // 其他模式：延迟显示欢迎消息（只显示一次）
     setTimeout(() => {
-      const message = generateMessage()
-      addToQueue(message)
+      // 检查是否已经有消息在显示，避免重复
+      if (!currentMessage.value && messageQueue.value.length === 0) {
+        const message = generateMessage()
+        addToQueue(message)
+      }
     }, 1000)
   }
 })

@@ -7,19 +7,30 @@
       </div>
 
       <!-- 群聊列表 -->
-      <div class="section2">
-        <GroupList @select-group="handleSelectGroup" ref="groupListRef" />
+      <div class="section2-wrapper" :class="{ collapsed: isSection2Collapsed }">
+        <div class="section2">
+          <GroupList @select-group="handleSelectGroup" ref="groupListRef" />
 
-        <!-- AI 助手面板 - 覆盖在群列表上 -->
-        <AIAssistantPanel 
-          :visible="showAIPanel" 
-          :chatContext="aiChatContext"
-          @close="showAIPanel = false" 
-        />
+          <!-- AI 助手面板 - 覆盖在群列表上 -->
+          <AIAssistantPanel 
+            :visible="showAIPanel" 
+            :chatContext="aiChatContext"
+            @close="showAIPanel = false" 
+          />
+        </div>
       </div>
 
       <!-- 聊天区域 -->
-      <div class="section3-wrapper" :class="{ active: showChatArea }">
+      <div class="section3-wrapper" :class="{ active: showChatArea, expanded: isSection2Collapsed }">
+        <!-- 折叠/展开按钮 - 始终显示 -->
+        <button 
+          @click="toggleSection2" 
+          class="toggle-section2-btn"
+          :title="isSection2Collapsed ? '展开列表' : '折叠列表'"
+        >
+          <ChevronRight v-if="isSection2Collapsed" :size="20" />
+          <ChevronLeft v-else :size="20" />
+        </button>
       <div v-if="!currentGroup" class="section3">
         <div class="welcome-state">
           <i class="icon"><ChatBubble class="welcome-icon" /></i>
@@ -151,6 +162,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { Search, ChatBubble, Notes } from '@iconoir/vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import Sidebar from '../components/Sidebar.vue'
@@ -201,6 +213,7 @@ const hasMoreMessages = ref(true) // 是否还有更多消息
 const showChatArea = ref(false) // 移动端控制聊天区域显示
 const highlightedMessageId = ref(null) // 高亮显示的消息ID
 const showAIPanel = ref(false) // AI 助手面板
+const isSection2Collapsed = ref(false) // 折叠状态
 
 // AI 助手上下文
 const aiChatContext = computed(() => {
@@ -217,6 +230,11 @@ const aiChatContext = computed(() => {
 // 切换 AI 面板
 function toggleAIPanel() {
   showAIPanel.value = !showAIPanel.value
+}
+
+// 切换 section2 折叠状态
+function toggleSection2() {
+  isSection2Collapsed.value = !isSection2Collapsed.value
 }
 
 let socket = null
@@ -1576,8 +1594,22 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-.section2 {
+.section2-wrapper {
   flex: 0 0 30%;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  
+  &.collapsed {
+    flex: 0 0 0%;
+    width: 0;
+    min-width: 0;
+  }
+}
+
+.section2 {
+  width: 100%;
+  height: 100%;
   border: 1px solid gray;
   border-top: none;
   border-bottom: none;
@@ -1646,6 +1678,43 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &.expanded {
+    flex: 1 1 92%;
+  }
+}
+
+.toggle-section2-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 28px;
+  height: 56px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  
+  &:hover {
+    background: white;
+    color: rgb(165, 42, 42);
+    width: 32px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(-50%) scale(0.95);
+  }
 }
 
 .section3 {

@@ -63,9 +63,8 @@
     <!-- <div class="section3" v-if="show3"><Content @closemessage="handleclosemessage"/></div> -->
     <!-- 隐藏聊天内容的叉叉要到其它地方不上 -->
     <div class="section3-wrapper" :class="{ expanded: isSection2Collapsed }">
-      <!-- 折叠/展开按钮 -->
+      <!-- 折叠/展开按钮 - 始终显示 -->
       <button 
-        v-if="showcontent" 
         @click="toggleSection2" 
         class="toggle-section2-btn"
         :title="isSection2Collapsed ? '展开列表' : '折叠列表'"

@@ -11,14 +11,15 @@
       </div>
 
       <!-- 收藏列表 -->
-      <div class="section2">
-        <div class="favorites-list-panel">
-          <div class="panel-header">
-            <h2>我的收藏</h2>
-            <div class="stats-mini">
-              <span class="stat">{{ stats.total || 0 }} 条</span>
+      <div class="section2-wrapper" :class="{ collapsed: isSection2Collapsed }">
+        <div class="section2">
+          <div class="favorites-list-panel">
+            <div class="panel-header">
+              <h2>我的收藏</h2>
+              <div class="stats-mini">
+                <span class="stat">{{ stats.total || 0 }} 条</span>
+              </div>
             </div>
-          </div>
           
           <!-- 筛选器 -->
           <div class="filters">
@@ -86,9 +87,20 @@
           </div>
         </div>
       </div>
+    </div>
 
       <!-- 收藏详情 -->
-      <div class="section3-wrapper" :class="{ 'show-detail': showDetailOnMobile }">
+      <div class="section3-wrapper" :class="{ 'show-detail': showDetailOnMobile, expanded: isSection2Collapsed }">
+        <!-- 折叠/展开按钮 - 始终显示 -->
+        <button 
+          @click="toggleSection2" 
+          class="toggle-section2-btn"
+          :title="isSection2Collapsed ? '展开列表' : '折叠列表'"
+        >
+          <ChevronRight v-if="isSection2Collapsed" :size="20" />
+          <ChevronLeft v-else :size="20" />
+        </button>
+        
         <div class="section3">
           <div v-if="!selectedFavorite" class="welcome-state">
             <Star :size="64" class="welcome-icon" />
@@ -189,7 +201,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Star, Trash2, Copy, Search, X, Download, FileText, Video, Music } from 'lucide-vue-next'
+import { Star, Trash2, Copy, Search, X, Download, FileText, Video, Music, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
 import Sidebar from '../components/Sidebar.vue'
@@ -207,6 +219,7 @@ const filterContentType = ref('')
 const searchQuery = ref('')
 const searchTimeout = ref(null)
 const showDetailOnMobile = ref(false) // 移动端显示详情
+const isSection2Collapsed = ref(false) // 折叠状态
 
 function handleshowchat() {
   router.push('/')
@@ -218,6 +231,11 @@ function handleshowcontacts() {
 
 function showAI() {
   router.push('/chat-ai')
+}
+
+// 切换 section2 折叠状态
+function toggleSection2() {
+  isSection2Collapsed.value = !isSection2Collapsed.value
 }
 
 function selectFavorite(favorite) {
@@ -481,8 +499,22 @@ onMounted(() => {
   z-index: 10;
 }
 
-.section2 {
+.section2-wrapper {
   flex: 0 0 30%;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  
+  &.collapsed {
+    flex: 0 0 0%;
+    width: 0;
+    min-width: 0;
+  }
+}
+
+.section2 {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: white;
@@ -502,6 +534,42 @@ onMounted(() => {
   flex-direction: column;
   height: 100%;
   position: relative;
+  transition: all 0.3s ease;
+  
+  &.expanded {
+    flex: 1 1 92%;
+  }
+}
+
+.toggle-section2-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 28px;
+  height: 56px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  
+  &:hover {
+    background: white;
+    color: rgb(165, 42, 42);
+    width: 32px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(-50%) scale(0.95);
+  }
 }
 
 .section3 {
@@ -1351,8 +1419,6 @@ onMounted(() => {
       }
     }
   }
-  
-  // 移除伪元素返回按钮（改用真实按钮）
 }
 
 @media (max-width: 480px) {
