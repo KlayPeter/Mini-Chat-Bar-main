@@ -475,43 +475,27 @@ async function loadAIInsights() {
   const requestRoomId = currentRoom.value.RoomID // 保存请求时的 roomId
   
   try {
-    console.log('🔍 开始加载 AI 智能提示...', requestRoomId)
     const res = await axios.get(
       `${baseUrl}/api/chatroom-ai/insights/${requestRoomId}`,
       { headers: getAuthHeaders() }
     )
     
-    console.log('✅ AI 智能提示响应:', res.data)
-    
     // 检查是否还是同一个聊天室（防止快速切换导致的错乱）
     if (currentRoom.value.RoomID !== requestRoomId) {
-      console.log('⚠️ 聊天室已切换，忽略此响应', {
-        requested: requestRoomId,
-        current: currentRoom.value.RoomID
-      })
       return
     }
     
     if (res.data.success) {
       aiInsights.value = res.data.insights
       aiSpeech.value = res.data.aiSpeech || ''
-      console.log('📊 AI 智能提示数据:', aiInsights.value)
-      console.log('🗣️ AI 播报文本:', aiSpeech.value)
-      console.log('💡 建议数量:', res.data.suggestions?.length || 0)
       
       // 直接使用 suggestions
       if (res.data.suggestions && res.data.suggestions.length > 0) {
         aiInsights.value.suggestions = res.data.suggestions
-        console.log('✨ 已设置建议:', aiInsights.value.suggestions)
       }
       
       // 触发全局事件，让 AI 说话（立即模式，打断当前消息）
       if (aiSpeech.value) {
-        console.log('📢 触发全局 AI 播报事件（立即模式）', {
-          roomId: currentRoom.value.RoomID,
-          roomName: currentRoom.value.RoomName,
-          speech: aiSpeech.value
-        })
         window.dispatchEvent(new CustomEvent('ai-speak', { 
           detail: { 
             text: aiSpeech.value, 
@@ -529,7 +513,6 @@ async function loadAIInsights() {
     
     // 临时：添加模拟数据用于测试 UI
     if (err.response?.status === 404) {
-      console.log('🧪 使用模拟数据测试 UI')
       aiInsights.value.suggestions = [
         {
           type: 'open_questions',
@@ -879,7 +862,6 @@ function initSocket() {
   })
 
   socket.on('connect', () => {
-    console.log('✅ Socket 已连接')
     if (currentRoom.value) {
       socket.emit('join-room', currentRoom.value.RoomID)
       socket.emit('join-group', {
@@ -890,7 +872,6 @@ function initSocket() {
   })
 
   socket.on('disconnect', () => {
-    console.log('❌ Socket 已断开')
   })
 
   socket.on('online-count', (data) => {

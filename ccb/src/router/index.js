@@ -96,7 +96,6 @@ router.beforeEach((to, from, next) => {
 
   // 如果访问需要认证的页面但没有有效的登录信息,跳转到登录页
   if (requiresAuth && (!token || !userId)) {
-    console.log('未登录或登录信息不完整,跳转到登录页')
     // 清除可能存在的不完整数据
     localStorage.removeItem('token')
     localStorage.removeItem('userId')

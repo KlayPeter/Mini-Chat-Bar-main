@@ -93,13 +93,9 @@ function handleAIClick() {
 
 // 处理 AI 刷新
 function handleAIRefresh() {
-  console.log('🔄 handleAIRefresh 被调用')
   // 先让 AI 说"正在刷新"
   if (aiAssistantRef.value) {
-    console.log('🎤 调用 speakRefreshing')
     aiAssistantRef.value.speakRefreshing()
-  } else {
-    console.log('⚠️ aiAssistantRef 为空')
   }
   emit('refreshInsights')
 }
@@ -150,7 +146,6 @@ watch(() => route.path, (newPath, oldPath) => {
 // 监听 aiSpeech 的变化，自动播报
 watch(() => aiSpeech.value, (newSpeech, oldSpeech) => {
   if (newSpeech && newSpeech !== oldSpeech && aiAssistantRef.value) {
-    console.log('🔔 检测到 aiSpeech 变化，立即播报:', newSpeech)
     aiAssistantRef.value.speak(newSpeech, 8000)
   }
 })
@@ -158,30 +153,17 @@ watch(() => aiSpeech.value, (newSpeech, oldSpeech) => {
 // 暴露方法供父组件调用
 defineExpose({
   updateAIInsights: (insights, speech = '') => {
-    console.log('📊 updateAIInsights 被调用:', { insights, speech })
     aiInsights.value = insights
     aiSpeech.value = speech
     
     // 刷新完成后，让 AI 说话
     if (aiAssistantRef.value && speech) {
-      console.log('🎤 调用 speakRefreshComplete')
       aiAssistantRef.value.speakRefreshComplete(speech)
-    } else {
-      console.log('⚠️ aiAssistantRef 或 speech 为空:', { 
-        hasRef: !!aiAssistantRef.value, 
-        speech 
-      })
     }
   },
   speakWelcome: (roomName) => {
-    console.log('👋 speakWelcome 被调用:', roomName)
-    console.log('📍 aiAssistantRef.value:', aiAssistantRef.value)
-    
     if (aiAssistantRef.value) {
-      console.log('🎤 调用 speak')
       aiAssistantRef.value.speak(`欢迎来到 ${roomName}！`, 3000)
-    } else {
-      console.log('⚠️ aiAssistantRef 为空')
     }
   }
 })
@@ -266,7 +248,6 @@ onMounted(async () => {
   
   // 监听全局 AI 播报事件
   window.addEventListener('ai-speak', (event) => {
-    console.log('🔔 收到全局 AI 播报事件:', event.detail)
     if (aiAssistantRef.value && event.detail.text) {
       // 构建消息对象
       const message = {

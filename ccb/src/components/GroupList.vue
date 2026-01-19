@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="group-list">
     <div class="header">
       <h3>群聊</h3>
@@ -186,14 +186,12 @@ function hasUnreadMessages(roomId) {
 // 获取未读消息数量
 function getUnreadCount(roomId) {
   const count = unreadCounts.value[roomId] || 0
-  console.log(`getUnreadCount(${roomId}): ${count}`)
   return count
 }
 
 // 检查是否有@提醒
 function hasMentionAlert(roomId) {
   const hasMention = mentionAlerts.value.has(roomId)
-  console.log(`hasMentionAlert(${roomId}): ${hasMention}`)
   return hasMention
 }
 
@@ -202,7 +200,6 @@ function markGroupAsUnread(roomId, messageContent, senderName) {
   if (roomId !== currentGroupId.value) {
     // 添加未读群组
     unreadGroups.value.add(roomId)
-    console.log('未读群组列表:', Array.from(unreadGroups.value))
     
     // 增加未读消息数量
     const oldCount = unreadCounts.value[roomId] || 0
@@ -226,11 +223,9 @@ function markGroupAsMentioned(roomId) {
   if (roomId !== currentGroupId.value) {
     // 添加@提醒标记
     mentionAlerts.value.add(roomId)
-    console.log('@提醒列表:', Array.from(mentionAlerts.value))
     
     // 也添加到未读群组列表
     unreadGroups.value.add(roomId)
-    console.log('未读群组列表:', Array.from(unreadGroups.value))
   } else {
   }
 }
@@ -291,7 +286,6 @@ async function createGroup() {
 // 获取最后一条消息
 function getLastMessage(group) {
   const lastMsg = groupLastMessages.value[group.RoomID]
-  console.log(`getLastMessage(${group.RoomID}):`, lastMsg)
   
   if (!lastMsg) return '暂无消息'
   
@@ -357,7 +351,6 @@ function formatDate(dateStr) {
 
 // 加入所有群聊Socket房间
 function joinAllGroupRooms() {
-  console.log('当前群聊列表:', groups.value.map(g => ({id: g.RoomID, name: g.RoomName})))
   
   // 从localStorage获取当前用户ID
   const userId = localStorage.getItem('userId')
@@ -390,7 +383,6 @@ function initGroupSocket() {
   })
   
   groupSocket.on('connect', () => {
-    console.log('👤 用户ID:', localStorage.getItem('userId'))
     // 发送用户登录事件，就像私聊那样
     groupSocket.emit('login', localStorage.getItem('userId'))
     
@@ -477,8 +469,6 @@ function initGroupSocket() {
   
   // 监听@提及通知事件
   groupSocket.on('mention-notification', (data) => {
-    console.log('完整数据:', JSON.stringify(data, null, 2))
-    console.log('当前用户ID:', localStorage.getItem('userId'))
     // 先强制测试，无论什么情况都标记@提醒
     if (data.roomId && data.roomId !== currentGroupId.value) {
       markGroupAsMentioned(data.roomId)
@@ -571,14 +561,6 @@ async function updateGroupMessage(roomId) {
 
 // 按活跃度排序群聊列表（有新消息的排前面）
 function sortGroupsByActivity() {
-  console.log('排序前群聊顺序:', groups.value.map(g => ({
-    id: g.RoomID,
-    name: g.RoomName,
-    hasUnread: unreadGroups.value.has(g.RoomID),
-    hasMention: mentionAlerts.value.has(g.RoomID),
-    lastMsg: groupLastMessages.value[g.RoomID]?.content
-  })))
-  
   groups.value.sort((a, b) => {
     // 获取最新消息的时间戳
     const aLastMsg = groupLastMessages.value[a.RoomID]
@@ -586,8 +568,6 @@ function sortGroupsByActivity() {
     
     const aTime = aLastMsg ? new Date(aLastMsg.createdAt || aLastMsg.timestamp || 0).getTime() : 0
     const bTime = bLastMsg ? new Date(bLastMsg.createdAt || bLastMsg.timestamp || 0).getTime() : 0
-    
-    console.log(`比较群聊 ${a.RoomName}(${aTime}) vs ${b.RoomName}(${bTime})`)
     
     // 有未读消息的群聊优先级更高
     const aHasUnread = unreadGroups.value.has(a.RoomID) || mentionAlerts.value.has(a.RoomID)
@@ -598,11 +578,6 @@ function sortGroupsByActivity() {
     // 按最新消息时间降序排序
     return bTime - aTime
   })
-  
-  console.log('排序后群聊顺序:', groups.value.map(g => ({
-    id: g.RoomID,
-    name: g.RoomName
-  })))
 }
 
 // 直接更新群聊最新消息（由GroupChat直接调用）

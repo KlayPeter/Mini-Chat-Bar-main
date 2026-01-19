@@ -268,14 +268,11 @@ async function refreshAIInsights() {
   if (!currentRoom.value) return
   
   try {
-    console.log('🔄 刷新 AI 智能提示...')
     const token = localStorage.getItem('token')
     const res = await axios.get(
       `${baseUrl}/api/chatroom-ai/insights/${currentRoom.value.RoomID}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    
-    console.log('✅ AI 智能提示响应:', res.data)
     
     if (res.data.success && sidebarRef.value) {
       // 更新侧边栏的 AI 助手数据，包括 AI 播报文本
@@ -294,7 +291,6 @@ async function refreshAIInsights() {
 
 // 处理 AI 操作
 function handleAIAction(action) {
-  console.log('AI 操作:', action)
   // 根据不同的操作类型执行相应的逻辑
   switch (action.type) {
     case 'view_questions':
@@ -316,18 +312,12 @@ function handleAIAction(action) {
 }
 
 async function handleSelectRoom(room) {
-  console.log('🏠 handleSelectRoom 被调用:', room.RoomName)
-  console.log('📍 sidebarRef.value:', sidebarRef.value)
-  
   currentRoom.value = room
   showChatArea.value = true
   
   // AI 说欢迎语
   if (sidebarRef.value) {
-    console.log('👋 调用 speakWelcome')
     sidebarRef.value.speakWelcome(room.RoomName)
-  } else {
-    console.log('⚠️ sidebarRef 为空')
   }
   
   // 立即刷新 AI 智能提示（不延迟）
@@ -587,9 +577,6 @@ function handleRoomUpdate() {
 }
 
 onMounted(async () => {
-  console.log('🎬 ChatRoom 组件挂载')
-  console.log('📍 当前路由:', route.path, '查询参数:', route.query)
-  
   const token = localStorage.getItem('token')
   const res = await axios.get(`${baseUrl}/api/user/info`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -597,46 +584,33 @@ onMounted(async () => {
   currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
   myAvatar.value = res.data.user?.uAvatar || '/images/avatar/default-avatar.webp'
   
-  console.log('👤 当前用户ID:', currentUserId.value)
-  
   // 检查是否有 roomId 参数（从邀请卡片跳转）
   if (route.query.roomId) {
-    console.log('🎯 检测到 roomId 参数:', route.query.roomId)
     await handleInviteNavigation(route.query.roomId)
-  } else {
-    console.log('ℹ️ 没有 roomId 参数')
   }
 })
 
 // 监听路由变化，处理从其他页面跳转过来的情况
 watch(() => route.query.roomId, async (newRoomId, oldRoomId) => {
-  console.log('🔄 路由 roomId 变化:', oldRoomId, '->', newRoomId)
   if (newRoomId && newRoomId !== oldRoomId) {
-    console.log('🎯 处理新的 roomId:', newRoomId)
     await handleInviteNavigation(newRoomId)
   }
 })
 
 async function handleInviteNavigation(roomId) {
   try {
-    console.log('🔍 开始处理邀请导航，房间ID:', roomId)
     const token = localStorage.getItem('token')
     
     // 获取聊天室详情（公开聊天室会自动加入）
-    console.log('📡 请求聊天室详情:', `${baseUrl}/room/${roomId}`)
     const res = await axios.get(`${baseUrl}/room/${roomId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     
-    console.log('📦 聊天室详情响应:', res.data)
-    
     if (res.data.success && res.data.room) {
       const room = res.data.room
-      console.log('🏠 聊天室信息:', room.RoomName, '类型:', room.joinType)
       
       // 如果需要加入（密码或邀请码）
       if (res.data.needJoin) {
-        console.log('⚠️ 需要加入验证')
         if (room.joinType === 'password') {
           toast.info('该聊天室需要密码，请输入密码加入')
           // 不自动选择房间，等待用户输入密码
@@ -646,23 +620,18 @@ async function handleInviteNavigation(roomId) {
         return
       }
       
-      console.log('✅ 开始选择并显示聊天室')
       // 选择并显示聊天室
       await handleSelectRoom(room)
       
       // 通知 ChatRoomList 刷新并更新选中状态
       if (roomListRef.value) {
-        console.log('🔄 刷新聊天室列表')
         await roomListRef.value.loadRooms()
         if (roomListRef.value.selectRoomById) {
-          console.log('🎯 选中聊天室:', room.RoomID)
           roomListRef.value.selectRoomById(room.RoomID)
         }
       } else {
         console.warn('⚠️ roomListRef 不存在')
       }
-      
-      console.log('🎉 邀请导航处理完成')
     } else {
       console.error('❌ 聊天室数据无效')
     }

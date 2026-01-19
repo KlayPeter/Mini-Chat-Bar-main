@@ -270,10 +270,8 @@ function handleJoinAllRooms(event) {
   }
   
   const { groups, userId } = event.detail
-  console.log('群聊列表:', groups.map(g => ({id: g.RoomID, name: g.RoomName})))
   
   groups.forEach(group => {
-    console.log(`🏠 加入Socket房间: ${group.RoomID} (${group.RoomName})`)
     
     // 发送多种加入房间事件，确保服务器能识别
     socket.emit('join-group', {
@@ -303,7 +301,6 @@ function initSocket() {
     // 加入用户所有的群聊房间（关键修复！）
     if (groupListRef.value && groupListRef.value.groups) {
       const allGroups = groupListRef.value.groups
-      console.log('📋 用户的所有群聊:', allGroups.map(g => ({id: g.RoomID, name: g.RoomName})))
       
       allGroups.forEach(group => {
         socket.emit('join-group', {
@@ -1472,7 +1469,6 @@ function handleForwardedMessage(event) {
     } else {
       if (!message) {
       } else {
-        console.log('消息已存在，检查现有消息ID:', messages.value.map(m => m._id))
       }
     }
   } else {

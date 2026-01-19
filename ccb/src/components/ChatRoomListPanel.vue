@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="chatroom-list-panel">
     <div class="list-header">
       <h2>技术聊天室</h2>
@@ -138,15 +138,8 @@ let refreshInterval = null
 // 我加入的聊天室
 const joinedRooms = computed(() => {
   if (!currentUserId.value) {
-    console.log('❌ 当前用户ID为空')
     return []
   }
-  
-  console.log('👤 当前用户ID:', currentUserId.value)
-  console.log('📋 所有聊天室:', rooms.value.map(r => ({
-    name: r.RoomName,
-    members: r.Members?.map(m => m.userID)
-  })))
   
   const joined = rooms.value.filter(room => {
     const isMember = room.Members?.some(m => 
@@ -154,8 +147,6 @@ const joinedRooms = computed(() => {
     )
     return isMember
   })
-  
-  console.log('✅ 我加入的聊天室:', joined.map(r => r.RoomName))
   return joined
 })
 
@@ -303,12 +294,10 @@ function initSocket() {
   })
 
   socket.on('connect', () => {
-    console.log('✅ ChatRoomListPanel Socket 已连接')
   })
 
   // 监听全局的聊天室在线人数更新
   socket.on('chatroom-online-update', (data) => {
-    console.log('👥 聊天室在线人数更新:', data)
     // 更新对应聊天室的在线人数
     const room = rooms.value.find(r => r.RoomID === data.roomId)
     if (room) {
@@ -317,7 +306,6 @@ function initSocket() {
   })
 
   socket.on('disconnect', () => {
-    console.log('❌ ChatRoomListPanel Socket 已断开')
   })
 }
 
@@ -348,7 +336,6 @@ async function loadCurrentUser() {
       headers: { Authorization: `Bearer ${token}` }
     })
     currentUserId.value = String(res.data.user?.uID || res.data.id || res.data.uID)
-    console.log('✅ 加载当前用户ID:', currentUserId.value)
   } catch (err) {
     console.error('❌ 获取用户信息失败:', err)
   }

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="invite-card" @click="handleJoinRoom">
     <div class="card-header">
       <div class="card-icon">
@@ -110,7 +110,6 @@ function updateTimeRemaining() {
 
 async function handleJoinRoom() {
   try {
-    console.log('🎯 点击邀请卡片:', props.inviteData)
     const token = localStorage.getItem('token')
     if (!token) {
       toast.error('请先登录')
@@ -118,23 +117,16 @@ async function handleJoinRoom() {
     }
     
     const joinType = props.inviteData.joinType || 'public'
-    console.log('📋 加入类型:', joinType, '房间ID:', props.inviteData.roomId)
-    
     // 先获取聊天室详细信息（预览模式，不自动加入）
-    console.log('📡 获取聊天室详情（预览模式）')
     const res = await axios.get(`${baseUrl}/room/${props.inviteData.roomId}?preview=true`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     
     if (res.data.success && res.data.room) {
       roomInfo.value = res.data.room
-      
-      console.log('📦 聊天室信息:', res.data)
-      
       // 检查是否已经是成员
       if (res.data.isMember) {
         // 已经是成员，直接进入
-        console.log('✅ 已是成员，直接进入')
         toast.success('进入聊天室')
         router.push({
           path: '/chatroom-detail',
@@ -142,7 +134,6 @@ async function handleJoinRoom() {
         })
       } else {
         // 不是成员，显示加入确认弹窗
-        console.log('📋 显示加入确认弹窗')
         showJoinDialog.value = true
       }
     }
@@ -156,9 +147,6 @@ async function confirmJoin() {
   try {
     const token = localStorage.getItem('token')
     const joinType = props.inviteData.joinType || 'public'
-    
-    console.log('✅ 确认加入，类型:', joinType)
-    
     // 根据加入方式处理
     if (joinType === 'public') {
       // 公开聊天室：调用加入接口
@@ -167,7 +155,6 @@ async function confirmJoin() {
       })
       
       if (res.data.success) {
-        console.log('✅ 加入成功，跳转到聊天室详情页')
         toast.success('已加入聊天室')
         showJoinDialog.value = false
         roomInfo.value = null
@@ -187,7 +174,6 @@ async function confirmJoin() {
       )
       
       if (res.data.success) {
-        console.log('✅ 加入成功，跳转到聊天室详情页')
         toast.success('成功加入聊天室')
         showJoinDialog.value = false
         roomInfo.value = null
@@ -198,7 +184,6 @@ async function confirmJoin() {
       }
     } else if (joinType === 'password') {
       // 密码方式：关闭弹窗，跳转到聊天室详情页（会弹出密码输入框）
-      console.log('🔒 跳转到密码聊天室')
       showJoinDialog.value = false
       roomInfo.value = null
       router.push({

@@ -360,8 +360,6 @@ async function loadFavorites() {
     
     if (res.data.success) {
       favorites.value = res.data.favorites
-      console.log('收藏列表:', favorites.value)
-      console.log('第一条收藏详情:', favorites.value[0])
     }
   } catch (err) {
     console.error('加载收藏失败:', err)

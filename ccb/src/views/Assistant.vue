@@ -503,7 +503,6 @@ onMounted(async () => {
   if (lastChatContext) {
     try {
       currentChatContext.value = JSON.parse(lastChatContext);
-      console.log('已加载聊天上下文:', currentChatContext.value);
     } catch (e) {
       console.error('解析聊天上下文失败:', e);
     }

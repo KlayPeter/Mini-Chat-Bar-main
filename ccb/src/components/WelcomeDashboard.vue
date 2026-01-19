@@ -36,7 +36,6 @@ onMounted(async () => {
       )
       // 修复：使用正确的数据路径
       username.value = res.data.user?.uName || res.data.uName || res.data.name || 'User'
-      console.log('获取到的用户名:', username.value)
     }
   } catch (err) {
     console.error('Failed to get user info', err)

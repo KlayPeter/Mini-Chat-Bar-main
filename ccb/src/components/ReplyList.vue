@@ -115,13 +115,6 @@ const canMarkSolution = computed(() => {
   const isQuestionOwner = props.questionMessage?.isQuestion && 
          String(props.questionMessage.from) === String(props.currentUserId)
   
-  console.log('🔍 canMarkSolution check:', {
-    isQuestion: props.questionMessage?.isQuestion,
-    questionFrom: props.questionMessage?.from,
-    currentUserId: props.currentUserId,
-    isOwner: isQuestionOwner
-  })
-  
   return isQuestionOwner
 })
 
