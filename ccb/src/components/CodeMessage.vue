@@ -68,6 +68,12 @@
         <MessageContent :content="message.content" />
       </div>
       
+      <!-- 回复数量 -->
+      <div v-if="replyCount > 0" class="reply-count" @click="handleReply">
+        <MessageCircle :size="14" />
+        <span>{{ replyCount }} 条回复</span>
+      </div>
+      
       <!-- 代码执行结果 -->
       <div v-if="executionResult" class="execution-result">
         <div class="result-header">
@@ -150,6 +156,10 @@ const props = defineProps({
   myAvatar: {
     type: String,
     default: ''
+  },
+  replyCount: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -607,6 +617,35 @@ function formatResult(result) {
       flex-shrink: 0;
       margin-top: 2px;
       color: rgb(165, 42, 42);
+    }
+  }
+  
+  .reply-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    width: fit-content;
+    
+    svg {
+      color: rgb(165, 42, 42);
+    }
+    
+    &:hover {
+      background: #fff;
+      border-color: rgb(165, 42, 42);
+      color: rgb(165, 42, 42);
+      
+      svg {
+        color: rgb(165, 42, 42);
+      }
     }
   }
   

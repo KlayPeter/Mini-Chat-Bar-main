@@ -2,6 +2,7 @@
   <div class="ai-digital-assistant" :class="{ 'is-speaking': isSpeaking }">
     <!-- AI 数字人头像 -->
     <div 
+      ref="avatarRef"
       class="ai-avatar-container"
       @click="handleClick"
       :class="{ 'breathing': !isSpeaking, 'speaking': isSpeaking }"
@@ -22,30 +23,39 @@
       <div v-if="hasNotification" class="notification-dot"></div>
     </div>
     
-    <!-- 语音气泡 -->
-    <transition name="bubble">
-      <div v-if="currentMessage" class="speech-bubble">
-        <div class="bubble-content">
-          <p class="message-text">{{ displayedText }}</p>
-          <div v-if="currentMessage.actions" class="bubble-actions">
-            <button 
-              v-for="action in currentMessage.actions" 
-              :key="action.type"
-              class="action-btn"
-              @click.stop="handleAction(action)"
-            >
-              {{ action.label }}
-            </button>
+    <!-- 语音气泡 - 使用 Teleport 传送到 body -->
+    <Teleport to="body">
+      <transition name="bubble">
+        <div 
+          v-if="currentMessage && bubblePosition" 
+          class="speech-bubble"
+          :style="{
+            left: bubblePosition.left + 'px',
+            top: bubblePosition.top + 'px'
+          }"
+        >
+          <div class="bubble-content">
+            <p class="message-text">{{ displayedText }}</p>
+            <div v-if="currentMessage.actions" class="bubble-actions">
+              <button 
+                v-for="action in currentMessage.actions" 
+                :key="action.type"
+                class="action-btn"
+                @click.stop="handleAction(action)"
+              >
+                {{ action.label }}
+              </button>
+            </div>
           </div>
+          <div class="bubble-tail"></div>
         </div>
-        <div class="bubble-tail"></div>
-      </div>
-    </transition>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { Sparkles } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -73,6 +83,8 @@ const isBlinking = ref(false)
 const hasNotification = ref(false)
 const messageQueue = ref([]) // 消息队列
 const isProcessingQueue = ref(false) // 是否正在处理队列
+const avatarRef = ref(null) // 头像元素引用
+const bubblePosition = ref(null) // 气泡位置
 
 let typingInterval = null
 let blinkInterval = null
@@ -81,10 +93,8 @@ let idleTimer = null // 空闲计时器
 
 // 添加消息到队列
 const addToQueue = (message) => {
-  console.log('🎤 AI 准备说话:', message.text)
   if (message.immediate) {
     // 立即显示，清空队列，打断当前消息
-    console.log('⚡ 立即模式：清空队列并打断当前消息')
     messageQueue.value = []
     isProcessingQueue.value = false
     
@@ -210,7 +220,6 @@ const generateMessage = () => {
 
 // 打字机效果显示文本
 const typeText = (text) => {
-  console.log('⌨️ typeText 被调用:', text)
   displayedText.value = ''
   let index = 0
   
@@ -221,7 +230,6 @@ const typeText = (text) => {
       displayedText.value += text[index]
       index++
     } else {
-      console.log('✅ 打字完成')
       clearInterval(typingInterval)
       isSpeaking.value = false
     }
@@ -230,13 +238,9 @@ const typeText = (text) => {
 
 // 显示消息
 const showMessage = (message) => {
-  console.log('💬 showMessage 被调用:', message)
   if (!message) {
-    console.log('⚠️ message 为空，返回')
     return
   }
-  
-  console.log('✅ 开始显示消息，设置状态...')
   
   // 重置空闲计时器
   startIdleTimer()
@@ -245,8 +249,8 @@ const showMessage = (message) => {
   isSpeaking.value = true
   hasNotification.value = true
   
-  console.log('📝 currentMessage.value:', currentMessage.value)
-  console.log('🗣️ isSpeaking.value:', isSpeaking.value)
+  // 计算气泡位置
+  updateBubblePosition()
   
   typeText(message.text)
   
@@ -255,20 +259,29 @@ const showMessage = (message) => {
   const calculatedDuration = Math.max(3000, Math.min(8000, textLength * 150))
   const finalDuration = message.duration || calculatedDuration
   
-  console.log(`⏱️ 消息将显示 ${finalDuration}ms (文字长度: ${textLength})`)
-  
   // 自动隐藏
   if (messageTimeout) clearTimeout(messageTimeout)
   messageTimeout = setTimeout(() => {
-    console.log('⏰ 消息超时，隐藏气泡')
     currentMessage.value = null
     displayedText.value = ''
     hasNotification.value = false
     isProcessingQueue.value = false
+    bubblePosition.value = null
     
     // 继续处理队列
     processQueue()
   }, finalDuration)
+}
+
+// 更新气泡位置
+const updateBubblePosition = () => {
+  if (!avatarRef.value) return
+  
+  const rect = avatarRef.value.getBoundingClientRect()
+  bubblePosition.value = {
+    left: rect.right + 10, // 头像右侧 10px
+    top: rect.top // 与头像顶部对齐
+  }
 }
 
 // 处理点击
@@ -377,11 +390,9 @@ onUnmounted(() => {
 // 暴露方法供父组件调用
 defineExpose({
   speak: (text, duration = 5000, actions = null, immediate = false) => {
-    console.log('🎤 speak 被调用:', text, '立即模式:', immediate)
     addToQueue({ text, duration, actions, immediate })
   },
   speakRefreshing: () => {
-    console.log('🔄 speakRefreshing 被调用')
     addToQueue({ 
       text: '正在刷新智能提示...', 
       duration: 2000,
@@ -389,7 +400,6 @@ defineExpose({
     })
   },
   speakRefreshComplete: (speech) => {
-    console.log('✅ speakRefreshComplete 被调用:', speech)
     addToQueue({ 
       text: speech || '刷新完成！', 
       duration: 6000 
@@ -401,7 +411,7 @@ defineExpose({
 <style scoped lang="scss">
 .ai-digital-assistant {
   position: relative;
-  z-index: 100;
+  z-index: 9999;
 }
 
 .ai-avatar-container {
@@ -572,9 +582,7 @@ defineExpose({
 }
 
 .speech-bubble {
-  position: absolute;
-  left: 70px;
-  top: 0;
+  position: fixed;
   min-width: 200px;
   max-width: 300px;
   background: white;
@@ -582,7 +590,8 @@ defineExpose({
   padding: 12px 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border: 2px solid rgb(165, 42, 42);
-  z-index: 10;
+  z-index: 10000;
+  pointer-events: auto;
 }
 
 .bubble-tail {
