@@ -359,7 +359,7 @@ const router = useRouter()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
 
-const emit = defineEmits(['closemessage'])
+const emit = defineEmits(['closemessage', 'ai-speak'])
 
 const currentRoom = ref(null)
 const messages = ref([])
@@ -430,6 +430,10 @@ async function loadRoom() {
     })
     if (res.data.success) {
       currentRoom.value = res.data.room
+      
+      // 通知父组件让 AI 说欢迎语
+      emit('ai-speak', `欢迎来到 ${res.data.room.RoomName}！`, 3000)
+      
       await loadMessages()
       startCountdown() // 启动倒计时
     }
@@ -464,14 +468,25 @@ async function loadMessages() {
 async function loadAIInsights() {
   if (!currentRoom.value) return
   
+  const requestRoomId = currentRoom.value.RoomID // 保存请求时的 roomId
+  
   try {
-    console.log('🔍 开始加载 AI 智能提示...')
+    console.log('🔍 开始加载 AI 智能提示...', requestRoomId)
     const res = await axios.get(
-      `${baseUrl}/api/chatroom-ai/insights/${currentRoom.value.RoomID}`,
+      `${baseUrl}/api/chatroom-ai/insights/${requestRoomId}`,
       { headers: getAuthHeaders() }
     )
     
     console.log('✅ AI 智能提示响应:', res.data)
+    
+    // 检查是否还是同一个聊天室（防止快速切换导致的错乱）
+    if (currentRoom.value.RoomID !== requestRoomId) {
+      console.log('⚠️ 聊天室已切换，忽略此响应', {
+        requested: requestRoomId,
+        current: currentRoom.value.RoomID
+      })
+      return
+    }
     
     if (res.data.success) {
       aiInsights.value = res.data.insights
@@ -484,6 +499,24 @@ async function loadAIInsights() {
       if (res.data.suggestions && res.data.suggestions.length > 0) {
         aiInsights.value.suggestions = res.data.suggestions
         console.log('✨ 已设置建议:', aiInsights.value.suggestions)
+      }
+      
+      // 触发全局事件，让 AI 说话（立即模式，打断当前消息）
+      if (aiSpeech.value) {
+        console.log('📢 触发全局 AI 播报事件（立即模式）', {
+          roomId: currentRoom.value.RoomID,
+          roomName: currentRoom.value.RoomName,
+          speech: aiSpeech.value
+        })
+        window.dispatchEvent(new CustomEvent('ai-speak', { 
+          detail: { 
+            text: aiSpeech.value, 
+            duration: 6000,
+            immediate: true, // 立即打断当前消息
+            roomId: currentRoom.value.RoomID, // 添加 roomId 用于验证
+            roomName: currentRoom.value.RoomName // 添加 roomName 用于调试
+          } 
+        }))
       }
     }
   } catch (err) {

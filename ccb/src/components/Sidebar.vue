@@ -3,6 +3,7 @@
     <div class="logo">
       <!-- AI 数字人助手 -->
       <AIDigitalAssistant
+        ref="aiAssistantRef"
         :mode="currentMode"
         :insights="aiInsights"
         :aiSpeech="aiSpeech"
@@ -65,6 +66,7 @@ const avatar = ref('')
 const activeTab = ref('chat')
 const aiInsights = ref({ suggestions: [] })
 const aiSpeech = ref('') // AI 播报文本
+const aiAssistantRef = ref(null) // AI 数字人引用
 
 // 根据当前路由判断 AI 助手模式
 const currentMode = computed(() => {
@@ -91,6 +93,14 @@ function handleAIClick() {
 
 // 处理 AI 刷新
 function handleAIRefresh() {
+  console.log('🔄 handleAIRefresh 被调用')
+  // 先让 AI 说"正在刷新"
+  if (aiAssistantRef.value) {
+    console.log('🎤 调用 speakRefreshing')
+    aiAssistantRef.value.speakRefreshing()
+  } else {
+    console.log('⚠️ aiAssistantRef 为空')
+  }
   emit('refreshInsights')
 }
 
@@ -118,15 +128,61 @@ function updateActiveTab() {
 }
 
 // 监听路由变化
-watch(() => route.path, () => {
+watch(() => route.path, (newPath, oldPath) => {
   updateActiveTab()
+  
+  // 路由切换到聊天室时，AI 说欢迎语
+  if (newPath === '/chatrooms' && oldPath !== '/chatrooms') {
+    if (aiAssistantRef.value) {
+      aiAssistantRef.value.speak('欢迎来到技术聊天室！选择一个房间开始交流吧', 4000)
+    }
+  } else if (newPath === '/group-chat' && oldPath !== '/group-chat') {
+    if (aiAssistantRef.value) {
+      aiAssistantRef.value.speak('进入群聊模式，点击我可以打开 AI 对话框', 3000)
+    }
+  } else if (newPath === '/chats' && oldPath !== '/chats') {
+    if (aiAssistantRef.value) {
+      aiAssistantRef.value.speak('私聊模式，有问题可以问我', 3000)
+    }
+  }
+})
+
+// 监听 aiSpeech 的变化，自动播报
+watch(() => aiSpeech.value, (newSpeech, oldSpeech) => {
+  if (newSpeech && newSpeech !== oldSpeech && aiAssistantRef.value) {
+    console.log('🔔 检测到 aiSpeech 变化，立即播报:', newSpeech)
+    aiAssistantRef.value.speak(newSpeech, 8000)
+  }
 })
 
 // 暴露方法供父组件调用
 defineExpose({
   updateAIInsights: (insights, speech = '') => {
+    console.log('📊 updateAIInsights 被调用:', { insights, speech })
     aiInsights.value = insights
     aiSpeech.value = speech
+    
+    // 刷新完成后，让 AI 说话
+    if (aiAssistantRef.value && speech) {
+      console.log('🎤 调用 speakRefreshComplete')
+      aiAssistantRef.value.speakRefreshComplete(speech)
+    } else {
+      console.log('⚠️ aiAssistantRef 或 speech 为空:', { 
+        hasRef: !!aiAssistantRef.value, 
+        speech 
+      })
+    }
+  },
+  speakWelcome: (roomName) => {
+    console.log('👋 speakWelcome 被调用:', roomName)
+    console.log('📍 aiAssistantRef.value:', aiAssistantRef.value)
+    
+    if (aiAssistantRef.value) {
+      console.log('🎤 调用 speak')
+      aiAssistantRef.value.speak(`欢迎来到 ${roomName}！`, 3000)
+    } else {
+      console.log('⚠️ aiAssistantRef 为空')
+    }
   }
 })
 
@@ -207,10 +263,33 @@ onMounted(async () => {
       await fetchUserAvatar()
     }
   })
+  
+  // 监听全局 AI 播报事件
+  window.addEventListener('ai-speak', (event) => {
+    console.log('🔔 收到全局 AI 播报事件:', event.detail)
+    if (aiAssistantRef.value && event.detail.text) {
+      // 构建消息对象
+      const message = {
+        text: event.detail.text,
+        duration: event.detail.duration || 6000,
+        immediate: event.detail.immediate || false
+      }
+      
+      // 调用 speak 方法（内部会处理 immediate 逻辑）
+      if (event.detail.immediate) {
+        // 立即模式：直接传递 immediate 标志
+        aiAssistantRef.value.speak(message.text, message.duration, null, true)
+      } else {
+        aiAssistantRef.value.speak(message.text, message.duration)
+      }
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   socket.off('avatar-updated')
+  // 移除全局事件监听
+  window.removeEventListener('ai-speak', () => {})
 })
 </script>
 
@@ -232,6 +311,7 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 100;
   pointer-events: auto;
+  overflow: visible !important; /* 允许气泡溢出 */
 }
 
 .logo {
@@ -240,6 +320,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   margin-top: 10px;
+  overflow: visible !important; /* 允许气泡溢出 */
   margin-bottom: 40px;
   -webkit-app-region: no-drag;
 

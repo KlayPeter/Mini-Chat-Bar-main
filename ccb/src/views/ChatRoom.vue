@@ -298,8 +298,19 @@ function handleAIAction(action) {
 }
 
 async function handleSelectRoom(room) {
+  console.log('🏠 handleSelectRoom 被调用:', room.RoomName)
+  console.log('📍 sidebarRef.value:', sidebarRef.value)
+  
   currentRoom.value = room
   showChatArea.value = true
+  
+  // AI 说欢迎语
+  if (sidebarRef.value) {
+    console.log('👋 调用 speakWelcome')
+    sidebarRef.value.speakWelcome(room.RoomName)
+  } else {
+    console.log('⚠️ sidebarRef 为空')
+  }
   
   // 立即刷新 AI 智能提示（不延迟）
   await refreshAIInsights()

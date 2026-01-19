@@ -71,10 +71,71 @@ const displayedText = ref('')
 const isSpeaking = ref(false)
 const isBlinking = ref(false)
 const hasNotification = ref(false)
+const messageQueue = ref([]) // 消息队列
+const isProcessingQueue = ref(false) // 是否正在处理队列
 
 let typingInterval = null
 let blinkInterval = null
 let messageTimeout = null
+let idleTimer = null // 空闲计时器
+
+// 添加消息到队列
+const addToQueue = (message) => {
+  console.log('🎤 AI 准备说话:', message.text)
+  if (message.immediate) {
+    // 立即显示，清空队列，打断当前消息
+    console.log('⚡ 立即模式：清空队列并打断当前消息')
+    messageQueue.value = []
+    isProcessingQueue.value = false
+    
+    // 清除当前的超时
+    if (messageTimeout) {
+      clearTimeout(messageTimeout)
+    }
+    
+    showMessage(message)
+  } else {
+    messageQueue.value.push(message)
+    processQueue()
+  }
+}
+
+// 处理消息队列
+const processQueue = () => {
+  if (isProcessingQueue.value || messageQueue.value.length === 0) return
+  
+  isProcessingQueue.value = true
+  const message = messageQueue.value.shift()
+  showMessage(message)
+}
+
+// 随机闲聊消息（当长时间没有交互时）
+const getIdleMessage = () => {
+  const messages = [
+    '有什么技术问题可以问我哦',
+    '我一直在这里待命',
+    '需要帮助随时叫我',
+    '看起来大家讨论得很热烈',
+    '有代码问题可以 @我'
+  ]
+  return messages[Math.floor(Math.random() * messages.length)]
+}
+
+// 启动空闲计时器
+const startIdleTimer = () => {
+  if (idleTimer) clearTimeout(idleTimer)
+  
+  // 60 秒后说一句闲聊
+  idleTimer = setTimeout(() => {
+    if (props.mode === 'chatroom' && !currentMessage.value) {
+      addToQueue({
+        text: getIdleMessage(),
+        duration: 4000
+      })
+    }
+    startIdleTimer() // 继续下一轮
+  }, 60000)
+}
 
 // 根据模式和智能提示生成消息
 const generateMessage = () => {
@@ -149,6 +210,7 @@ const generateMessage = () => {
 
 // 打字机效果显示文本
 const typeText = (text) => {
+  console.log('⌨️ typeText 被调用:', text)
   displayedText.value = ''
   let index = 0
   
@@ -159,6 +221,7 @@ const typeText = (text) => {
       displayedText.value += text[index]
       index++
     } else {
+      console.log('✅ 打字完成')
       clearInterval(typingInterval)
       isSpeaking.value = false
     }
@@ -167,21 +230,45 @@ const typeText = (text) => {
 
 // 显示消息
 const showMessage = (message) => {
-  if (!message) return
+  console.log('💬 showMessage 被调用:', message)
+  if (!message) {
+    console.log('⚠️ message 为空，返回')
+    return
+  }
+  
+  console.log('✅ 开始显示消息，设置状态...')
+  
+  // 重置空闲计时器
+  startIdleTimer()
   
   currentMessage.value = message
   isSpeaking.value = true
   hasNotification.value = true
   
+  console.log('📝 currentMessage.value:', currentMessage.value)
+  console.log('🗣️ isSpeaking.value:', isSpeaking.value)
+  
   typeText(message.text)
+  
+  // 根据文字长度自动计算显示时间（每个字 150ms，最少 3 秒，最多 8 秒）
+  const textLength = message.text.length
+  const calculatedDuration = Math.max(3000, Math.min(8000, textLength * 150))
+  const finalDuration = message.duration || calculatedDuration
+  
+  console.log(`⏱️ 消息将显示 ${finalDuration}ms (文字长度: ${textLength})`)
   
   // 自动隐藏
   if (messageTimeout) clearTimeout(messageTimeout)
   messageTimeout = setTimeout(() => {
+    console.log('⏰ 消息超时，隐藏气泡')
     currentMessage.value = null
     displayedText.value = ''
     hasNotification.value = false
-  }, message.duration || 5000)
+    isProcessingQueue.value = false
+    
+    // 继续处理队列
+    processQueue()
+  }, finalDuration)
 }
 
 // 处理点击
@@ -189,19 +276,14 @@ const handleClick = () => {
   if (props.mode === 'chatroom') {
     // 聊天室模式：刷新智能提示
     emit('refresh')
-    
-    // 显示刷新消息
-    showMessage({
-      text: '正在刷新智能提示... 🔄',
-      duration: 2000
-    })
+    // 不在这里显示消息，由父组件调用 speakRefreshing()
   } else {
     // 其他模式：触发点击事件（打开对话框）
     emit('click')
     
     // 显示提示
-    showMessage({
-      text: '对话框已打开，开始聊天吧！💬',
+    addToQueue({
+      text: '对话框已打开，开始聊天吧！',
       duration: 2000
     })
   }
@@ -224,35 +306,63 @@ const startBlinking = () => {
 }
 
 // 监听智能提示变化 - 立即播报，不延迟
-watch(() => props.insights, (newInsights) => {
-  if (props.mode === 'chatroom' && (newInsights.suggestions?.length > 0 || props.aiSpeech)) {
-    const message = generateMessage()
-    showMessage(message)
+watch(() => props.insights, (newInsights, oldInsights) => {
+  if (props.mode === 'chatroom' && newInsights.suggestions?.length > 0) {
+    // 检查是否真的有变化
+    const hasChanged = JSON.stringify(newInsights) !== JSON.stringify(oldInsights)
+    if (hasChanged) {
+      const message = generateMessage()
+      addToQueue(message)
+    }
   }
 }, { deep: true, immediate: false })
 
 // 监听 aiSpeech 变化 - 立即播报
-watch(() => props.aiSpeech, (newSpeech) => {
-  if (props.mode === 'chatroom' && newSpeech) {
-    showMessage({
+watch(() => props.aiSpeech, (newSpeech, oldSpeech) => {
+  if (props.mode === 'chatroom' && newSpeech && newSpeech !== oldSpeech) {
+    addToQueue({
       text: newSpeech,
       duration: 6000
     })
   }
 }, { immediate: false })
 
+// 监听模式变化 - 切换到聊天室时说欢迎语
+watch(() => props.mode, (newMode, oldMode) => {
+  if (newMode === 'chatroom' && oldMode !== 'chatroom') {
+    addToQueue({
+      text: '欢迎来到技术聊天室！',
+      duration: 3000
+    })
+  }
+}, { immediate: false })
+
 onMounted(() => {
   startBlinking()
+  startIdleTimer() // 启动空闲计时器
   
   // 聊天室模式：立即显示消息（不延迟）
-  if (props.mode === 'chatroom' && (props.insights.suggestions?.length > 0 || props.aiSpeech)) {
-    const message = generateMessage()
-    showMessage(message)
-  } else if (props.mode !== 'chatroom') {
+  if (props.mode === 'chatroom') {
+    if (props.aiSpeech) {
+      addToQueue({
+        text: props.aiSpeech,
+        duration: 6000
+      })
+    } else if (props.insights.suggestions?.length > 0) {
+      const message = generateMessage()
+      addToQueue(message)
+    } else {
+      // 默认欢迎语
+      addToQueue({
+        text: '嗨！我是你的技术助手，有问题随时 @我',
+        duration: 4000
+      })
+    }
+  } else {
     // 其他模式：延迟显示欢迎消息
     setTimeout(() => {
       const message = generateMessage()
-      showMessage(message)
+      addToQueue(message)
     }, 1000)
   }
 })
@@ -261,6 +371,30 @@ onUnmounted(() => {
   if (typingInterval) clearInterval(typingInterval)
   if (blinkInterval) clearInterval(blinkInterval)
   if (messageTimeout) clearTimeout(messageTimeout)
+  if (idleTimer) clearTimeout(idleTimer)
+})
+
+// 暴露方法供父组件调用
+defineExpose({
+  speak: (text, duration = 5000, actions = null, immediate = false) => {
+    console.log('🎤 speak 被调用:', text, '立即模式:', immediate)
+    addToQueue({ text, duration, actions, immediate })
+  },
+  speakRefreshing: () => {
+    console.log('🔄 speakRefreshing 被调用')
+    addToQueue({ 
+      text: '正在刷新智能提示...', 
+      duration: 2000,
+      immediate: true
+    })
+  },
+  speakRefreshComplete: (speech) => {
+    console.log('✅ speakRefreshComplete 被调用:', speech)
+    addToQueue({ 
+      text: speech || '刷新完成！', 
+      duration: 6000 
+    })
+  }
 })
 </script>
 
