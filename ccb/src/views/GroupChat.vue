@@ -369,8 +369,9 @@ function initSocket() {
       }
       
       // 改进的去重逻辑：
-      // 1. 如果有ID，优先用ID判断
-      // 2. 如果没有ID，用内容+发送者+时间（5秒内）判断
+      // 1. 检查是否已经在本地添加过（通过_localAdded标记或消息ID）
+      // 2. 如果有ID，优先用ID判断
+      // 3. 如果没有ID，用内容+发送者+时间（5秒内）判断
       const isDuplicate = messages.value.some(msg => {
         const msgId = msg._id || msg.id;
         const newMsgId = messageData._id || messageData.id;
@@ -427,22 +428,6 @@ function initSocket() {
 
   // 监听房间状态
   socket.on('room-status', (data) => {
-  })
-
-  // 监听所有可能的消息事件
-  socket.on('message', (data) => {
-    // 转发给group-message处理
-    socket.emit('group-message', data)
-  })
-
-  socket.on('new-message', (data) => {
-    // 转发给group-message处理
-    socket.emit('group-message', data)
-  })
-
-  socket.on('chat-message', (data) => {
-    // 转发给group-message处理
-    socket.emit('group-message', data)
   })
 
   // 监听其他Socket事件
@@ -679,7 +664,16 @@ async function loadMessages() {
       }
     )
     if (res.data.success) {
-      messages.value = res.data.messages
+      // 去重：使用 Map 根据消息 ID 去重
+      const messageMap = new Map()
+      res.data.messages.forEach(msg => {
+        const msgId = msg._id || msg.id
+        if (msgId && !messageMap.has(msgId)) {
+          messageMap.set(msgId, msg)
+        }
+      })
+      messages.value = Array.from(messageMap.values())
+      
       // 如果返回的消息少于50条，说明没有更多了
       hasMoreMessages.value = res.data.messages.length >= 50
     }
@@ -1303,7 +1297,8 @@ async function sendMessage(content, quotedMessage = null) {
       // 立即添加消息到本地消息列表，确保实时显示
       const newMessage = {
         ...res.data.message,
-        mentions: mentions.length > 0 ? mentions : undefined
+        mentions: mentions.length > 0 ? mentions : undefined,
+        _localAdded: true // 标记为本地已添加，防止Socket重复添加
       }
       
       // 🔧 临时修复：如果服务器没有返回引用信息，但我们有引用数据，手动添加

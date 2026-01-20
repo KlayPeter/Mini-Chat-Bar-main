@@ -4,6 +4,7 @@
     <div class="ai-assistant-wrapper">
       <AIDigitalAssistant 
         mode="general"
+        :autoSpeak="false"
         @click="showAIPanel"
       />
     </div>

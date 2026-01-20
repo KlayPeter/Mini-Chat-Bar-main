@@ -108,7 +108,7 @@
                 <!-- 普通消息 -->
                 <div v-else class="message-item" :class="{ 'my-message': message.from === currentUserId }">
                   <div class="message-avatar" v-if="message.from !== currentUserId && message.messageType !== 'system'">
-                    <img :src="baseUrl + message.fromAvatar" alt="avatar" />
+                    <img :src="getAvatarUrl(message.fromAvatar)" alt="avatar" />
                   </div>
                   <div class="message-content-wrapper">
                     <div class="message-sender" v-if="message.from !== currentUserId && message.messageType !== 'system'">
@@ -119,7 +119,7 @@
                     </div>
                   </div>
                   <div class="message-avatar" v-if="message.from === currentUserId && message.messageType !== 'system'">
-                    <img :src="baseUrl + myAvatar" alt="avatar" />
+                    <img :src="getAvatarUrl(myAvatar)" alt="avatar" />
                   </div>
                 </div>
                 
@@ -220,6 +220,7 @@ import QuestionBadge from '../components/QuestionBadge.vue'
 import MessageActions from '../components/MessageActions.vue'
 import QuotedMessage from '../components/QuotedMessage.vue'
 import { useToast } from '../composables/useToast'
+import { getAvatarUrl } from '../utils/avatarHelper'
 
 const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL

@@ -1,56 +1,12 @@
 <template>
-  <div class="message-content-wrapper">
-    <span v-for="(part, index) in parsedContent" :key="index">
-      <!-- 普通文本 -->
-      <template v-if="part.type === 'text'">{{ part.content }}</template>
-      
-      <!-- GitHub 链接 -->
-      <a 
-        v-else-if="part.type === 'github'" 
-        :href="part.url" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        class="code-link github-link"
-        @click.stop
-      >
-        <Github :size="14" />
-        <span>{{ part.display }}</span>
-        <ExternalLink :size="12" />
-      </a>
-      
-      <!-- StackOverflow 链接 -->
-      <a 
-        v-else-if="part.type === 'stackoverflow'" 
-        :href="part.url" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        class="code-link stackoverflow-link"
-        @click.stop
-      >
-        <MessageSquare :size="14" />
-        <span>{{ part.display }}</span>
-        <ExternalLink :size="12" />
-      </a>
-      
-      <!-- 其他链接 -->
-      <a 
-        v-else-if="part.type === 'link'" 
-        :href="part.url" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        class="normal-link"
-        @click.stop
-      >
-        {{ part.display }}
-        <ExternalLink :size="12" />
-      </a>
-    </span>
-  </div>
+  <div class="message-content-wrapper" v-html="renderedContent"></div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { Github, MessageSquare, ExternalLink } from 'lucide-vue-next'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/vs2015.css'
 
 const props = defineProps({
   content: {
@@ -59,113 +15,107 @@ const props = defineProps({
   }
 })
 
-// 解析文本内容，识别链接
-const parsedContent = computed(() => {
-  const text = props.content
-  const parts = []
-  
-  // 匹配 URL 的正则表达式
-  const urlRegex = /(https?:\/\/[^\s]+)/g
-  
-  let lastIndex = 0
-  let match
-  
-  while ((match = urlRegex.exec(text)) !== null) {
-    const url = match[0]
-    const startIndex = match.index
-    
-    // 添加 URL 之前的文本
-    if (startIndex > lastIndex) {
-      parts.push({
-        type: 'text',
-        content: text.substring(lastIndex, startIndex)
-      })
+// 配置 marked 使用 highlight.js 进行代码高亮
+marked.setOptions({
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value
+      } catch (err) {
+        console.error('代码高亮失败:', err)
+      }
     }
-    
-    // 判断链接类型
-    if (url.includes('github.com')) {
-      parts.push({
-        type: 'github',
-        url: url,
-        display: extractGithubInfo(url)
-      })
-    } else if (url.includes('stackoverflow.com') || url.includes('stackexchange.com')) {
-      parts.push({
-        type: 'stackoverflow',
-        url: url,
-        display: extractStackOverflowInfo(url)
-      })
-    } else {
-      parts.push({
-        type: 'link',
-        url: url,
-        display: url.length > 50 ? url.substring(0, 47) + '...' : url
-      })
+    // 如果没有指定语言或语言不支持，尝试自动检测
+    try {
+      return hljs.highlightAuto(code).value
+    } catch (err) {
+      return code
     }
-    
-    lastIndex = startIndex + url.length
-  }
-  
-  // 添加剩余文本
-  if (lastIndex < text.length) {
-    parts.push({
-      type: 'text',
-      content: text.substring(lastIndex)
-    })
-  }
-  
-  return parts.length > 0 ? parts : [{ type: 'text', content: text }]
+  },
+  breaks: true, // 支持换行
+  gfm: true, // 启用 GitHub 风格的 Markdown
 })
 
-// 提取 GitHub 信息
-function extractGithubInfo(url) {
+// 渲染 Markdown 内容
+const renderedContent = computed(() => {
   try {
-    const urlObj = new URL(url)
-    const pathParts = urlObj.pathname.split('/').filter(p => p)
+    // 使用 marked 解析 Markdown
+    let html = marked.parse(props.content)
     
-    if (pathParts.length >= 2) {
-      const owner = pathParts[0]
-      const repo = pathParts[1]
+    // 为代码块添加行号和复制按钮
+    // 注意：此时 code 内容已经被 highlight.js 处理过，包含了 HTML 标签
+    html = html.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (_match, lang, highlightedCode) => {
+      // 从高亮后的 HTML 中提取纯文本用于行号计算
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = highlightedCode
+      const plainText = tempDiv.textContent || tempDiv.innerText || ''
+      const lines = plainText.split('\n').filter((line, index, arr) => {
+        // 保留所有行，包括空行，但移除最后一个空行（如果存在）
+        return index < arr.length - 1 || line.trim() !== ''
+      })
+      const lineNumbers = lines.map((_, i) => `<span class="line-number">${i + 1}</span>`).join('')
       
-      // 如果是 issue 或 PR
-      if (pathParts.length >= 4 && (pathParts[2] === 'issues' || pathParts[2] === 'pull')) {
-        const type = pathParts[2] === 'issues' ? 'Issue' : 'PR'
-        const number = pathParts[3]
-        return `${owner}/${repo}#${number} (${type})`
-      }
-      
-      // 如果是文件
-      if (pathParts.length >= 4 && pathParts[2] === 'blob') {
-        return `${owner}/${repo}/${pathParts.slice(3).join('/')}`
-      }
-      
-      // 普通仓库链接
-      return `${owner}/${repo}`
-    }
+      return `
+        <div class="code-block-wrapper">
+          <div class="code-block-header">
+            <span class="language-badge">${lang.toUpperCase()}</span>
+            <button class="copy-code-btn" onclick="copyCodeBlock(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>复制</span>
+            </button>
+          </div>
+          <div class="code-block-body">
+            <div class="line-numbers">${lineNumbers}</div>
+            <pre><code class="language-${lang} hljs">${highlightedCode}</code></pre>
+          </div>
+        </div>
+      `
+    })
     
-    return 'GitHub'
-  } catch (e) {
-    return 'GitHub'
+    // 为行内代码添加样式
+    html = html.replace(/<code>([^<]+)<\/code>/g, '<code class="inline-code">$1</code>')
+    
+    return html
+  } catch (err) {
+    console.error('Markdown 解析失败:', err)
+    return props.content
   }
-}
+})
 
-// 提取 StackOverflow 信息
-function extractStackOverflowInfo(url) {
-  try {
-    const urlObj = new URL(url)
-    const pathParts = urlObj.pathname.split('/').filter(p => p)
+// 添加全局复制函数（通过 window 对象）
+if (typeof window !== 'undefined') {
+  window.copyCodeBlock = function(button) {
+    const codeBlock = button.closest('.code-block-wrapper')
+    const code = codeBlock.querySelector('pre code').textContent
     
-    if (pathParts.length >= 2 && pathParts[0] === 'questions') {
-      const questionId = pathParts[1]
-      return `SO #${questionId}`
-    }
-    
-    return 'StackOverflow'
-  } catch (e) {
-    return 'StackOverflow'
+    navigator.clipboard.writeText(code).then(() => {
+      const originalText = button.innerHTML
+      button.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>已复制</span>
+      `
+      button.classList.add('copied')
+      
+      setTimeout(() => {
+        button.innerHTML = originalText
+        button.classList.remove('copied')
+      }, 2000)
+    }).catch(err => {
+      console.error('复制失败:', err)
+    })
   }
 }
 </script>
+
+<style lang="scss">
+/* 全局导入 highlight.js 样式 - 不使用 scoped */
+@import 'highlight.js/styles/vs2015.css';
+</style>
 
 <style scoped lang="scss">
 .message-content-wrapper {
@@ -173,73 +123,275 @@ function extractStackOverflowInfo(url) {
   line-height: 1.6;
   color: #333;
   word-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-.code-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-  margin: 0 2px;
   
-  &.github-link {
-    background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
-    color: white;
-    border: 1px solid #24292e;
+  // Markdown 基础样式
+  :deep(p) {
+    margin: 0 0 8px 0;
     
-    &:hover {
-      background: linear-gradient(135deg, #1a1e22 0%, #0d1117 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+    &:last-child {
+      margin-bottom: 0;
     }
   }
   
-  &.stackoverflow-link {
-    background: linear-gradient(135deg, #f48024 0%, #e67422 100%);
-    color: white;
-    border: 1px solid #f48024;
+  :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+    margin: 12px 0 8px 0;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  
+  :deep(h1) { font-size: 1.8em; }
+  :deep(h2) { font-size: 1.5em; }
+  :deep(h3) { font-size: 1.3em; }
+  :deep(h4) { font-size: 1.1em; }
+  
+  :deep(ul), :deep(ol) {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+  
+  :deep(li) {
+    margin: 4px 0;
+  }
+  
+  :deep(blockquote) {
+    margin: 8px 0;
+    padding: 8px 16px;
+    border-left: 4px solid rgb(165, 42, 42);
+    background: #f8f9fa;
+    color: #666;
+  }
+  
+  :deep(a) {
+    color: rgb(165, 42, 42);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(165, 42, 42, 0.3);
+    transition: all 0.2s;
     
     &:hover {
-      background: linear-gradient(135deg, #e67422 0%, #d86820 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(244, 128, 36, 0.3);
+      border-bottom-color: rgb(165, 42, 42);
+      color: rgb(140, 30, 30);
     }
   }
   
-  svg {
-    flex-shrink: 0;
+  // 行内代码样式
+  :deep(.inline-code) {
+    padding: 2px 6px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #e83e8c;
   }
   
-  span {
-    max-width: 300px;
+  // 代码块容器
+  :deep(.code-block-wrapper) {
+    margin: 12px 0;
+    border-radius: 8px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.normal-link {
-  color: rgb(165, 42, 42);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(165, 42, 42, 0.3);
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  
-  &:hover {
-    border-bottom-color: rgb(165, 42, 42);
-    color: rgb(140, 30, 30);
+    border: 1px solid #e0e0e0;
+    background: #1e1e1e;
   }
   
-  svg {
-    flex-shrink: 0;
+  :deep(.code-block-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #3a3a3a;
+    
+    .language-badge {
+      padding: 3px 8px;
+      background: linear-gradient(135deg, rgb(165, 42, 42) 0%, rgb(140, 30, 30) 100%);
+      color: white;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .copy-code-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #d4d4d4;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      
+      &.copied {
+        background: #4caf50;
+        border-color: #4caf50;
+        color: white;
+      }
+      
+      svg {
+        flex-shrink: 0;
+      }
+    }
+  }
+  
+  :deep(.code-block-body) {
+    display: flex;
+    background: #1e1e1e;
+    
+    .line-numbers {
+      display: flex;
+      flex-direction: column;
+      padding: 12px 8px;
+      background: #252525;
+      border-right: 1px solid #3a3a3a;
+      user-select: none;
+      
+      .line-number {
+        font-family: 'Courier New', 'Consolas', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #858585;
+        text-align: right;
+        min-width: 30px;
+      }
+    }
+    
+    pre {
+      flex: 1;
+      margin: 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: #1e1e1e;
+      
+      code {
+        font-family: 'Courier New', 'Consolas', 'Monaco', monospace !important;
+        font-size: 13px !important;
+        line-height: 1.6 !important;
+        color: #d4d4d4 !important;
+        background: none !important;
+        padding: 0 !important;
+        border: none !important;
+        font-weight: 400 !important;
+        
+        // highlight.js 语法高亮类
+        .hljs-keyword,
+        .hljs-selector-tag,
+        .hljs-literal,
+        .hljs-section,
+        .hljs-link {
+          color: #569cd6 !important;
+        }
+        
+        .hljs-string,
+        .hljs-attr,
+        .hljs-template-variable,
+        .hljs-variable {
+          color: #ce9178 !important;
+        }
+        
+        .hljs-number {
+          color: #b5cea8 !important;
+        }
+        
+        .hljs-built_in,
+        .hljs-builtin-name,
+        .hljs-function,
+        .hljs-title {
+          color: #dcdcaa !important;
+        }
+        
+        .hljs-comment {
+          color: #6a9955 !important;
+        }
+        
+        .hljs-meta {
+          color: #9cdcfe !important;
+        }
+        
+        .hljs-name,
+        .hljs-property {
+          color: #9cdcfe !important;
+        }
+        
+        .hljs-regexp {
+          color: #d16969 !important;
+        }
+      }
+    }
+  }
+  
+  // 确保 highlight.js 的语法高亮类能够正确应用
+  :deep(pre code) {
+    .hljs-keyword,
+    .hljs-selector-tag,
+    .hljs-literal,
+    .hljs-section,
+    .hljs-link {
+      color: #569cd6 !important; // 关键字 - 蓝色
+    }
+    
+    .hljs-string,
+    .hljs-attr,
+    .hljs-template-variable,
+    .hljs-variable {
+      color: #ce9178 !important; // 字符串 - 橙色
+    }
+    
+    .hljs-number {
+      color: #b5cea8 !important; // 数字 - 浅绿色
+    }
+    
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-function,
+    .hljs-title {
+      color: #dcdcaa !important; // 函数 - 黄色
+    }
+    
+    .hljs-comment {
+      color: #6a9955 !important; // 注释 - 绿色
+    }
+    
+    .hljs-meta {
+      color: #9cdcfe !important; // 元数据 - 浅蓝色
+    }
+  }
+  
+  // 表格样式
+  :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid #e0e0e0;
+      text-align: left;
+    }
+    
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
+    
+    tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+  }
+  
+  // 水平分割线
+  :deep(hr) {
+    margin: 16px 0;
+    border: none;
+    border-top: 2px solid #e0e0e0;
   }
 }
 </style>

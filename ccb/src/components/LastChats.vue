@@ -93,7 +93,7 @@
       <div class="avatar-container">
         <div class="frame" @click="showAvatarSelector">
           <img
-            :src="(userava || '/images/avatar/out.webp') + '?t=' + avatarKey"
+            :src="getAvatarUrl(userava) + '?t=' + avatarKey"
             :key="avatarKey"
             alt="avatar"
           />
@@ -528,7 +528,7 @@ function formatMessageContent(msgData) {
   if (!msgData) return ''
   
   const messageType = msgData.messageType
-  const content = msgData.content
+  let content = msgData.content
   
   // 根据消息类型返回友好的文本
   switch (messageType) {
@@ -548,8 +548,44 @@ function formatMessageContent(msgData) {
     case 'system':
       return content || '[系统消息]'
     default:
+      // 对于文本消息，清理 Markdown 代码块和特殊字符
+      if (content) {
+        // 如果包含代码块，显示 [代码]
+        if (content.includes('```')) {
+          return '[代码]'
+        }
+        // 移除换行符
+        content = content.replace(/\n/g, ' ')
+        // 移除多余空格
+        content = content.replace(/\s+/g, ' ').trim()
+        // 截断过长的文本（最多50个字符）
+        if (content.length > 50) {
+          content = content.substring(0, 50) + '...'
+        }
+      }
       return content || ''
   }
+}
+
+// 获取头像URL的辅助函数
+function getAvatarUrl(avatarPath) {
+  if (!avatarPath) {
+    return '/images/avatar/default-avatar.webp'
+  }
+  
+  // 如果是完整的URL（http或https开头），直接返回
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath
+  }
+  
+  // 如果是预设头像路径（/images/avatar/ 开头），直接返回（这些是前端静态资源）
+  if (avatarPath.startsWith('/images/avatar/')) {
+    return avatarPath
+  }
+  
+  // 如果是上传的文件路径（/uploads/ 开头），拼接baseUrl
+  const baseUrl = import.meta.env.VITE_BASE_URL || ''
+  return baseUrl + avatarPath
 }
 
 // 获取用户信息

@@ -62,8 +62,8 @@ import { Sparkles } from 'lucide-vue-next'
 const props = defineProps({
   mode: {
     type: String,
-    default: 'chatroom', // 'chatroom' | 'chat' | 'group'
-    validator: (value) => ['chatroom', 'chat', 'group'].includes(value)
+    default: 'chatroom', // 'chatroom' | 'chat' | 'group' | 'general'
+    validator: (value) => ['chatroom', 'chat', 'group', 'general'].includes(value)
   },
   insights: {
     type: Object,
@@ -72,6 +72,10 @@ const props = defineProps({
   aiSpeech: {
     type: String,
     default: ''
+  },
+  autoSpeak: {
+    type: Boolean,
+    default: true // 是否自动说话（初始化时）
   }
 })
 
@@ -379,6 +383,11 @@ onMounted(() => {
   startBlinking()
   startIdleTimer() // 启动空闲计时器
   
+  // 只有在 autoSpeak 为 true 时才自动说话
+  if (!props.autoSpeak) {
+    return
+  }
+  
   // 聊天室模式：立即显示消息（不延迟）
   if (props.mode === 'chatroom') {
     if (props.aiSpeech) {
@@ -404,7 +413,7 @@ onMounted(() => {
         const message = generateMessage()
         addToQueue(message)
       }
-    }, 1000)
+    }, 1500)
   }
 })
 

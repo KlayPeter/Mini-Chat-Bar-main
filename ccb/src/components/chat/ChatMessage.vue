@@ -168,7 +168,8 @@
 
           <!-- 文本消息 -->
           <div v-else class="content">
-            <span v-if="hasMentions" v-html="renderMentions(message.content)"></span>
+            <div v-if="hasMentions" v-html="renderMentions(message.content)"></div>
+            <div v-else-if="hasMarkdown(message.content)" v-html="renderMarkdown(message.content)" class="markdown-content"></div>
             <span v-else>{{ message.content }}</span>
           </div>
         </div>
@@ -186,6 +187,30 @@
 import { computed } from 'vue'
 import { Search, Camera, Microphone } from '@iconoir/vue'
 import ChatRoomInviteCard from '../ChatRoomInviteCard.vue'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
+import { getAvatarUrl } from '../../utils/avatarHelper'
+
+// 配置 marked
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
+marked.setOptions({
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value
+      } catch (err) {
+        console.error('Highlight error:', err)
+      }
+    }
+    return hljs.highlightAuto(code).value
+  },
+  breaks: true,
+  gfm: true
+})
 
 const props = defineProps({
   message: {
@@ -274,6 +299,62 @@ const hasMentions = computed(() => {
   return /@(全体成员|[^@\s]+)/.test(props.message.content)
 })
 
+// 检测是否包含 Markdown 语法
+function hasMarkdown(content) {
+  if (!content || typeof content !== 'string') return false
+  
+  // 检测常见的 Markdown 语法
+  const markdownPatterns = [
+    /\*\*.*?\*\*/,           // 加粗 **text**
+    /\*.*?\*/,               // 斜体 *text*
+    /`.*?`/,                 // 行内代码 `code`
+    /```[\s\S]*?```/,        // 代码块 ```code```
+    /^#{1,6}\s/m,            // 标题 # heading
+    /^\>\s/m,                // 引用 > quote
+    /^\-\s/m,                // 列表 - item
+    /^\d+\.\s/m,             // 有序列表 1. item
+    /\[.*?\]\(.*?\)/         // 链接 [text](url)
+  ]
+  
+  return markdownPatterns.some(pattern => pattern.test(content))
+}
+
+// 渲染 Markdown
+function renderMarkdown(content) {
+  if (!content || typeof content !== 'string') return content
+  
+  try {
+    // 使用 marked 解析 Markdown
+    let html = marked.parse(content)
+    
+    // 手动高亮代码块
+    html = html.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (_match, lang, code) => {
+      // 解码 HTML 实体
+      const decodedCode = code
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      
+      // 使用 highlight.js 高亮
+      let highlightedCode
+      if (lang && hljs.getLanguage(lang)) {
+        highlightedCode = hljs.highlight(decodedCode, { language: lang }).value
+      } else {
+        highlightedCode = hljs.highlightAuto(decodedCode).value
+      }
+      
+      return `<pre><code class="language-${lang} hljs">${highlightedCode}</code></pre>`
+    })
+    
+    return html
+  } catch (err) {
+    console.error('Markdown render error:', err)
+    return content
+  }
+}
+
 // 渲染@提及高亮
 function renderMentions(content) {
   if (!content || typeof content !== 'string') return content
@@ -307,14 +388,14 @@ function formatTime(time) {
 function getAvatar() {
   // 群聊模式：使用消息中的头像
   if (props.messageType === 'group') {
-    return props.message.fromAvatar || '/images/avatar/default-avatar.webp'
+    return getAvatarUrl(props.message.fromAvatar)
   }
   // 私聊模式：使用传入的对方头像
-  return props.otherUserAvatar || props.message.fromAvatar || props.message.uavatar || '/images/avatar/default-avatar.webp'
+  return getAvatarUrl(props.otherUserAvatar || props.message.fromAvatar || props.message.uavatar)
 }
 
 function getMyAvatar() {
-  return props.myAvatar || '/images/avatar/default-avatar.webp'
+  return getAvatarUrl(props.myAvatar)
 }
 
 // 获取发送者名称
@@ -573,17 +654,168 @@ function parseInviteData(content) {
     display: inline-block;
     background-color: var(--message-bg-other, #ffffff);
     color: var(--message-text-other, #2c3e50);
-    padding: 0.75rem 1.2rem;
+    padding: 0.6rem 1rem;
     margin: 0 1vw 0.4rem;
     border-radius: 18px 18px 18px 4px;
     width: fit-content;
     max-width: 85%;
     word-wrap: break-word;
     word-break: break-word;
-    font-size: 16px;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.4;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(0, 0, 0, 0.04);
+    
+    // Markdown 内容样式
+    .markdown-content {
+      :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+        margin: 0.5em 0 0.3em;
+        font-weight: 600;
+        line-height: 1.3;
+        
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+      
+      :deep(h1) { font-size: 1.8em; }
+      :deep(h2) { font-size: 1.5em; }
+      :deep(h3) { font-size: 1.3em; }
+      :deep(h4) { font-size: 1.1em; }
+      
+      :deep(p) {
+        margin: 0.5em 0;
+        
+        &:first-child {
+          margin-top: 0;
+        }
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+      
+      :deep(strong) {
+        font-weight: 700;
+        color: inherit; // 使用继承的文字颜色，不改变颜色
+      }
+      
+      :deep(em) {
+        font-style: italic;
+        color: var(--text-secondary, #6c757d);
+      }
+      
+      :deep(code) {
+        background: #ffeb3b;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', Consolas, monospace;
+        font-size: 0.85em;
+        color: #000000;
+        font-weight: 700;
+        border: 1px solid #f57c00;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+      }
+      
+      :deep(pre) {
+        background: #1a1a1a;
+        border: 2px solid #ff6f00;
+        border-radius: 6px;
+        padding: 10px;
+        margin: 0.5em 0;
+        overflow-x: auto;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        
+        code {
+          background: none;
+          padding: 0;
+          // 设置默认的浅色文本，highlight.js 会覆盖特定元素的颜色
+          color: #d4d4d4;
+          font-size: 0.9em;
+          line-height: 1.4;
+          font-weight: 400;
+          border: none;
+          box-shadow: none;
+          font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+          
+          // highlight.js 语法高亮颜色（VSCode 风格）
+          .hljs-keyword,
+          .hljs-selector-tag,
+          .hljs-literal,
+          .hljs-section,
+          .hljs-link {
+            color: #569cd6; // 关键字 - 蓝色
+          }
+          
+          .hljs-string,
+          .hljs-attr,
+          .hljs-template-variable,
+          .hljs-variable {
+            color: #ce9178; // 字符串 - 橙色
+          }
+          
+          .hljs-number {
+            color: #b5cea8; // 数字 - 浅绿色
+          }
+          
+          .hljs-built_in,
+          .hljs-builtin-name,
+          .hljs-function,
+          .hljs-title {
+            color: #dcdcaa; // 函数 - 黄色
+          }
+          
+          .hljs-comment {
+            color: #6a9955; // 注释 - 绿色
+          }
+          
+          .hljs-meta {
+            color: #9cdcfe; // 元数据 - 浅蓝色
+          }
+          
+          .hljs-name,
+          .hljs-property {
+            color: #9cdcfe; // 属性 - 浅蓝色
+          }
+          
+          .hljs-regexp {
+            color: #d16969; // 正则 - 红色
+          }
+        }
+      }
+      
+      :deep(blockquote) {
+        border-left: 4px solid var(--primary-color, rgba(165, 42, 42, 0.5));
+        padding-left: 12px;
+        margin: 0.8em 0;
+        color: var(--text-secondary, #6c757d);
+        font-style: italic;
+      }
+      
+      :deep(ul), :deep(ol) {
+        margin: 0.5em 0;
+        padding-left: 1.5em;
+        
+        li {
+          margin: 0.3em 0;
+        }
+      }
+      
+      :deep(a) {
+        color: #0366d6;
+        text-decoration: none;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+      
+      :deep(hr) {
+        border: none;
+        border-top: 1px solid #e1e4e8;
+        margin: 1em 0;
+      }
+    }
   }
 }
 

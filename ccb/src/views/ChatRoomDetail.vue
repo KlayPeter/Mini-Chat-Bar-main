@@ -1210,14 +1210,21 @@ function formatTime(time) {
 }
 
 function getAvatarUrl(avatar) {
-  if (!avatar) return ''
+  if (!avatar) return '/images/avatar/default-avatar.webp'
   
+  // 完整URL
   if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
     return avatar
   }
   
-  if (avatar.startsWith('/')) {
+  // 预设头像（前端静态资源）
+  if (avatar.startsWith('/images/')) {
     return avatar
+  }
+  
+  // 上传文件
+  if (avatar.startsWith('/uploads/')) {
+    return baseUrl + avatar
   }
   
   return baseUrl + avatar

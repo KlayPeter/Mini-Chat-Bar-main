@@ -64,21 +64,18 @@
 
     <!-- 文本输入区域 -->
     <div class="input-container">
-      <textarea
-        ref="inputRef"
-        v-model="inputText"
-        :placeholder="getPlaceholder()"
-        :disabled="disabled"
-        @keydown="handleKeyDown"
-        @keyup="handleKeyUp"
-        @paste="handlePaste"
-        @focus="handleFocus"
-        @blur="handleBlur"
-        :class="{ 'with-file': selectedFiles.length > 0 }"
-        rows="1"
-      ></textarea>
+      <!-- Markdown 预览面板 - 放在最上方 -->
+      <div v-if="showMarkdownPreview && inputText.trim()" class="markdown-preview-panel">
+        <div class="preview-header">
+          <span class="preview-title">预览效果</span>
+          <button class="close-preview-btn" @click="showMarkdownPreview = false" title="关闭预览">
+            <Xmark class="icon" />
+          </button>
+        </div>
+        <div class="preview-content" v-html="renderMarkdownPreview(inputText)"></div>
+      </div>
 
-      <!-- 工具栏 -->
+      <!-- 工具栏 - 放在上方 -->
       <div class="toolbar">
         <!-- 表情按钮 -->
         <button 
@@ -140,6 +137,34 @@
           </button>
         </template>
 
+        <!-- Markdown 格式化按钮 -->
+        <button 
+          class="tool-btn markdown-btn"
+          @click="toggleMarkdownMenu"
+          title="Markdown 格式"
+          :class="{ active: showMarkdownMenu }"
+          :disabled="disabled"
+        >
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="5" width="18" height="14" rx="2" ry="2"/>
+            <path d="M7 15V9l2 2 2-2v6M17 11l-2 4h4l-2-4z"/>
+          </svg>
+        </button>
+
+        <!-- Markdown 预览按钮 -->
+        <button 
+          class="tool-btn preview-btn"
+          @click="toggleMarkdownPreview"
+          title="预览效果"
+          :class="{ active: showMarkdownPreview }"
+          :disabled="disabled || !inputText.trim()"
+        >
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+
         <!-- 搜索按钮 -->
         <button 
           v-if="showSearchButton"
@@ -149,6 +174,52 @@
         >
           <Search class="icon" />
         </button>
+      </div>
+
+      <!-- Markdown 格式菜单 -->
+      <div v-if="showMarkdownMenu" class="markdown-menu">
+        <button @click="insertMarkdown('bold')" class="md-btn" title="加粗">
+          <strong>B</strong>
+        </button>
+        <button @click="insertMarkdown('italic')" class="md-btn" title="斜体">
+          <em>I</em>
+        </button>
+        <button @click="insertMarkdown('heading')" class="md-btn" title="标题">
+          H
+        </button>
+        <button @click="insertMarkdown('code')" class="md-btn" title="行内代码">
+          <code>&lt;/&gt;</code>
+        </button>
+        <button @click="insertMarkdown('codeblock')" class="md-btn" title="代码块">
+          <span style="font-family: monospace;">{ }</span>
+        </button>
+        <button @click="insertMarkdown('quote')" class="md-btn" title="引用">
+          <span style="font-size: 18px;">"</span>
+        </button>
+        <button @click="insertMarkdown('list')" class="md-btn" title="列表">
+          ≡
+        </button>
+        <button @click="insertMarkdown('link')" class="md-btn" title="链接">
+          🔗
+        </button>
+      </div>
+
+      <!-- 输入框和发送按钮 - 放在下方同一行 -->
+      <div class="input-row">
+        <!-- 普通文本输入框 -->
+        <textarea
+          ref="inputRef"
+          v-model="inputText"
+          :placeholder="getPlaceholder()"
+          :disabled="disabled"
+          @keydown="handleKeyDown"
+          @keyup="handleKeyUp"
+          @paste="handlePaste"
+          @focus="handleFocus"
+          @blur="handleBlur"
+          :class="{ 'with-file': selectedFiles.length > 0 }"
+          rows="1"
+        ></textarea>
 
         <!-- 发送按钮 -->
         <button
@@ -219,7 +290,15 @@
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
 import { Emoji, Folder, Microphone, Pause, Xmark, Search } from '@iconoir/vue'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
 import EmojiPicker from '../EmojiPicker.vue'
+
+// 配置 marked
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
 
 const props = defineProps({
   // 基础配置
@@ -327,6 +406,8 @@ const inputText = ref('')
 const selectedFiles = ref([])
 const filePreviewUrls = ref([])
 const showEmojiPicker = ref(false)
+const showMarkdownMenu = ref(false)
+const showMarkdownPreview = ref(false)
 const isTyping = ref(false)
 const typingTimer = ref(null)
 
@@ -562,7 +643,7 @@ function autoResizeTextarea() {
   if (!textarea) return
   
   textarea.style.height = 'auto'
-  const newHeight = Math.min(textarea.scrollHeight, 120) // 最大120px
+  const newHeight = Math.min(textarea.scrollHeight, 120)
   textarea.style.height = newHeight + 'px'
 }
 
@@ -593,7 +674,7 @@ function clearInput() {
   inputText.value = ''
   selectedFiles.value = []
   filePreviewUrls.value = []
-  currentQuotedMessage.value = null // 清空引用消息
+  currentQuotedMessage.value = null
   autoResizeTextarea()
 }
 
@@ -653,6 +734,143 @@ function clearQuotedMessage() {
 // 表情相关方法
 function toggleEmojiPicker() {
   showEmojiPicker.value = !showEmojiPicker.value
+  if (showEmojiPicker.value) {
+    showMarkdownMenu.value = false
+  }
+}
+
+// Markdown 格式化相关方法
+function toggleMarkdownMenu() {
+  showMarkdownMenu.value = !showMarkdownMenu.value
+  if (showMarkdownMenu.value) {
+    showEmojiPicker.value = false
+  }
+}
+
+// 切换 Markdown 预览
+function toggleMarkdownPreview() {
+  showMarkdownPreview.value = !showMarkdownPreview.value
+}
+
+// 渲染 Markdown 预览
+function renderMarkdownPreview(content) {
+  if (!content || typeof content !== 'string') return ''
+  
+  try {
+    // 使用 marked 解析 Markdown
+    let html = marked.parse(content)
+    
+    // 手动高亮代码块
+    html = html.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (match, lang, code) => {
+      // 解码 HTML 实体
+      const decodedCode = code
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      
+      // 使用 highlight.js 高亮
+      let highlightedCode
+      if (lang && hljs.getLanguage(lang)) {
+        highlightedCode = hljs.highlight(decodedCode, { language: lang }).value
+      } else {
+        highlightedCode = hljs.highlightAuto(decodedCode).value
+      }
+      
+      return `<pre><code class="language-${lang} hljs">${highlightedCode}</code></pre>`
+    })
+    
+    // 处理没有语言标识的代码块
+    html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match, code) => {
+      // 解码 HTML 实体
+      const decodedCode = code
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      
+      // 自动检测语言并高亮
+      const highlightedCode = hljs.highlightAuto(decodedCode).value
+      
+      return `<pre><code class="hljs">${highlightedCode}</code></pre>`
+    })
+    
+    return html
+  } catch (err) {
+    console.error('Markdown preview render error:', err)
+    return content
+  }
+}
+
+function insertMarkdown(type) {
+  const textarea = inputRef.value
+  if (!textarea) return
+  
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const text = inputText.value
+  const selectedText = text.slice(start, end)
+  
+  let before = ''
+  let after = ''
+  let newCursorPos = start
+  
+  switch (type) {
+    case 'bold':
+      before = '**'
+      after = '**'
+      newCursorPos = start + 2 + selectedText.length
+      break
+    case 'italic':
+      before = '*'
+      after = '*'
+      newCursorPos = start + 1 + selectedText.length
+      break
+    case 'heading':
+      before = '### '
+      after = ''
+      newCursorPos = start + 4 + selectedText.length
+      break
+    case 'code':
+      before = '`'
+      after = '`'
+      newCursorPos = start + 1 + selectedText.length
+      break
+    case 'codeblock':
+      before = '```\n'
+      after = '\n```'
+      newCursorPos = start + 4 + selectedText.length
+      break
+    case 'quote':
+      before = '> '
+      after = ''
+      newCursorPos = start + 2 + selectedText.length
+      break
+    case 'list':
+      before = '- '
+      after = ''
+      newCursorPos = start + 2 + selectedText.length
+      break
+    case 'link':
+      before = '['
+      after = '](url)'
+      newCursorPos = start + 1 + selectedText.length
+      break
+  }
+  
+  const newText = text.slice(0, start) + before + selectedText + after + text.slice(end)
+  inputText.value = newText
+  
+  nextTick(() => {
+    textarea.focus()
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+    autoResizeTextarea()
+  })
+  
+  // 关闭菜单
+  showMarkdownMenu.value = false
 }
 
 function insertEmoji(emoji) {
@@ -945,152 +1163,414 @@ defineExpose({
 
   .input-container {
     display: flex;
-    align-items: flex-end;
-    gap: 12px;
+    flex-direction: column;
+    gap: 0;
     position: relative;
-    background: var(--bg-secondary, rgba(255, 255, 255, 0.9));
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 249, 250, 0.95) 100%);
     border-radius: 12px;
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
-    padding: 8px;
+    overflow: visible;
     transition: all 0.3s ease;
     
     &:hover {
-      border-color: var(--primary-color, rgba(165, 42, 42, 0.3));
-      box-shadow: 0 4px 15px var(--hover-bg, rgba(165, 42, 42, 0.1));
+      border-color: var(--primary-color, rgba(165, 42, 42, 0.25));
+      box-shadow: 0 4px 16px rgba(165, 42, 42, 0.08);
     }
     
     &:focus-within {
-      border-color: var(--primary-color, rgba(165, 42, 42, 1));
-      box-shadow: 0 4px 20px var(--hover-bg, rgba(165, 42, 42, 0.15));
-      transform: translateY(-1px);
+      border-color: var(--primary-color, rgba(165, 42, 42, 0.4));
+      box-shadow: 0 4px 20px rgba(165, 42, 42, 0.12);
     }
 
-    textarea {
-      flex: 1;
-      border: none;
-      border-radius: 8px;
-      padding: 14px 18px;
-      resize: none;
-      font-size: 15px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      min-height: 112px;
+    // Markdown 预览面板
+    .markdown-preview-panel {
+      background: linear-gradient(135deg, rgba(248, 249, 250, 0.95) 0%, rgba(233, 236, 239, 0.9) 100%);
+      border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+      border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+      border-radius: 12px 12px 0 0; // 顶部圆角
+      padding: 12px 16px;
       max-height: 200px;
-      background: var(--bg-tertiary, transparent);
-      color: var(--text-primary, #2c3e50);
-      transition: all 0.3s ease;
+      overflow-y: auto;
+      animation: slideDown 0.3s ease-out;
+      pointer-events: auto; // 确保可以交互
+      user-select: text; // 允许选择文本
       
-      &::placeholder {
-        color: var(--text-tertiary, #8e9aaf);
-        font-weight: 400;
+      // 阻止所有链接的默认行为
+      * {
+        pointer-events: none;
       }
-
-      &:focus {
-        outline: none;
-        border-color: var(--primary-color, #007bff);
+      
+      .preview-header {
+        pointer-events: auto;
+        
+        .close-preview-btn {
+          pointer-events: auto;
+        }
       }
-
-      &:disabled {
-        background-color: var(--bg-secondary, #f8f9fa);
-        cursor: not-allowed;
+      
+      .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        
+        .preview-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary, #6c757d);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .close-preview-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          color: var(--text-secondary, #6c757d);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          
+          .icon {
+            width: 14px;
+            height: 14px;
+          }
+          
+          &:hover {
+            background: rgba(165, 42, 42, 0.08);
+            color: var(--primary-color, rgba(165, 42, 42, 0.9));
+          }
+        }
       }
-
-      &.with-file {
-        border-color: var(--success-color, #28a745);
+      
+      .preview-content {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #000000;
+        font-weight: 500;
+        
+        :deep(h1), :deep(h2), :deep(h3) {
+          margin: 0.5em 0 0.3em;
+          font-weight: 700;
+          line-height: 1.3;
+          color: #000000;
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          
+          &:first-child {
+            margin-top: 0;
+          }
+        }
+        
+        :deep(h1) { font-size: 1.8em; }
+        :deep(h2) { font-size: 1.6em; }
+        :deep(h3) { font-size: 1.4em; }
+        
+        :deep(p) {
+          margin: 0.5em 0;
+          color: #000000;
+          
+          &:first-child {
+            margin-top: 0;
+          }
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+        
+        :deep(strong) {
+          font-weight: 900;
+          color: #d32f2f;
+          text-shadow: 0 0 1px rgba(211, 47, 47, 0.3);
+        }
+        
+        :deep(em) {
+          font-style: italic;
+          color: #1976d2;
+          font-weight: 600;
+        }
+        
+        :deep(code) {
+          background: #ffeb3b;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-family: 'Courier New', Consolas, monospace;
+          font-size: 0.85em;
+          color: #000000;
+          font-weight: 700;
+          border: 1px solid #f57c00;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        
+        :deep(pre) {
+          background: #1a1a1a;
+          border: 2px solid #ff6f00;
+          border-radius: 6px;
+          padding: 10px;
+          margin: 0.5em 0;
+          overflow-x: auto;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          
+          code {
+            background: none;
+            padding: 0;
+            // 设置默认浅色文本，让代码可见
+            color: #d4d4d4;
+            font-size: 0.9em;
+            line-height: 1.4;
+            font-weight: 400;
+            border: none;
+            box-shadow: none;
+            font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+            
+            // highlight.js 语法高亮颜色（VSCode 风格）
+            .hljs-keyword,
+            .hljs-selector-tag,
+            .hljs-literal,
+            .hljs-section,
+            .hljs-link {
+              color: #569cd6; // 关键字 - 蓝色
+            }
+            
+            .hljs-string,
+            .hljs-attr,
+            .hljs-template-variable,
+            .hljs-variable {
+              color: #ce9178; // 字符串 - 橙色
+            }
+            
+            .hljs-number {
+              color: #b5cea8; // 数字 - 浅绿色
+            }
+            
+            .hljs-built_in,
+            .hljs-builtin-name,
+            .hljs-function,
+            .hljs-title {
+              color: #dcdcaa; // 函数 - 黄色
+            }
+            
+            .hljs-comment {
+              color: #6a9955; // 注释 - 绿色
+            }
+            
+            .hljs-meta {
+              color: #9cdcfe; // 元数据 - 浅蓝色
+            }
+            
+            .hljs-name,
+            .hljs-property {
+              color: #9cdcfe; // 属性 - 浅蓝色
+            }
+            
+            .hljs-regexp {
+              color: #d16969; // 正则 - 红色
+            }
+          }
+        }
+        
+        :deep(blockquote) {
+          border-left: 5px solid #ff6f00;
+          background: #fff3e0;
+          padding: 10px 12px;
+          margin: 0.8em 0;
+          color: #e65100;
+          font-style: italic;
+          font-weight: 600;
+          border-radius: 0 4px 4px 0;
+        }
+        
+        :deep(ul), :deep(ol) {
+          margin: 0.5em 0;
+          padding-left: 1.5em;
+          color: #000000;
+          
+          li {
+            margin: 0.3em 0;
+            font-weight: 500;
+            
+            &::marker {
+              color: #1976d2;
+              font-weight: 700;
+            }
+          }
+        }
+        
+        :deep(a) {
+          color: #0d47a1;
+          text-decoration: underline;
+          font-weight: 600;
+          
+          &:hover {
+            color: #1565c0;
+            text-decoration: underline;
+          }
+        }
+        
+        :deep(hr) {
+          border: none;
+          border-top: 3px solid #ff6b6b;
+          margin: 1em 0;
+        }
       }
     }
 
     .toolbar {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(248, 249, 250, 0.6) 0%, rgba(233, 236, 239, 0.4) 100%);
+      border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.04));
+      border-radius: 12px 12px 0 0; // 添加圆角
+      position: relative; // 为 markdown-menu 提供定位上下文
 
       .tool-btn {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border: none;
-        border-radius: 10px;
-        background: var(--bg-secondary, linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%));
-        color: var(--text-primary, inherit);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary, #6c757d);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 14px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
-        overflow: hidden;
         
-        &::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: var(--hover-bg, linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 123, 255, 0.05) 100%));
-          opacity: 0;
-          transition: opacity 0.3s ease;
-        }
-
         &:hover:not(:disabled) {
-          background: var(--active-bg, linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%));
-          transform: translateY(-2px) scale(1.08);
-          box-shadow: var(--shadow-md, 0 6px 20px rgba(0, 0, 0, 0.15));
-          
-          &::before {
-            opacity: 1;
-          }
+          background: rgba(165, 42, 42, 0.08);
+          color: var(--primary-color, rgba(165, 42, 42, 0.9));
+          transform: scale(1.1);
+        }
+        
+        &:active:not(:disabled) {
+          transform: scale(0.95);
         }
 
         &:disabled {
-          opacity: 0.5;
+          opacity: 0.3;
           cursor: not-allowed;
         }
 
         &.active {
-          background: var(--primary-color, #007bff);
-          color: var(--text-inverse, white);
+          background: rgba(165, 42, 42, 0.12);
+          color: var(--primary-color, rgba(165, 42, 42, 1));
         }
 
         .icon {
-          width: 16px;
-          height: 16px;
-          stroke-width: 1.5;
+          width: 20px;
+          height: 20px;
+          stroke-width: 2;
         }
 
         &.voice-recording {
-          background: var(--error-color, #dc3545);
-          color: var(--text-inverse, white);
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+          color: white;
           border-radius: 18px;
           width: auto;
-          padding: 0 12px;
+          padding: 0 14px;
           font-size: 12px;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+          animation: recordingPulse 1.5s ease-in-out infinite;
         }
 
         &.voice-cancel {
-          background: var(--text-tertiary, #6c757d);
-          color: var(--text-inverse, white);
+          background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+          color: white;
+          box-shadow: 0 2px 6px rgba(108, 117, 125, 0.25);
+        }
+      }
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 0 0 12px 12px;
+      position: relative;
+
+      textarea {
+        flex: 1;
+        border: none;
+        padding: 0;
+        resize: none;
+        font-size: 15px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        line-height: 1.5;
+        min-height: 44px;
+        max-height: 180px;
+        background: transparent;
+        color: var(--text-primary, #2c3e50);
+        transition: all 0.2s ease;
+        
+        &::placeholder {
+          color: var(--text-tertiary, #a0aec0);
+          font-weight: 400;
         }
 
-        &.send-btn {
-          background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
-          color: var(--text-inverse, white);
-          font-weight: 600;
-          box-shadow: var(--shadow-primary, 0 4px 15px rgba(165, 42, 42, 0.3));
-          
-          &:hover:not(:disabled) {
-            background: var(--primary-gradient, linear-gradient(135deg, rgba(145, 32, 32, 1) 0%, rgba(120, 25, 25, 1) 100%));
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: var(--shadow-primary, 0 8px 25px rgba(165, 42, 42, 0.4));
-          }
-          
-          &:disabled {
-            background: var(--text-tertiary, linear-gradient(135deg, #6c757d 0%, #5a6268 100%));
-            box-shadow: none;
-          }
-          
-          &.active:not(:disabled) {
-            background: var(--success-color, linear-gradient(135deg, #28a745 0%, #20c997 100%));
-            animation: pulse 0.6s ease-in-out;
-          }
+        &:focus {
+          outline: none;
+        }
+
+        &:disabled {
+          background-color: var(--bg-secondary, #f8f9fa);
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        &.with-file {
+          background: linear-gradient(135deg, rgba(40, 167, 69, 0.02) 0%, rgba(40, 167, 69, 0.01) 100%);
+        }
+      }
+
+      .send-btn {
+        flex-shrink: 0;
+        width: auto;
+        min-width: 70px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(165, 42, 42, 0.95) 0%, rgba(140, 35, 35, 1) 100%);
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+        padding: 0 20px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(165, 42, 42, 0.25);
+        
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(145, 32, 32, 1) 0%, rgba(120, 25, 25, 1) 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(165, 42, 42, 0.35);
+        }
+        
+        &:active:not(:disabled) {
+          transform: translateY(0);
+        }
+        
+        &:disabled {
+          background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+          box-shadow: none;
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        &.active:not(:disabled) {
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          animation: sendPulse 0.8s ease-in-out;
         }
       }
     }
@@ -1134,6 +1614,61 @@ defineExpose({
       }
     }
   }
+
+  // Markdown 格式菜单样式
+  .markdown-menu {
+    position: absolute;
+    bottom: calc(100% + 8px); // 在工具栏上方显示，增加间距
+    left: 12px;
+    background: white;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    display: flex;
+    gap: 4px;
+    z-index: 2000; // 提高 z-index
+    animation: slideUpFade 0.2s ease-out;
+    
+    .md-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-primary, #333);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: rgba(165, 42, 42, 0.08);
+        color: var(--primary-color, rgba(165, 42, 42, 0.9));
+        transform: scale(1.1);
+      }
+      
+      &:active {
+        transform: scale(0.95);
+      }
+      
+      strong, em, code {
+        font-size: 16px;
+      }
+      
+      em {
+        font-style: italic;
+      }
+      
+      code {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+      }
+    }
+  }
 }
 
 /* CSS动画效果 */
@@ -1152,7 +1687,18 @@ defineExpose({
   }
 }
 
-@keyframes slideUp {
+@keyframes slideDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 200px;
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpFade {
   from {
     transform: translateY(10px);
     opacity: 0;

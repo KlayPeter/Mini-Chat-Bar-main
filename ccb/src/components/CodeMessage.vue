@@ -140,7 +140,8 @@
 import { ref, computed } from 'vue'
 import { Copy, Check, FileCode, MessageCircle, Star, Play, Loader, Terminal, CheckCircle, ArrowRight, AlertTriangle, XCircle, X } from 'lucide-vue-next'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/atom-one-dark.css'
+// 使用 VSCode 风格的主题 - 深色背景
+import 'highlight.js/styles/vs2015.css'
 import axios from 'axios'
 import MessageContent from './MessageContent.vue'
 
