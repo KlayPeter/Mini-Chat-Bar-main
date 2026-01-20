@@ -161,7 +161,7 @@
             >
               <div class="chat-avatar">
                 <img
-                  :src="user.avatar || '/images/avatar/default-avatar.webp'"
+                  :src="getAvatarUrl(user.avatar)"
                   alt="头像"
                 />
               </div>
@@ -238,7 +238,7 @@
             <div v-if="friend.unreadCount > 0" class="unread-count-badge">
               {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
             </div>
-            <img :src="friend.avatar" alt="avatar" />
+            <img :src="getAvatarUrl(friend.avatar)" alt="avatar" />
             <span 
               class="online-dot" 
               :class="{ online: isUserOnline(friend.id) }"

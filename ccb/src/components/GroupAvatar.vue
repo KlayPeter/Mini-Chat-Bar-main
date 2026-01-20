@@ -9,13 +9,14 @@
       :key="index"
       class="avatar-item"
     >
-      <img :src="member.Avatar || '/images/avatar/default-avatar.webp'" :alt="member.Nickname" />
+      <img :src="getAvatarUrl(member.Avatar)" :alt="member.Nickname" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { getAvatarUrl } from '../utils/avatarHelper'
 
 const props = defineProps({
   members: {

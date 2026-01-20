@@ -42,7 +42,7 @@
               :key="member.userID"
               class="member-item"
             >
-              <img :src="member.Avatar" alt="头像" />
+              <img :src="getAvatarUrl(member.Avatar)" alt="头像" />
               <span class="member-name">{{ member.Nickname }}</span>
               <span v-if="member.userID === group.Creator" class="badge">群主</span>
               <span v-else-if="group.Admins.includes(member.userID)" class="badge">管理员</span>
@@ -112,6 +112,7 @@ import GroupAvatar from './GroupAvatar.vue'
 import InviteMemberDialog from './InviteMemberDialog.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
+import { getAvatarUrl } from '../utils/avatarHelper'
 
 const props = defineProps({
   group: {

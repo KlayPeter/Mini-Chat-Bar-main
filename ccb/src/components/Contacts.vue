@@ -32,7 +32,7 @@
             <div class="avatar-box">
               <div class="avatar-small">
                 <div :class="{ tips: friend.isNewmsg }"></div>
-                <img :src="friend.avatar || '/images/avatar/out.webp'" alt="图片" />
+                <img :src="getAvatarUrl(friend.avatar)" alt="图片" />
                 <!-- 在线状态指示器 -->
                 <span 
                   class="online-status-dot" 
@@ -77,7 +77,7 @@
             >
               <div class="avatar-box">
                 <div class="avatar-small">
-                  <img :src="user.uAvatar || '/images/avatar/default-avatar.webp'" alt="头像" />
+                  <img :src="getAvatarUrl(user.uAvatar)" alt="头像" />
                 </div>
               </div>
               <div class="detail">
@@ -132,7 +132,7 @@
       <div class="modal-body">
         <div class="user-info">
           <img 
-            :src="selectedUser.uAvatar || '/images/avatar/default-avatar.webp'" 
+            :src="getAvatarUrl(selectedUser.uAvatar)" 
             alt="用户头像" 
             class="user-avatar"
           />
@@ -172,6 +172,7 @@ import { useOnlineStatus } from "../composables/useOnlineStatus";
 import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
 import { Group } from '@iconoir/vue';
+import { getAvatarUrl } from '../utils/avatarHelper';
 
 const { isUserOnline } = useOnlineStatus()
 const toast = useToast()

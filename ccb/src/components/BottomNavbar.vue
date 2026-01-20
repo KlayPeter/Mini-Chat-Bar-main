@@ -56,7 +56,7 @@
     >
       <div class="avatar-wrapper">
         <img
-          :src="avatar || '/images/avatar/out.webp'"
+          :src="getAvatarUrl(avatar)"
           alt="头像"
           class="avatar"
         />
@@ -74,7 +74,7 @@
     <div class="profile-modal" @click.stop>
       <div class="profile-header">
         <img
-          :src="avatar || '/images/avatar/out.webp'"
+          :src="getAvatarUrl(avatar)"
           alt="头像"
           class="profile-avatar"
         />
@@ -97,6 +97,7 @@ import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
 import AIDigitalAssistant from './AIDigitalAssistant.vue'
+import { getAvatarUrl } from '../utils/avatarHelper'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
 const router = useRouter()

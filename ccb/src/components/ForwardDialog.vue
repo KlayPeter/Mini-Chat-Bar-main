@@ -39,7 +39,7 @@
               @click="toggleTarget(chat)"
             >
               <GroupAvatar v-if="chat.type === 'group'" :members="chat.members || []" :size="30" />
-              <img v-else :src="chat.avatar || '/images/avatar/default-avatar.webp'" :alt="chat.name" class="avatar-img" />
+              <img v-else :src="getAvatarUrl(chat.avatar)" :alt="chat.name" class="avatar-img" />
               <div class="chat-info">
                 <div class="chat-name">{{ chat.name }}</div>
                 <div class="chat-type">{{ chat.type === 'group' ? '群聊' : '好友' }}</div>
@@ -62,7 +62,7 @@
               :class="{ selected: selectedTargets.includes(friend.id) }"
               @click="toggleTarget(friend)"
             >
-              <img :src="friend.avatar || '/images/avatar/default-avatar.webp'" :alt="friend.name" class="avatar-img" />
+              <img :src="getAvatarUrl(friend.avatar)" :alt="friend.name" class="avatar-img" />
               <div class="chat-info">
                 <div class="chat-name">{{ friend.name }}</div>
                 <div class="chat-type">好友</div>
@@ -118,6 +118,7 @@ import { Xmark, Search, Check } from '@iconoir/vue'
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
 import GroupAvatar from './GroupAvatar.vue'
+import { getAvatarUrl } from '../utils/avatarHelper'
 
 const props = defineProps({
   messages: {
