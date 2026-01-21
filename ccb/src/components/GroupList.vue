@@ -439,6 +439,18 @@ function initGroupSocket() {
       messageType: messageType
     }
     
+    // 如果不是自己发的消息，触发通知
+    if (!isMyMessage) {
+      // 查找群组信息
+      const group = groups.value.find(g => g.RoomID === data.roomId);
+      const groupName = group ? group.RoomName : '群聊';
+      
+      // 触发Electron通知
+      import('@/utils/notificationManager').then(module => {
+        module.default.onNewMessage(groupName, messageContent, '', 'group');
+      });
+    }
+    
     // 只对其他群聊（非当前群聊）处理未读状态和@提及
     if (data.roomId !== currentGroupId.value) {
       // 检测@提及

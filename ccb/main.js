@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell, protocol, Tray} from 'electron'
+import { app, BrowserWindow, Menu, shell, protocol, Tray, ipcMain, nativeImage, screen } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFile } from 'fs/promises'
@@ -12,6 +12,11 @@ const isDev = process.env.NODE_ENV === 'development';
 let mainWindow;
 
 let tray = null; // 托盘变量
+let flashInterval = null; // 闪烁定时器
+let unreadCount = 0; // 未读消息数
+let previewWindow = null; // 预览窗口
+let previewTimeout = null; // 预览窗口延迟显示定时器
+let recentMessages = []; // 最近的消息列表
 
 function createWindow() {
   // 创建浏览器窗口
@@ -20,11 +25,13 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    title: 'Mini Chat Bar',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'build/icon.png'), // 应用图标
     show: false, // 先不显示窗口，等加载完成后再显示
@@ -45,6 +52,7 @@ function createWindow() {
   // 当窗口准备好显示时
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.setTitle('Mini Chat Bar');
     
     // 如果是开发环境，聚焦到窗口
     if (isDev) {
@@ -83,7 +91,296 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // 当窗口获得焦点时，停止闪烁并清除未读数
+  mainWindow.on('focus', () => {
+    stopFlashing();
+    clearBadge();
+  });
 }
+
+// 开始任务栏图标闪烁
+function startFlashing() {
+  if (flashInterval || !mainWindow) return;
+  
+  // Windows: 闪烁任务栏
+  if (process.platform === 'win32') {
+    mainWindow.flashFrame(true);
+  }
+  
+  // macOS: 弹跳Dock图标
+  if (process.platform === 'darwin') {
+    app.dock.bounce('critical');
+  }
+}
+
+// 停止闪烁
+function stopFlashing() {
+  if (flashInterval) {
+    clearInterval(flashInterval);
+    flashInterval = null;
+  }
+  
+  if (mainWindow && process.platform === 'win32') {
+    mainWindow.flashFrame(false);
+  }
+}
+
+// 设置badge（未读消息数）
+function setBadge(count) {
+  unreadCount = count;
+  
+  if (process.platform === 'win32' && mainWindow) {
+    // Windows: 设置overlay图标（任务栏右下角的小图标）
+    if (count > 0) {
+      // 创建一个16x16的红色圆点图标
+      const size = 16;
+      const canvas = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="#ff4444"/>
+          <text x="${size/2}" y="${size/2}" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" font-weight="bold" fill="white">${count > 99 ? '99+' : count}</text>
+        </svg>`
+      );
+      
+      const overlayIcon = nativeImage.createFromBuffer(canvas);
+      mainWindow.setOverlayIcon(overlayIcon, `${count} 条未读消息`);
+    } else {
+      mainWindow.setOverlayIcon(null, '');
+    }
+  } else if (process.platform === 'darwin') {
+    // macOS: 设置Dock badge
+    app.dock.setBadge(count > 0 ? count.toString() : '');
+  }
+  
+  // 更新托盘图标提示
+  if (tray) {
+    tray.setToolTip(count > 0 ? `Mini Chat Bar (${count} 条未读)` : 'Mini Chat Bar');
+  }
+}
+
+// 清除badge
+function clearBadge() {
+  setBadge(0);
+  
+  // 同时清除Windows的overlay图标
+  if (process.platform === 'win32' && mainWindow) {
+    mainWindow.setOverlayIcon(null, '');
+  }
+}
+
+// 创建托盘预览窗口
+function createPreviewWindow() {
+  if (previewWindow) return;
+  
+  previewWindow = new BrowserWindow({
+    width: 280,
+    height: 320,
+    show: false,
+    frame: false,
+    resizable: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: true
+    }
+  });
+  
+  updatePreviewContent();
+  
+  previewWindow.on('blur', () => {
+    if (previewWindow) {
+      previewWindow.hide();
+    }
+  });
+}
+
+// 更新预览窗口内容
+function updatePreviewContent() {
+  if (!previewWindow) return;
+  
+  let messagesHTML = '';
+  
+  if (recentMessages.length > 0) {
+    messagesHTML = recentMessages.slice(0, 5).map(msg => `
+      <div class="message-item">
+        <div class="avatar-container">
+          ${msg.avatar ? 
+            `<img src="${msg.avatar}" class="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23${msg.type === 'group' ? '2196F3' : '4CAF50'}%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2218%22>${msg.from.charAt(0)}</text></svg>'"/>` :
+            `<div class="avatar-placeholder ${msg.type === 'group' ? 'group' : ''}">${msg.from.charAt(0)}</div>`
+          }
+          ${msg.count > 0 ? `<div class="badge">${msg.count > 99 ? '99+' : msg.count}</div>` : ''}
+        </div>
+        <div class="message-info">
+          <div class="message-from">${msg.from}</div>
+          <div class="message-type">${msg.type === 'group' ? '[群聊]' : '[私聊]'}</div>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    messagesHTML = '<div class="no-messages">暂无新消息</div>';
+  }
+  
+  const previewHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Microsoft YaHei', Arial, sans-serif;
+          background: rgba(255, 255, 255, 0.98);
+          color: #333;
+          padding: 12px;
+          border-radius: 8px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          border: 1px solid rgba(0,0,0,0.1);
+        }
+        .header {
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 10px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid rgba(0,0,0,0.08);
+          color: #333;
+        }
+        .message-item {
+          display: flex;
+          align-items: center;
+          padding: 8px;
+          margin-bottom: 6px;
+          background: rgba(0,0,0,0.02);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .message-item:hover {
+          background: rgba(0,0,0,0.05);
+        }
+        .avatar-container {
+          position: relative;
+          margin-right: 10px;
+          flex-shrink: 0;
+        }
+        .avatar, .avatar-placeholder {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .avatar-placeholder {
+          background: #4CAF50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          font-weight: bold;
+          color: white;
+        }
+        .avatar-placeholder.group {
+          background: #2196F3;
+        }
+        .badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: #ff4444;
+          color: white;
+          font-size: 10px;
+          font-weight: bold;
+          padding: 2px 5px;
+          border-radius: 10px;
+          min-width: 18px;
+          text-align: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .message-info {
+          flex: 1;
+          overflow: hidden;
+        }
+        .message-from {
+          font-size: 13px;
+          font-weight: 500;
+          color: #333;
+          margin-bottom: 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .message-type {
+          font-size: 11px;
+          color: #999;
+        }
+        .no-messages {
+          text-align: center;
+          color: #999;
+          padding: 30px 10px;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">Mini Chat Bar${unreadCount > 0 ? ` (${unreadCount})` : ''}</div>
+      ${messagesHTML}
+    </body>
+    </html>
+  `;
+  
+  previewWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(previewHTML));
+}
+
+// 显示托盘预览
+function showTrayPreview() {
+  if (!previewWindow) {
+    createPreviewWindow();
+  } else {
+    updatePreviewContent(); // 更新内容
+  }
+  
+  // 获取托盘图标位置
+  const bounds = tray.getBounds();
+  const display = screen.getPrimaryDisplay();
+  
+  // 计算预览窗口位置（在托盘图标上方）
+  const x = Math.round(bounds.x + (bounds.width / 2) - 140); // 居中
+  const y = Math.round(bounds.y - 330); // 在图标上方
+  
+  previewWindow.setPosition(x, y);
+  previewWindow.show();
+}
+
+// 隐藏托盘预览
+function hideTrayPreview() {
+  if (previewWindow && previewWindow.isVisible()) {
+    previewWindow.hide();
+  }
+}
+
+
+// IPC通信：接收渲染进程的消息
+ipcMain.on('new-message', (event, count) => {
+  console.log('主进程收到新消息通知, 未读数:', count, '窗口焦点:', mainWindow.isFocused());
+  
+  // 临时测试：总是闪烁（不管窗口焦点）
+  startFlashing();
+  setBadge(count);
+});
+
+ipcMain.on('clear-badge', () => {
+  console.log('主进程清除badge');
+  clearBadge();
+  stopFlashing();
+});
+
+// 接收最近消息数据
+ipcMain.on('update-recent-messages', (event, messages) => {
+  recentMessages = messages;
+  if (previewWindow) {
+    updatePreviewContent();
+  }
+});
 
 // 在app ready之前注册协议为特权协议
 protocol.registerSchemesAsPrivileged([
@@ -113,13 +410,13 @@ function createTray() {
   tray.displayBalloon({
   icon: iconPath,
   title: '提示',
-  content: '应用正在后台运行'
+  content: 'Mini Chat Bar 正在后台运行'
 });
 
   // 托盘右键菜单
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '显示主窗口',
+      label: '打开 Mini Chat Bar',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
@@ -128,7 +425,10 @@ function createTray() {
       }
     },
     {
-      label: '退出',
+      type: 'separator'
+    },
+    {
+      label: '退出应用',
       click: () => {
         app.quit();
       }
@@ -148,11 +448,42 @@ function createTray() {
       mainWindow.focus();
     }
   });
+  
+  // 鼠标悬停在托盘图标上时显示预览
+  tray.on('mouse-move', () => {
+    // 清除之前的定时器
+    if (previewTimeout) {
+      clearTimeout(previewTimeout);
+    }
+    
+    // 延迟500ms显示预览窗口
+    previewTimeout = setTimeout(() => {
+      showTrayPreview();
+    }, 500);
+  });
+  
+  // 鼠标离开托盘区域时隐藏预览
+  tray.on('mouse-leave', () => {
+    if (previewTimeout) {
+      clearTimeout(previewTimeout);
+      previewTimeout = null;
+    }
+    
+    // 延迟隐藏，给用户时间移动到预览窗口
+    setTimeout(() => {
+      hideTrayPreview();
+    }, 200);
+  });
 }
 
 // Electron 会在初始化后并准备创建浏览器窗口时，调用这个函数。
 // 部分 API 在 ready 事件触发后才能使用。
 app.whenReady().then(() => {
+  // 设置Windows任务栏显示的应用名称
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('Mini Chat Bar');
+  }
+  
   // 注册自定义协议来处理静态资源
   protocol.handle('app', async (request) => {
     const url = new URL(request.url);

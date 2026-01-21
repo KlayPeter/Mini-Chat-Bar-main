@@ -1,5 +1,5 @@
 {
-  "name": "ccb",
+  "name": "mini-chat-bar",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -43,11 +43,12 @@
     "vite": "^6.3.5"
   },
   "build": {
-    "appId": "com.example.ccb",
+    "appId": "com.minichatbar.app",
     "productName": "Mini Chat Bar",
     "files": [
       "dist-new/**/*",
       "main.js",
+      "preload.js",
       "package.json"
     ],
     "directories": {

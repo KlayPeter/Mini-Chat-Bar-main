@@ -788,6 +788,15 @@ onMounted(async () => {
     if (to?.toString() === userid.value?.toString()) {
       // 收到别人发来的消息，显示小红点
       updateFriendMessage(from)
+      
+      // 触发Electron通知
+      const sender = friends.value.find(f => f.id?.toString() === from?.toString());
+      const senderName = sender?.username || sender?.name || '好友';
+      const senderAvatar = sender?.avatar || '';
+      
+      import('@/utils/notificationManager').then(module => {
+        module.default.onNewMessage(senderName, content, senderAvatar, 'private');
+      });
     } else if (from?.toString() === userid.value?.toString()) {
       // 自己发送的消息，更新lastChat但不显示小红点
       updateFriendMessage(to, false)
