@@ -62,7 +62,7 @@
                 @click="toggleFriend(friend.uID)"
               >
                 <input type="checkbox" :checked="selectedFriends.includes(friend.uID)" />
-                <img :src="friend.uAvatar" alt="头像" />
+                <img :src="getAvatarUrl(friend.uAvatar)" alt="头像" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
                 <span>{{ friend.uName }}</span>
               </div>
             </div>
@@ -86,6 +86,8 @@ import { io } from 'socket.io-client'
 import { Plus } from '@iconoir/vue'
 import GroupAvatar from './GroupAvatar.vue'
 import { useToast } from '../composables/useToast'
+import { getAvatarUrl } from '../utils/avatarHelper'
+import { socket } from '../../utils/socket'
 
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
@@ -102,7 +104,7 @@ const groupLastMessages = ref({})
 const unreadGroups = ref(new Set()) // 存储有未读消息的群ID
 const unreadCounts = ref({}) // 存储每个群的未读消息数量
 const mentionAlerts = ref(new Set()) // 存储有@提醒的群ID
-let socket = null // Socket连接实例
+let groupSocket = null // 群聊专用Socket连接实例
 
 // 获取群聊列表
 async function loadGroups() {
@@ -367,8 +369,6 @@ function joinAllGroupRooms() {
 }
 
 // 给GroupList添加独立的Socket监听，就像私聊一样！
-let groupSocket = null
-
 function initGroupSocket() {
   // 使用socket.io创建独立连接，配置重连和稳定性选项
   groupSocket = io(baseUrl, {
@@ -522,6 +522,23 @@ function initGroupSocket() {
   groupSocket.on('connect_error', (error) => {
     console.error('🎯 GroupList Socket连接错误:', error)
   })
+  
+  // 监听头像更新事件
+  groupSocket.on('avatar-updated', async (data) => {
+    // 当有用户更新头像时，刷新群组列表以更新群组头像
+    if (data.userId && data.newAvatarUrl) {
+      // 遍历所有群组，更新包含该用户的群组成员信息
+      groups.value.forEach(group => {
+        const memberIndex = group.Members.findIndex(
+          member => member.userID === data.userId
+        )
+        if (memberIndex !== -1) {
+          // 更新该成员的头像
+          group.Members[memberIndex].Avatar = data.newAvatarUrl
+        }
+      })
+    }
+  })
 }
 
 // 实现群聊的updateGroupMessage函数，就像私聊的updateFriendMessage
@@ -628,6 +645,22 @@ onMounted(() => {
   // 监听转发消息导致的GroupList更新事件
   window.addEventListener('group-list-message-update', handleForwardedGroupListUpdate)
   
+  // 监听全局 socket 的头像更新事件
+  socket.on('avatar-updated', (data) => {
+    if (data.userId && data.newAvatarUrl) {
+      // 遍历所有群组，更新包含该用户的群组成员信息
+      groups.value.forEach(group => {
+        const memberIndex = group.Members.findIndex(
+          member => member.userID === data.userId
+        )
+        if (memberIndex !== -1) {
+          // 更新该成员的头像
+          group.Members[memberIndex].Avatar = data.newAvatarUrl
+        }
+      })
+    }
+  })
+  
   // 延迟初始化Socket，确保群聊列表已加载
   setTimeout(() => {
     initGroupSocket()
@@ -638,6 +671,9 @@ onUnmounted(() => {
   if (groupSocket) {
     groupSocket.disconnect()
   }
+  
+  // 清理全局 socket 监听器
+  socket.off('avatar-updated')
   
   // 清理转发消息更新事件监听器
   window.removeEventListener('group-list-message-update', handleForwardedGroupListUpdate)

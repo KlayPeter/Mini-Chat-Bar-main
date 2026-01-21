@@ -96,6 +96,7 @@
             :src="getAvatarUrl(userava) + '?t=' + avatarKey"
             :key="avatarKey"
             alt="avatar"
+            @error="handleAvatarError"
           />
           <div 
             class="status-indicator-ring" 
@@ -238,7 +239,7 @@
             <div v-if="friend.unreadCount > 0" class="unread-count-badge">
               {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
             </div>
-            <img :src="getAvatarUrl(friend.avatar)" alt="avatar" />
+            <img :src="getAvatarUrl(friend.avatar)" alt="avatar" @error="handleAvatarError" />
             <span 
               class="online-dot" 
               :class="{ online: isUserOnline(friend.id) }"
@@ -359,6 +360,7 @@ import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import SettingsDialog from './SettingsDialog.vue'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
+import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
 const router = useRouter()
 const toast = useToast()
@@ -565,27 +567,6 @@ function formatMessageContent(msgData) {
       }
       return content || ''
   }
-}
-
-// 获取头像URL的辅助函数
-function getAvatarUrl(avatarPath) {
-  if (!avatarPath) {
-    return '/images/avatar/default-avatar.webp'
-  }
-  
-  // 如果是完整的URL（http或https开头），直接返回
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-    return avatarPath
-  }
-  
-  // 如果是预设头像路径（/images/avatar/ 开头），直接返回（这些是前端静态资源）
-  if (avatarPath.startsWith('/images/avatar/')) {
-    return avatarPath
-  }
-  
-  // 如果是上传的文件路径（/uploads/ 开头），拼接baseUrl
-  const baseUrl = import.meta.env.VITE_BASE_URL || ''
-  return baseUrl + avatarPath
 }
 
 // 获取用户信息

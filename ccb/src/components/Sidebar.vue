@@ -43,7 +43,7 @@
     </div>
     <div class="privacy">
       <div class="avatar" @click="logout">
-        <img :src="getAvatarUrl(avatar)" alt="" />
+        <img :src="getAvatarUrl(avatar)" alt="" @error="handleAvatarError" />
       </div>
     </div>
   </div>
@@ -57,6 +57,7 @@ import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
 import { ChatBubble, User, Group, Star, Code } from '@iconoir/vue'
 import AIDigitalAssistant from './AIDigitalAssistant.vue'
+import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI', 'showchatrooms', 'refreshInsights', 'aiAction'])
 const router = useRouter()
@@ -205,27 +206,6 @@ function togithub() {
 function logout() {
   localStorage.clear()
   location.reload()
-}
-
-// 获取头像URL的辅助函数
-function getAvatarUrl(avatarPath) {
-  if (!avatarPath) {
-    return '/images/avatar/out.webp'
-  }
-  
-  // 如果是完整的URL（http或https开头），直接返回
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-    return avatarPath
-  }
-  
-  // 如果是预设头像路径（/images/avatar/ 开头），直接返回（这些是前端静态资源）
-  if (avatarPath.startsWith('/images/avatar/')) {
-    return avatarPath
-  }
-  
-  // 如果是上传的文件路径（/uploads/ 开头），拼接baseUrl
-  const baseUrl = import.meta.env.VITE_BASE_URL || ''
-  return baseUrl + avatarPath
 }
 
 // 获取用户头像

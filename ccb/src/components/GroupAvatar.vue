@@ -9,14 +9,18 @@
       :key="index"
       class="avatar-item"
     >
-      <img :src="getAvatarUrl(member.Avatar)" :alt="member.Nickname" />
+      <img 
+        :src="getAvatarUrl(member.Avatar)" 
+        :alt="member.Nickname"
+        @error="handleAvatarError"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { getAvatarUrl } from '../utils/avatarHelper'
+import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
 const props = defineProps({
   members: {

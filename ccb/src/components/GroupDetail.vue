@@ -42,7 +42,7 @@
               :key="member.userID"
               class="member-item"
             >
-              <img :src="getAvatarUrl(member.Avatar)" alt="头像" />
+              <img :src="getAvatarUrl(member.Avatar)" alt="头像" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
               <span class="member-name">{{ member.Nickname }}</span>
               <span v-if="member.userID === group.Creator" class="badge">群主</span>
               <span v-else-if="group.Admins.includes(member.userID)" class="badge">管理员</span>

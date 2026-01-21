@@ -46,7 +46,7 @@
 
         <!-- 对方消息：头像在左边 -->
         <div class="avatar" v-if="!isMyMessage && showAvatar">
-          <img :src="getAvatar()" alt="头像" />
+          <img :src="getAvatar()" alt="头像" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
         </div>
 
         <div class="text" :class="{ me: isMyMessage }">
@@ -176,7 +176,7 @@
 
         <!-- 自己消息：头像在右边 -->
         <div class="avatar" v-if="isMyMessage && showAvatar">
-          <img :src="getMyAvatar()" alt="头像" />
+          <img :src="getMyAvatar()" alt="头像" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
         </div>
       </div>
     </template>

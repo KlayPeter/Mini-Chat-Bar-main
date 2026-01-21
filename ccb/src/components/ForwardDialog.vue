@@ -39,7 +39,7 @@
               @click="toggleTarget(chat)"
             >
               <GroupAvatar v-if="chat.type === 'group'" :members="chat.members || []" :size="30" />
-              <img v-else :src="getAvatarUrl(chat.avatar)" :alt="chat.name" class="avatar-img" />
+              <img v-else :src="getAvatarUrl(chat.avatar)" :alt="chat.name" class="avatar-img" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
               <div class="chat-info">
                 <div class="chat-name">{{ chat.name }}</div>
                 <div class="chat-type">{{ chat.type === 'group' ? '群聊' : '好友' }}</div>
@@ -62,7 +62,7 @@
               :class="{ selected: selectedTargets.includes(friend.id) }"
               @click="toggleTarget(friend)"
             >
-              <img :src="getAvatarUrl(friend.avatar)" :alt="friend.name" class="avatar-img" />
+              <img :src="getAvatarUrl(friend.avatar)" :alt="friend.name" class="avatar-img" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
               <div class="chat-info">
                 <div class="chat-name">{{ friend.name }}</div>
                 <div class="chat-type">好友</div>

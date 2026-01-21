@@ -108,7 +108,7 @@
                 <!-- 普通消息 -->
                 <div v-else class="message-item" :class="{ 'my-message': message.from === currentUserId }">
                   <div class="message-avatar" v-if="message.from !== currentUserId && message.messageType !== 'system'">
-                    <img :src="getAvatarUrl(message.fromAvatar)" alt="avatar" />
+                    <img :src="getAvatarUrl(message.fromAvatar)" alt="avatar" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
                   </div>
                   <div class="message-content-wrapper">
                     <div class="message-sender" v-if="message.from !== currentUserId && message.messageType !== 'system'">
@@ -119,7 +119,7 @@
                     </div>
                   </div>
                   <div class="message-avatar" v-if="message.from === currentUserId && message.messageType !== 'system'">
-                    <img :src="getAvatarUrl(myAvatar)" alt="avatar" />
+                    <img :src="getAvatarUrl(myAvatar)" alt="avatar" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
                   </div>
                 </div>
                 

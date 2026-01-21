@@ -30,3 +30,14 @@ export function getAvatarUrl(avatarPath, defaultAvatar = '/images/avatar/default
   const baseUrl = import.meta.env.VITE_BASE_URL || ''
   return baseUrl + avatarPath
 }
+
+/**
+ * 处理头像加载错误，显示默认头像
+ * @param {Event} event - 图片错误事件
+ * @param {string} defaultAvatar - 默认头像路径（可选）
+ */
+export function handleAvatarError(event, defaultAvatar = '/images/avatar/default-avatar.webp') {
+  if (event.target.src !== defaultAvatar) {
+    event.target.src = defaultAvatar
+  }
+}

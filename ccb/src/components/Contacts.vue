@@ -32,7 +32,7 @@
             <div class="avatar-box">
               <div class="avatar-small">
                 <div :class="{ tips: friend.isNewmsg }"></div>
-                <img :src="getAvatarUrl(friend.avatar)" alt="图片" />
+                <img :src="getAvatarUrl(friend.avatar)" alt="图片" @error="handleAvatarError" />
                 <!-- 在线状态指示器 -->
                 <span 
                   class="online-status-dot" 
@@ -77,7 +77,7 @@
             >
               <div class="avatar-box">
                 <div class="avatar-small">
-                  <img :src="getAvatarUrl(user.uAvatar)" alt="头像" />
+                  <img :src="getAvatarUrl(user.uAvatar)" alt="头像" @error="handleAvatarError" />
                 </div>
               </div>
               <div class="detail">
