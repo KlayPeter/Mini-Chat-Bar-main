@@ -520,15 +520,20 @@ async function sendMessage(content) {
           }
         })
         
-        // 发送Socket事件通知其他群成员
-        socket.emit('group-message', {
-          roomId: chatstore.currentChatUser,
-          content: content,
-          messageType: 'text',
-          from: currentUserId.value,
-          fromName: localStorage.getItem('username') || localStorage.getItem('userName') || '我',
-          time: new Date()
-        })
+        // 通知 LastChats 更新群聊最新消息（自己发的消息）
+        // 注意：不需要手动 socket.emit('group-message')，因为服务器已经广播了
+        // 我们只需要通过自定义事件通知 LastChats 更新即可
+        window.dispatchEvent(new CustomEvent('group-message-sent', {
+          detail: {
+            roomId: chatstore.currentChatUser,
+            content: content,
+            messageType: 'text',
+            from: currentUserId.value,
+            fromName: '我',
+            time: new Date().toISOString(),
+            _id: res.data.message?._id // 使用服务器返回的消息ID
+          }
+        }))
       }
     } else {
       // 私聊消息
@@ -682,10 +687,19 @@ function offmessage() {
 
 // 清理Socket事件监听器
 onBeforeUnmount(() => {
+  // 如果是群聊，离开群聊房间
+  if (chatType.value === 'group' && chatstore.currentChatUser) {
+    socket.emit('leave-group', {
+      roomId: chatstore.currentChatUser,
+      userId: localStorage.getItem('userId')
+    })
+  }
+  
   socket.off('message-deleted')
   socket.off('messages-deleted')
   socket.off('avatar-updated')
   socket.off('private-message')
+  socket.off('group-message')
   socket.off('private-file-message')
   socket.off('private-message-recalled')
   
@@ -721,18 +735,10 @@ onMounted(() => {
   avatar.value = route.query.img
   chatType.value = route.query.chatType || 'private'
   
-  console.log('🔍 Content.vue mounted:', {
-    uname: uname.value,
-    chatType: chatType.value,
-    userId: route.query.userId,
-    groupMembers: route.query.groupMembers
-  })
-  
   // 如果是群聊，获取群成员
   if (chatType.value === 'group' && route.query.groupMembers) {
     try {
       groupMembers.value = JSON.parse(route.query.groupMembers)
-      console.log('✅ 群成员解析成功:', groupMembers.value)
     } catch (e) {
       console.error('❌ 解析群成员失败:', e)
       groupMembers.value = []
@@ -758,7 +764,16 @@ onMounted(() => {
     if (chatType.value === 'private') {
       // 私聊：获取对方头像
       getavatar()
+    } else if (chatType.value === 'group') {
+      // 群聊：加入群聊房间
+      socket.emit('join-group', {
+        roomId: targetUserId,
+        userId: currentUserIdValue
+      })
+      socket.emit('join-room', targetUserId)
+      socket.emit('join', targetUserId)
     }
+    
     // 获取消息列表
     getlists().then(() => {
       // 消息加载完成后滚动到底部
@@ -768,6 +783,14 @@ onMounted(() => {
         }
       })
     })
+    
+    // 如果是群聊，标记为已读（清除未读数）
+    if (chatType.value === 'group') {
+      // 通过自定义事件通知 LastChats 清除未读数
+      window.dispatchEvent(new CustomEvent('group-chat-opened', {
+        detail: { roomId: targetUserId }
+      }))
+    }
   }
   
   // 获取自己的头像
@@ -814,7 +837,28 @@ onMounted(() => {
   // 监听群聊消息
   socket.on('group-message', async (data) => {
     if (data.roomId === chatstore.currentChatUser && chatType.value === 'group') {
+      // 刷新当前聊天的消息列表
       await getlists()
+      
+      // 滚动到底部
+      await nextTick(() => {
+        if (messageListRef.value) {
+          messageListRef.value.scrollToBottom()
+        }
+      })
+      
+      // 通知 LastChats 更新（即使在当前群聊中，也要更新左侧列表）
+      window.dispatchEvent(new CustomEvent('group-message-received', {
+        detail: {
+          roomId: data.roomId,
+          content: data.content,
+          messageType: data.messageType || 'text',
+          from: data.from,
+          fromName: data.fromName,
+          time: data.time || new Date().toISOString(),
+          createdAt: data.createdAt || data.time || new Date().toISOString()
+        }
+      }))
     }
   })
 
@@ -917,14 +961,6 @@ const emit = defineEmits(['closemessage'])
 // offmessage函数已在上面定义
 
 // 所有消息相关功能现在由ChatMessageList和ChatInput组件处理
-
-onBeforeUnmount(() => {
-  socket.off('private-message')
-  socket.off('private-file-message')
-  socket.off('message-deleted')
-  socket.off('messages-deleted')
-  socket.off('avatar-updated')
-})
 </script>
 
 <style scoped lang="scss">

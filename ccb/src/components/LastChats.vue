@@ -363,7 +363,7 @@ import { Palette, Xmark, Trash } from '@iconoir/vue'
 import { useChatStore } from '../stores/useChatStore'
 import { socket } from '../../utils/socket'
 import { watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import SettingsDialog from './SettingsDialog.vue'
@@ -372,6 +372,7 @@ import { useOnlineStatus } from '../composables/useOnlineStatus'
 import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const { confirm } = useConfirm()
 const issetting = ref(false)
@@ -597,6 +598,12 @@ async function switchToChat(chat) {
       chatType: 'group',
       groupMembers: chat.members
     })
+    
+    // 立即清除未读数 - 必须修改原始 groups 数组中的对象
+    const group = groups.value.find(g => g.RoomID === chat.id)
+    if (group) {
+      group.unreadCount = 0
+    }
   }
 }
 
@@ -858,6 +865,16 @@ async function getGroups() {
     if (res.data.success) {
       groups.value = res.data.groups || []
       
+      // 加入所有群聊房间
+      groups.value.forEach(group => {
+        socket.emit('join-group', {
+          roomId: group.RoomID,
+          userId: userid.value
+        })
+        socket.emit('join-room', group.RoomID)
+        socket.emit('join', group.RoomID)
+      })
+      
       // 加载每个群的最后一条消息
       for (const group of groups.value) {
         await loadGroupLastMessage(group.RoomID)
@@ -955,6 +972,12 @@ onMounted(async () => {
   await getfriends()
   await getGroups() // 加载群聊列表
 
+  // 先移除可能存在的旧监听器，防止重复
+  socket.off('private-message')
+  socket.off('group-message')
+  socket.off('avatar-updated')
+  socket.off('refresh-friend-list')
+
   socket.on('private-message', (data) => {
     const { from, to, content, timestamp } = data
     From.value = from
@@ -978,9 +1001,27 @@ onMounted(async () => {
     }
   })
   
-  // 监听群聊消息
+  // 监听群聊消息 - 使用消息ID去重，防止重复处理
+  const processedMessageIds = new Set()
   socket.on('group-message', (data) => {
+    const messageId = data._id || data.id
+    
+    // 使用消息ID去重
+    if (messageId && processedMessageIds.has(messageId)) {
+      return
+    }
+    
     if (data.roomId) {
+      // 记录已处理的消息ID
+      if (messageId) {
+        processedMessageIds.add(messageId)
+        // 限制Set大小，避免内存泄漏（保留最近100条）
+        if (processedMessageIds.size > 100) {
+          const firstId = processedMessageIds.values().next().value
+          processedMessageIds.delete(firstId)
+        }
+      }
+      
       updateGroupMessage(data.roomId, data)
     }
   })
@@ -1009,25 +1050,108 @@ onMounted(async () => {
 
   // 监听私聊转发消息更新事件
   window.addEventListener('private-chat-list-update', handlePrivateChatListUpdate)
+  
+  // 监听群聊消息接收事件（在群聊中收到的消息）
+  window.addEventListener('group-message-received', handleGroupMessageReceived)
+  
+  // 监听群聊消息发送事件（自己发的消息）
+  window.addEventListener('group-message-sent', handleGroupMessageSent)
+  
+  // 监听群聊打开事件（清除未读数）
+  window.addEventListener('group-chat-opened', handleGroupChatOpened)
 
   // 点击其他地方关闭右键菜单
   document.addEventListener('click', hideContextMenu)
 })
 
+// 监听路由变化，回到首页时刷新数据
+watch(() => route.path, async (newPath) => {
+  if (newPath === '/' || newPath === '/chats') {
+    await getfriends()
+    await getGroups()
+  }
+})
+
+// 处理群聊消息接收事件（在群聊中收到的消息）
+function handleGroupMessageReceived(event) {
+  const { roomId, content, messageType, from, fromName, time, createdAt } = event.detail
+  
+  updateGroupMessage(roomId, {
+    content,
+    messageType,
+    from,
+    fromName,
+    time,
+    createdAt
+  })
+}
+
+// 处理群聊消息发送事件（自己发的消息）
+function handleGroupMessageSent(event) {
+  const { roomId, content, messageType, from, fromName, time } = event.detail
+  
+  updateGroupMessage(roomId, {
+    content,
+    messageType,
+    from,
+    fromName,
+    time,
+    createdAt: time
+  })
+}
+
+// 处理群聊打开事件（清除未读数）
+function handleGroupChatOpened(event) {
+  const { roomId } = event.detail
+  
+  const group = groups.value.find(g => g.RoomID === roomId)
+  if (group) {
+    group.unreadCount = 0
+  }
+}
+
 // 更新群聊消息
 async function updateGroupMessage(roomId, messageData) {
-  const group = groups.value.find(g => g.RoomID === roomId)
+  if (!roomId || !messageData) {
+    return
+  }
+  
+  const group = groups.value.find(g => g && g.RoomID === roomId)
   if (group) {
     const currentUserId = userid.value
     const isMyMessage = String(messageData.from) === String(currentUserId)
-    const displayName = isMyMessage ? '我' : messageData.fromName
+    const displayName = isMyMessage ? '我' : (messageData.fromName || '未知用户')
     
-    group.lastMessage = formatGroupMessageContent(messageData, displayName)
-    group.lastTime = messageData.time || messageData.createdAt || new Date().toISOString()
+    // 使用消息 ID 和时间戳双重去重（更可靠）
+    const messageId = messageData._id || messageData.id
+    const messageTime = messageData.time || messageData.createdAt
     
-    // 如果不是自己发的消息，增加未读数
+    // 如果消息ID相同，跳过
+    if (messageId && group.lastMessageId === messageId) {
+      return
+    }
+    
+    // 如果时间戳相同且内容相同，也跳过（防止ID不同但实际是同一条消息）
+    if (messageTime && group.lastTime === messageTime && group.lastMessage === formatGroupMessageContent(messageData, displayName)) {
+      return
+    }
+    
+    // 更新最新消息和时间
+    const newLastMessage = formatGroupMessageContent(messageData, displayName)
+    const newLastTime = messageTime || new Date().toISOString()
+    
+    group.lastMessage = newLastMessage
+    group.lastTime = newLastTime
+    group.lastMessageId = messageId // 保存消息 ID 用于去重
+    
+    // 如果不是自己发的消息，并且不在当前聊天中，增加未读数
     if (!isMyMessage) {
-      group.unreadCount = (group.unreadCount || 0) + 1
+      // 检查是否正在查看这个群聊
+      const isViewingThisGroup = chatStore.currentChatUser === roomId
+      
+      if (!isViewingThisGroup) {
+        group.unreadCount = (group.unreadCount || 0) + 1
+      }
     }
   }
 }
@@ -1036,9 +1160,13 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
   window.removeEventListener('resize', checkScreen)
   window.removeEventListener('private-chat-list-update', handlePrivateChatListUpdate)
+  window.removeEventListener('group-message-received', handleGroupMessageReceived)
+  window.removeEventListener('group-message-sent', handleGroupMessageSent)
+  window.removeEventListener('group-chat-opened', handleGroupChatOpened)
   socket.off('private-message')
   socket.off('avatar-updated')
   socket.off('refresh-friend-list')
+  socket.off('group-message')
 })
 
 // 显示右键菜单
