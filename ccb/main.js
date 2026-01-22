@@ -33,7 +33,7 @@ function createWindow() {
       webSecurity: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'build/icon.png'), // 应用图标
+    icon: path.join(__dirname, 'public/images/logo.png'), // 应用图标
     show: false, // 先不显示窗口，等加载完成后再显示
     titleBarStyle: 'default'
   });
@@ -479,7 +479,7 @@ protocol.registerSchemesAsPrivileged([
 // 创建托盘图标函数
 function createTray() {
   // 托盘图标路径（建议放在项目的 build 或 assets 目录）
-  const iconPath = path.join(__dirname, 'build/icon.png');
+  const iconPath = path.join(__dirname, 'public/images/logo.png');
 
   // 创建托盘对象
   tray = new Tray(iconPath);

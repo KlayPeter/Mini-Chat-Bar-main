@@ -8,7 +8,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     resizable: false,
-    icon: path.join(__dirname, 'public', 'images', 'icon.png'),
+    icon: path.join(__dirname, 'public', 'images', 'logo.png'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
