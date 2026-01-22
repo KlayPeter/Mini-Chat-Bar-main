@@ -70,7 +70,7 @@
                 <FileText class="action-icon" />
               </button>
               <button @click="showRoomDetail = true" class="detail-btn" title="聊天室详情">
-                <i>ⓘ</i>
+                <Info class="action-icon" />
               </button>
             </div>
           </div>
@@ -205,7 +205,7 @@
 <script setup>
 import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Code, FileText, HelpCircle, Send } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, Info } from 'lucide-vue-next'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from 'axios'
 import Sidebar from '../components/Sidebar.vue'
@@ -870,19 +870,20 @@ async function handleInviteNavigation(roomId) {
     button {
       width: 36px;
       height: 36px;
-      border: none;
-      background: transparent;
+      border: 1px solid #ddd;
+      background: white;
       border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-secondary);
+      color: #666;
       transition: all 0.2s;
       
       &:hover {
-        background: var(--hover-bg);
+        background: #f5f5f5;
         color: var(--primary-color);
+        border-color: var(--primary-color);
       }
       
       .action-icon {

@@ -329,6 +329,16 @@
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click.stop
     >
+      <!-- 群聊专属选项 -->
+      <div
+        v-if="contextMenu.friend?.type === 'group'"
+        class="context-menu-item"
+        @click="viewGroupDetail(contextMenu.friend)"
+      >
+        <Palette class="context-icon" />
+        查看群详情
+      </div>
+      
       <div class="context-menu-item" @click="clearAllChats">
         <img
           src="/images/icon/delete-2.png"
@@ -1309,6 +1319,23 @@ async function deleteChatWith(friend) {
     }
   }
   hideContextMenu()
+}
+
+// 查看群详情
+function viewGroupDetail(chat) {
+  hideContextMenu()
+  
+  if (chat.type === 'group') {
+    // 通过 emit 触发父组件的 todetail 事件
+    emit('todetail', {
+      uname: chat.name,
+      img: chat.avatar,
+      userId: chat.id,
+      chatType: 'group',
+      groupMembers: chat.members || [],
+      showDetail: true
+    })
+  }
 }
 
 // 显示头像选择器

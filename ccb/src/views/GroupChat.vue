@@ -60,7 +60,7 @@
               <Notes class="action-icon" />
             </button>
             <button @click="showGroupDetail = true" class="detail-btn" title="群详情">
-              <i>ⓘ</i>
+              <Info class="action-icon" />
             </button>
           </div>
         </div>
@@ -163,7 +163,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Search, ChatBubble, Notes } from '@iconoir/vue'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Info } from 'lucide-vue-next'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import Sidebar from '../components/Sidebar.vue'
@@ -1832,18 +1832,26 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     flex: 1;
+    min-width: 0;
 
     .group-avatar-wrapper {
       width: 40px;
       height: 40px;
       margin-right: 12px;
+      flex-shrink: 0;
     }
 
     .info {
+      flex: 1;
+      min-width: 0;
+      
       h3 {
         margin: 0 0 4px 0;
         font-size: 16px;
         color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       span {
@@ -1854,17 +1862,19 @@ onUnmounted(() => {
   }
 
   .header-actions {
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: 10px;
+    flex-shrink: 0;
+    margin-left: 12px;
 
     button {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: none;
-      border: none;
-      color: var(--text-secondary, #666);
+      background: white;
+      border: 1px solid #ddd;
+      color: #666;
       cursor: pointer;
       width: 40px;
       height: 40px;
@@ -1873,7 +1883,8 @@ onUnmounted(() => {
 
       &:hover {
         color: var(--primary-color, coral);
-        background-color: var(--hover-bg, rgba(255, 127, 80, 0.1));
+        background-color: #f5f5f5;
+        border-color: var(--primary-color, coral);
       }
 
       .action-icon {
@@ -1892,10 +1903,10 @@ onUnmounted(() => {
     display: flex !important;
     align-items: center;
     justify-content: center;
-    background: none;
-    border: none;
+    background: white !important;
+    border: 1px solid #ddd !important;
     font-size: 20px;
-    color: var(--text-secondary, #666);
+    color: #666 !important;
     cursor: pointer;
     width: 40px;
     height: 40px;
@@ -1903,8 +1914,9 @@ onUnmounted(() => {
     transition: all 0.2s ease;
 
     &:hover {
-      color: var(--text-primary, #333);
-      background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
+      color: var(--primary-color, coral) !important;
+      background-color: #f5f5f5 !important;
+      border-color: var(--primary-color, coral) !important;
     }
 
     i {

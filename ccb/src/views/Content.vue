@@ -26,6 +26,14 @@
             <Notes class="action-icon" />
           </button>
           <button
+            v-if="chatType === 'group'"
+            @click="showGroupDetail = true"
+            class="group-detail-btn"
+            title="群详情"
+          >
+            <Palette class="action-icon" />
+          </button>
+          <button
             @click="deleteCurrentChat"
             class="delete-chat"
             title="删除当前聊天记录"
@@ -102,6 +110,14 @@
       :targetName="uname"
       @close="showSummaryDialog = false"
     />
+    
+    <!-- 群详情侧边栏 -->
+    <GroupDetail
+      v-if="showGroupDetail && chatType === 'group' && currentGroupData"
+      :group="currentGroupData"
+      @close="showGroupDetail = false"
+      @update="handleGroupUpdate"
+    />
   </div>
 </template>
 
@@ -111,13 +127,14 @@ import { useRoute } from 'vue-router'
 import { useChatStore } from '../stores/useChatStore'
 import axios from 'axios'
 import { watch } from 'vue'
-import { Xmark, Notes } from '@iconoir/vue'
+import { Xmark, Notes, Palette } from '@iconoir/vue'
 import { socket } from '../../utils/socket'
 import { onBeforeUnmount } from 'vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import ForwardDialog from '../components/ForwardDialog.vue'
 import SummaryDialog from '../components/SummaryDialog.vue'
+import GroupDetail from '../components/GroupDetail.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
@@ -125,6 +142,7 @@ import GroupAvatar from '../components/GroupAvatar.vue'
 
 // 总结对话框
 const showSummaryDialog = ref(false)
+const showGroupDetail = ref(false) // 群详情侧边栏
 
 const messages = ref([])
 const messageListRef = ref(null)
@@ -139,6 +157,7 @@ const myAvatar = ref('') // 自己的头像
 const currentUserId = ref(localStorage.getItem('userId') || '') // 当前登录用户ID
 const chatType = ref('private') // 聊天类型：'private' 或 'group'
 const groupMembers = ref([]) // 群成员列表（仅群聊时使用）
+const currentGroupData = ref(null) // 当前群聊数据
 const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
@@ -649,6 +668,29 @@ async function getMyAvatar() {
   }
 }
 
+// 加载群详情数据
+async function loadGroupDetail(roomId) {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(`${baseUrl}/room/${roomId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    if (res.data.success && res.data.room) {
+      currentGroupData.value = res.data.room
+    }
+  } catch (err) {
+    console.error('获取群详情失败:', err)
+  }
+}
+
+// 处理群信息更新
+function handleGroupUpdate() {
+  if (chatstore.currentChatUser) {
+    loadGroupDetail(chatstore.currentChatUser)
+  }
+}
+
 // 删除当前聊天记录
 async function deleteCurrentChat() {
   const confirmed = await confirm({
@@ -772,6 +814,9 @@ onMounted(() => {
       })
       socket.emit('join-room', targetUserId)
       socket.emit('join', targetUserId)
+      
+      // 获取群详情数据
+      loadGroupDetail(targetUserId)
     }
     
     // 获取消息列表
@@ -792,6 +837,13 @@ onMounted(() => {
       window.dispatchEvent(new CustomEvent('group-chat-opened', {
         detail: { roomId: targetUserId }
       }))
+    }
+    
+    // 如果 URL 参数中有 showDetail，自动打开群详情
+    if (route.query.showDetail === 'true' && chatType.value === 'group') {
+      setTimeout(() => {
+        showGroupDetail.value = true
+      }, 500)
     }
   }
   
