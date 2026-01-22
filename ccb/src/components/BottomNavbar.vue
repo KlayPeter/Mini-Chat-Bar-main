@@ -27,14 +27,6 @@
     </div>
     <div 
       class="nav-item" 
-      @click="toGroupChat" 
-      :class="{ active: activeTab === 'group' }"
-    >
-      <font-awesome-icon icon="users" />
-      <span>群聊</span>
-    </div>
-    <div 
-      class="nav-item" 
       @click="toChatRoom" 
       :class="{ active: activeTab === 'chatroom' }"
     >
@@ -110,9 +102,7 @@ const showProfileModal = ref(false)
 // 根据当前路由设置activeTab
 function updateActiveTab() {
   const path = route.path
-  if (path === '/group-chat') {
-    activeTab.value = 'group'
-  } else if (path === '/chatroom' || path.includes('/chatroom')) {
+  if (path === '/chatroom' || path.includes('/chatroom')) {
     activeTab.value = 'chatroom'
   } else if (path === '/favorites') {
     activeTab.value = 'favorites'
@@ -136,11 +126,6 @@ function chat() {
 function contacts() {
   activeTab.value = 'contacts'
   router.push('/contacts')
-}
-
-function toGroupChat() {
-  activeTab.value = 'group'
-  router.push('/group-chat')
 }
 
 function toChatRoom() {

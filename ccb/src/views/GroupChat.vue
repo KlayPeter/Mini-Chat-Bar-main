@@ -7,7 +7,7 @@
       </div>
 
       <!-- 群聊列表 -->
-      <div class="section2-wrapper" :class="{ collapsed: isSection2Collapsed }">
+      <div class="section2-wrapper" :class="{ collapsed: isSection2Collapsed || isDirectNavigation }">
         <div class="section2">
           <GroupList @select-group="handleSelectGroup" ref="groupListRef" />
 
@@ -21,14 +21,14 @@
       </div>
 
       <!-- 聊天区域 -->
-      <div class="section3-wrapper" :class="{ active: showChatArea, expanded: isSection2Collapsed }">
+      <div class="section3-wrapper" :class="{ active: showChatArea, expanded: isSection2Collapsed || isDirectNavigation }">
         <!-- 折叠/展开按钮 - 始终显示 -->
         <button 
           @click="toggleSection2" 
           class="toggle-section2-btn"
-          :title="isSection2Collapsed ? '展开列表' : '折叠列表'"
+          :title="isSection2Collapsed || isDirectNavigation ? '展开列表' : '折叠列表'"
         >
-          <ChevronRight v-if="isSection2Collapsed" :size="20" />
+          <ChevronRight v-if="isSection2Collapsed || isDirectNavigation" :size="20" />
           <ChevronLeft v-else :size="20" />
         </button>
       <div v-if="!currentGroup" class="section3">
@@ -160,7 +160,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { Search, ChatBubble, Notes } from '@iconoir/vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from 'axios'
@@ -180,6 +181,7 @@ import { useToast } from '../composables/useToast'
 import { useAudioRecorder } from '../composables/useAudioRecorder'
 import { useConfirm } from '../composables/useConfirm'
 
+const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -214,6 +216,7 @@ const showChatArea = ref(false) // 移动端控制聊天区域显示
 const highlightedMessageId = ref(null) // 高亮显示的消息ID
 const showAIPanel = ref(false) // AI 助手面板
 const isSection2Collapsed = ref(false) // 折叠状态
+const isDirectNavigation = ref(false) // 是否从其他页面直接跳转（LastChats/Contacts）
 
 // AI 助手上下文
 const aiChatContext = computed(() => {
@@ -234,7 +237,13 @@ function toggleAIPanel() {
 
 // 切换 section2 折叠状态
 function toggleSection2() {
-  isSection2Collapsed.value = !isSection2Collapsed.value
+  // 如果是直接导航模式，点击展开按钮时需要清除直接导航标记
+  if (isDirectNavigation.value) {
+    isDirectNavigation.value = false
+    isSection2Collapsed.value = false
+  } else {
+    isSection2Collapsed.value = !isSection2Collapsed.value
+  }
 }
 
 let socket = null
@@ -1517,7 +1526,56 @@ onMounted(async () => {
   
   // 监听GroupList的加入所有房间事件
   window.addEventListener('joinAllRooms', handleJoinAllRooms)
+  
+  // 检查是否有 roomId 参数（从LastChats或Contacts跳转）
+  if (route.query.roomId) {
+    // 标记为直接导航，完全隐藏群聊列表
+    isDirectNavigation.value = true
+    isSection2Collapsed.value = true
+    await handleRoomIdNavigation(route.query.roomId)
+  }
 })
+
+// 监听路由变化
+watch(() => route.query.roomId, async (newRoomId, oldRoomId) => {
+  if (newRoomId && newRoomId !== oldRoomId) {
+    // 标记为直接导航，完全隐藏群聊列表
+    isDirectNavigation.value = true
+    isSection2Collapsed.value = true
+    await handleRoomIdNavigation(newRoomId)
+  } else if (!newRoomId && oldRoomId) {
+    // 如果移除了 roomId 参数，恢复显示群聊列表
+    isDirectNavigation.value = false
+    isSection2Collapsed.value = false
+  }
+})
+
+// 处理从其他页面跳转过来的情况
+async function handleRoomIdNavigation(roomId) {
+  try {
+    const token = localStorage.getItem('token')
+    
+    // 获取群聊详情
+    const res = await axios.get(`${baseUrl}/room/${roomId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    if (res.data.success && res.data.room) {
+      const room = res.data.room
+      
+      // 选择并显示群聊
+      await handleSelectGroup(room)
+      
+      // 通知 GroupList 刷新并更新选中状态
+      if (groupListRef.value) {
+        await groupListRef.value.loadGroups()
+      }
+    }
+  } catch (err) {
+    console.error('❌ 加载群聊失败:', err)
+    toast.error(err.response?.data?.message || '加载群聊失败')
+  }
+}
 
 onUnmounted(() => {
   if (socket) {

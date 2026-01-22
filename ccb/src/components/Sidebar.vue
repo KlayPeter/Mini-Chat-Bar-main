@@ -24,11 +24,6 @@
             <User class="icon" />
           </i>
         </li>
-        <li :class="{ active: activeTab === 'group' }">
-          <i title="群聊" @click="toGroupChat">
-            <Group class="icon" />
-          </i>
-        </li>
         <li :class="{ active: activeTab === 'chatroom' }">
           <i title="技术聊天室" @click="toChatRoom">
             <Code class="icon" />
@@ -55,7 +50,7 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
-import { ChatBubble, User, Group, Star, Code } from '@iconoir/vue'
+import { ChatBubble, User, Star, Code } from '@iconoir/vue'
 import AIDigitalAssistant from './AIDigitalAssistant.vue'
 import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
@@ -74,8 +69,6 @@ const currentMode = computed(() => {
   const path = route.path
   if (path === '/chatrooms' || path.includes('/chatroom-detail')) {
     return 'chatroom' // 聊天室模式
-  } else if (path === '/group-chat') {
-    return 'group' // 群聊模式
   } else {
     return 'chat' // 私聊模式
   }
@@ -109,9 +102,7 @@ function handleAIAction(action) {
 // 根据当前路由设置activeTab
 function updateActiveTab() {
   const path = route.path
-  if (path === '/group-chat') {
-    activeTab.value = 'group'
-  } else if (path === '/chatrooms' || path.includes('/chatroom-detail')) {
+  if (path === '/chatrooms' || path.includes('/chatroom-detail')) {
     activeTab.value = 'chatroom'
   } else if (path === '/moments') {
     activeTab.value = 'moments'
@@ -132,10 +123,6 @@ watch(() => route.path, (newPath, oldPath) => {
   if (newPath === '/chatrooms' && oldPath !== '/chatrooms') {
     if (aiAssistantRef.value) {
       aiAssistantRef.value.speak('欢迎来到技术聊天室！选择一个房间开始交流吧', 4000)
-    }
-  } else if (newPath === '/group-chat' && oldPath !== '/group-chat') {
-    if (aiAssistantRef.value) {
-      aiAssistantRef.value.speak('进入群聊模式，点击我可以打开 AI 对话框', 3000)
     }
   } else if (newPath === '/chats' && oldPath !== '/chats') {
     if (aiAssistantRef.value) {
@@ -186,11 +173,6 @@ function contacts() {
 function tocsdn() {
   activeTab.value = 'moments'
   router.push('/moments')
-}
-
-function toGroupChat() {
-  activeTab.value = 'group'
-  router.push('/group-chat')
 }
 
 function toChatRoom() {

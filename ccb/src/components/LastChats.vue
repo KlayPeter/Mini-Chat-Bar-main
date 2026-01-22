@@ -226,35 +226,43 @@
         <div class="no-results">未找到结果</div>
       </div>
 
-      <!-- 正常聊天列表 -->
+      <!-- 混合聊天列表（私聊+群聊） -->
       <ul class="chat-list" v-else>
         <li
           class="chat-item"
-          v-for="friend in friends"
-          :key="friend.id"
-          @click="switchChat(friend)"
-          @contextmenu.prevent="showContextMenu($event, friend)"
+          v-for="chat in allChats"
+          :key="chat.id"
+          @click="switchToChat(chat)"
+          @contextmenu.prevent="showContextMenu($event, chat)"
         >
           <div class="chat-avatar">
-            <div v-if="friend.unreadCount > 0" class="unread-count-badge">
-              {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
+            <div v-if="chat.unreadCount > 0" class="unread-count-badge">
+              {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
             </div>
-            <img :src="getAvatarUrl(friend.avatar)" alt="avatar" @error="handleAvatarError" />
-            <span 
-              class="online-dot" 
-              :class="{ online: isUserOnline(friend.id) }"
-            ></span>
+            <!-- 群聊头像 -->
+            <GroupAvatar v-if="chat.type === 'group'" :members="chat.members" :size="48" />
+            <!-- 私聊头像 -->
+            <template v-else>
+              <img :src="getAvatarUrl(chat.avatar)" alt="avatar" @error="handleAvatarError" />
+              <span 
+                class="online-dot" 
+                :class="{ online: isUserOnline(chat.id) }"
+              ></span>
+            </template>
           </div>
           <div class="chat-details">
-            <div class="chat-name">{{ friend.name }}</div>
+            <div class="chat-name">
+              {{ chat.name }}
+              <span v-if="chat.type === 'group'" class="group-tag">[群聊]</span>
+            </div>
             <div
               class="chat-message"
-              :class="{ 'unread-text': friend.unreadCount > 0 }"
+              :class="{ 'unread-text': chat.unreadCount > 0 }"
             >
-              {{ friend.lastMessage }}
+              {{ chat.lastMessage }}
             </div>
           </div>
-          <div class="chat-time">{{ formatDate(friend.lastTime) }}</div>
+          <div class="chat-time">{{ formatDate(chat.lastTime) }}</div>
         </li>
       </ul>
     </div>
@@ -359,6 +367,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import SettingsDialog from './SettingsDialog.vue'
+import GroupAvatar from './GroupAvatar.vue'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
 
@@ -393,10 +402,11 @@ function addFriend() {
 // 新建群聊功能
 function createGroup() {
   showAddMenu.value = false
-  router.push('/group-chat')
+  router.push('/contacts') // 改为跳转到通讯录，在那里创建群聊
 }
 
 const friends = ref([])
+const groups = ref([]) // 新增：群聊列表
 const From = ref('')
 
 const userid = ref('')
@@ -408,6 +418,39 @@ const avatarKey = ref(0) // 用于强制刷新头像的key
 const searchKeyword = ref('')
 const searchResults = ref([])
 const isSearching = ref(false)
+
+// 混合聊天列表（私聊+群聊）
+const allChats = computed(() => {
+  // 合并私聊和群聊
+  const privateChats = friends.value.map(friend => ({
+    ...friend,
+    type: 'private',
+    id: friend.id,
+    name: friend.name,
+    avatar: friend.avatar,
+    lastMessage: friend.lastMessage,
+    lastTime: friend.lastTime,
+    unreadCount: friend.unreadCount || 0
+  }))
+  
+  const groupChats = groups.value.map(group => ({
+    ...group,
+    type: 'group',
+    id: group.RoomID,
+    name: group.RoomName,
+    members: group.Members || [],
+    lastMessage: group.lastMessage || '',
+    lastTime: group.lastTime || '',
+    unreadCount: group.unreadCount || 0
+  }))
+  
+  // 合并并按时间排序
+  return [...privateChats, ...groupChats].sort((a, b) => {
+    const timeA = new Date(a.lastTime || 0).getTime()
+    const timeB = new Date(b.lastTime || 0).getTime()
+    return timeB - timeA
+  })
+})
 
 // 计算属性：分离用户和消息搜索结果
 const userSearchResults = computed(() => {
@@ -511,6 +554,49 @@ async function switchChat(friend) {
     } catch (err) {
       console.error('标记消息为已读失败:', err)
     }
+  }
+}
+
+// 统一的聊天切换函数（支持私聊和群聊）
+async function switchToChat(chat) {
+  if (chat.type === 'private') {
+    // 私聊
+    chatStore.switchChatUser(chat.id)
+    emit('todetail', {
+      uname: chat.name,
+      img: chat.avatar,
+      userId: chat.id,
+      chatType: 'private'
+    })
+
+    // 标记消息为已读
+    if (chat.unreadCount > 0) {
+      try {
+        const token = localStorage.getItem('token')
+        await axios.put(
+          `${import.meta.env.VITE_BASE_URL}/api/chat/read/${chat.id}`,
+          {},
+          {
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+          }
+        )
+        chat.unreadCount = 0
+      } catch (err) {
+        console.error('标记消息为已读失败:', err)
+      }
+    }
+  } else if (chat.type === 'group') {
+    // 群聊 - 也跳转到统一的聊天页面
+    chatStore.switchChatUser(chat.id)
+    emit('todetail', {
+      uname: chat.name,
+      img: chat.avatar,
+      userId: chat.id,
+      chatType: 'group',
+      groupMembers: chat.members
+    })
   }
 }
 
@@ -761,6 +847,94 @@ function handlePrivateChatListUpdate(event) {
   }
 }
 
+// 获取群聊列表
+async function getGroups() {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/room/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    if (res.data.success) {
+      groups.value = res.data.groups || []
+      
+      // 加载每个群的最后一条消息
+      for (const group of groups.value) {
+        await loadGroupLastMessage(group.RoomID)
+      }
+    }
+  } catch (err) {
+    console.error('获取群聊列表失败:', err)
+  }
+}
+
+// 获取群的最后一条消息
+async function loadGroupLastMessage(roomId) {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await axios.get(
+      `${import.meta.env.VITE_BASE_URL}/room/${roomId}/messages?limit=1`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+    if (res.data.success && res.data.messages.length > 0) {
+      const lastMsg = res.data.messages[res.data.messages.length - 1]
+      const group = groups.value.find(g => g.RoomID === roomId)
+      if (group) {
+        const currentUserId = userid.value
+        const isMyMessage = String(lastMsg.from) === String(currentUserId)
+        const displayName = isMyMessage ? '我' : lastMsg.fromName
+        
+        group.lastMessage = formatGroupMessageContent(lastMsg, displayName)
+        group.lastTime = lastMsg.time || lastMsg.createdAt
+        group.unreadCount = 0 // 初始化未读数
+      }
+    }
+  } catch (err) {
+    console.error('获取群聊最后消息失败:', err)
+  }
+}
+
+// 格式化群聊消息内容
+function formatGroupMessageContent(msgData, senderName) {
+  if (!msgData) return ''
+  
+  const messageType = msgData.messageType
+  let content = msgData.content
+  
+  // 根据消息类型返回友好的文本
+  switch (messageType) {
+    case 'chatroom_invite':
+      return `${senderName}: [聊天室邀请]`
+    case 'image':
+      return `${senderName}: [图片]`
+    case 'file':
+      return `${senderName}: [文件]`
+    case 'video':
+      return `${senderName}: [视频]`
+    case 'audio':
+    case 'voice':
+      return `${senderName}: [语音]`
+    case 'code':
+      return `${senderName}: [代码]`
+    case 'system':
+      return content || '[系统消息]'
+    default:
+      // 对于文本消息，清理 Markdown 代码块和特殊字符
+      if (content) {
+        if (content.includes('```')) {
+          return `${senderName}: [代码]`
+        }
+        content = content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+        if (content.length > 30) {
+          content = content.substring(0, 30) + '...'
+        }
+      }
+      return `${senderName}: ${content || ''}`
+  }
+}
+
 onMounted(async () => {
   // 检测屏幕尺寸
   checkScreen()
@@ -779,6 +953,7 @@ onMounted(async () => {
   
   await getinfo()
   await getfriends()
+  await getGroups() // 加载群聊列表
 
   socket.on('private-message', (data) => {
     const { from, to, content, timestamp } = data
@@ -800,6 +975,13 @@ onMounted(async () => {
     } else if (from?.toString() === userid.value?.toString()) {
       // 自己发送的消息，更新lastChat但不显示小红点
       updateFriendMessage(to, false)
+    }
+  })
+  
+  // 监听群聊消息
+  socket.on('group-message', (data) => {
+    if (data.roomId) {
+      updateGroupMessage(data.roomId, data)
     }
   })
 
@@ -831,6 +1013,24 @@ onMounted(async () => {
   // 点击其他地方关闭右键菜单
   document.addEventListener('click', hideContextMenu)
 })
+
+// 更新群聊消息
+async function updateGroupMessage(roomId, messageData) {
+  const group = groups.value.find(g => g.RoomID === roomId)
+  if (group) {
+    const currentUserId = userid.value
+    const isMyMessage = String(messageData.from) === String(currentUserId)
+    const displayName = isMyMessage ? '我' : messageData.fromName
+    
+    group.lastMessage = formatGroupMessageContent(messageData, displayName)
+    group.lastTime = messageData.time || messageData.createdAt || new Date().toISOString()
+    
+    // 如果不是自己发的消息，增加未读数
+    if (!isMyMessage) {
+      group.unreadCount = (group.unreadCount || 0) + 1
+    }
+  }
+}
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
@@ -1540,6 +1740,18 @@ onBeforeUnmount(() => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          
+          .group-tag {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--primary-color, rgba(165, 42, 42, 1));
+            background: rgba(165, 42, 42, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
         }
 
         .chat-message {

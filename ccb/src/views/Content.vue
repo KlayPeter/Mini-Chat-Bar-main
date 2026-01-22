@@ -6,10 +6,14 @@
           <h4>
             {{ uname }}
             <span 
+              v-if="chatType === 'private'"
               class="online-status-indicator" 
               :class="{ online: isUserOnline(chatstore.currentChatUser) }"
             >
               {{ isUserOnline(chatstore.currentChatUser) ? '在线' : '离线' }}
+            </span>
+            <span v-else-if="chatType === 'group'" class="group-member-count">
+              {{ groupMembers.length }} 人
             </span>
           </h4>
         </div>
@@ -46,9 +50,9 @@
         :otherUserAvatar="avatar"
         :myAvatar="myAvatar"
         :baseUrl="baseUrl"
-        messageType="normal"
+        :messageType="chatType === 'group' ? 'group' : 'normal'"
         :showAvatar="true"
-        :showSenderName="false"
+        :showSenderName="chatType === 'group'"
         :autoScroll="true"
         @preview-image="handlePreviewImage"
         @preview-video="handlePreviewVideo"
@@ -73,6 +77,8 @@
         :showFileButton="true"
         :showVoiceButton="true"
         :showSearchButton="false"
+        :groupMembers="chatType === 'group' ? groupMembers : []"
+        :currentUserId="currentUserId"
         @send-message="handleSendMessage"
         @send-file="handleSendFile"
         @typing-start="handleTypingStart"
@@ -91,7 +97,7 @@
     <!-- AI 总结对话框 -->
     <SummaryDialog
       v-if="showSummaryDialog"
-      chatType="private"
+      :chatType="chatType"
       :targetId="chatstore.currentChatUser"
       :targetName="uname"
       @close="showSummaryDialog = false"
@@ -115,6 +121,7 @@ import SummaryDialog from '../components/SummaryDialog.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
+import GroupAvatar from '../components/GroupAvatar.vue'
 
 // 总结对话框
 const showSummaryDialog = ref(false)
@@ -130,6 +137,8 @@ const uname = ref('')
 const avatar = ref('') // 对方头像
 const myAvatar = ref('') // 自己的头像
 const currentUserId = ref(localStorage.getItem('userId') || '') // 当前登录用户ID
+const chatType = ref('private') // 聊天类型：'private' 或 'group'
+const groupMembers = ref([]) // 群成员列表（仅群聊时使用）
 const route = useRoute()
 const baseUrl = import.meta.env.VITE_BASE_URL
 const toast = useToast()
@@ -487,35 +496,72 @@ async function sendMessage(content) {
   }
 
   try {
-    const res = await axios.post(
-      `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-      {
-        content: content,
-        messageType: 'text'
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    )
+    if (chatType.value === 'group') {
+      // 群聊消息
+      const res = await axios.post(
+        `${baseUrl}/room/${chatstore.currentChatUser}/messages`,
+        {
+          content: content,
+          messageType: 'text'
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
 
-    // 发送成功，刷新消息列表
-    await getlists()
-    
-    // 强制触发ChatMessageList重新渲染
-    await nextTick(() => {
-      if (messageListRef.value) {
-        messageListRef.value.scrollToBottom()
+      if (res.data.success) {
+        // 发送成功，刷新消息列表
+        await getlists()
+        
+        // 滚动到底部
+        await nextTick(() => {
+          if (messageListRef.value) {
+            messageListRef.value.scrollToBottom()
+          }
+        })
+        
+        // 发送Socket事件通知其他群成员
+        socket.emit('group-message', {
+          roomId: chatstore.currentChatUser,
+          content: content,
+          messageType: 'text',
+          from: currentUserId.value,
+          fromName: localStorage.getItem('username') || localStorage.getItem('userName') || '我',
+          time: new Date()
+        })
       }
-    })
-    
-    // 发送Socket事件通知其他客户端
-    socket.emit('private-message', {
-      from: localStorage.getItem('userId'),
-      to: chatstore.currentChatUser,
-      content: content,
-      messageType: 'text',
-      timestamp: new Date().toISOString()
-    })
+    } else {
+      // 私聊消息
+      const res = await axios.post(
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+        {
+          content: content,
+          messageType: 'text'
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      // 发送成功，刷新消息列表
+      await getlists()
+      
+      // 强制触发ChatMessageList重新渲染
+      await nextTick(() => {
+        if (messageListRef.value) {
+          messageListRef.value.scrollToBottom()
+        }
+      })
+      
+      // 发送Socket事件通知其他客户端
+      socket.emit('private-message', {
+        from: localStorage.getItem('userId'),
+        to: chatstore.currentChatUser,
+        content: content,
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      })
+    }
   } catch (error) {
     console.error('发送消息失败:', error)
     toast.error('发送消息失败: ' + (error.response?.data?.message || error.message))
@@ -535,12 +581,22 @@ async function getlists() {
   }
 
   try {
-    const res = await axios.get(`${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    
-    // 不要reverse，保持正确的时间顺序（最新消息在底部）
-    messages.value = [...res.data]
+    let res
+    if (chatType.value === 'group') {
+      // 群聊消息
+      res = await axios.get(`${baseUrl}/room/${chatstore.currentChatUser}/messages?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.data.success) {
+        messages.value = [...res.data.messages]
+      }
+    } else {
+      // 私聊消息
+      res = await axios.get(`${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      messages.value = [...res.data]
+    }
   } catch (error) {
     console.error('获取消息失败:', error)
     toast.error('获取消息失败: ' + (error.response?.data?.message || error.message))
@@ -663,6 +719,25 @@ onMounted(() => {
   
   uname.value = route.query.uname
   avatar.value = route.query.img
+  chatType.value = route.query.chatType || 'private'
+  
+  console.log('🔍 Content.vue mounted:', {
+    uname: uname.value,
+    chatType: chatType.value,
+    userId: route.query.userId,
+    groupMembers: route.query.groupMembers
+  })
+  
+  // 如果是群聊，获取群成员
+  if (chatType.value === 'group' && route.query.groupMembers) {
+    try {
+      groupMembers.value = JSON.parse(route.query.groupMembers)
+      console.log('✅ 群成员解析成功:', groupMembers.value)
+    } catch (e) {
+      console.error('❌ 解析群成员失败:', e)
+      groupMembers.value = []
+    }
+  }
 
   // 页面刷新时从URL参数恢复用户状态
   const urlUserId = route.query.userId
@@ -671,18 +746,20 @@ onMounted(() => {
   }
 
   // 发送Socket登录事件
-  const currentUserId = localStorage.getItem('userId')
-  if (currentUserId) {
-    socket.emit('login', currentUserId)
+  const currentUserIdValue = localStorage.getItem('userId')
+  if (currentUserIdValue) {
+    socket.emit('login', currentUserIdValue)
   }
 
   // 确保有聊天用户后再获取数据
   const targetUserId = chatstore.currentChatUser || urlUserId
   
   if (targetUserId) {
-    //这里获取对方头像
-    getavatar()
-    //这里写获取消息列表
+    if (chatType.value === 'private') {
+      // 私聊：获取对方头像
+      getavatar()
+    }
+    // 获取消息列表
     getlists().then(() => {
       // 消息加载完成后滚动到底部
       nextTick(() => {
@@ -693,10 +770,8 @@ onMounted(() => {
     })
   }
   
-  //这里获取自己的头像
+  // 获取自己的头像
   getMyAvatar()
-
-  // ChatMessageList组件会自动滚动到底部
 
   // 监听消息删除事件
   socket.on('message-deleted', (data) => {
@@ -722,8 +797,8 @@ onMounted(() => {
       avatar.value = data.newAvatarUrl
     }
     // 如果是自己的头像更新，则更新自己的头像显示
-    const currentUserId = localStorage.getItem('userId')
-    if (data.userId.toString() === currentUserId) {
+    const currentUserIdValue = localStorage.getItem('userId')
+    if (data.userId.toString() === currentUserIdValue) {
       myAvatar.value = data.newAvatarUrl
     }
   })
@@ -731,9 +806,15 @@ onMounted(() => {
   // 监听私聊消息
   socket.on('private-message', async ({ from }) => {
     // 只有当消息来自当前聊天用户时才刷新消息列表
-    if (from === chatstore.currentChatUser) {
+    if (from === chatstore.currentChatUser && chatType.value === 'private') {
       await getlists()
-      // ChatMessageList组件会自动滚动到底部
+    }
+  })
+
+  // 监听群聊消息
+  socket.on('group-message', async (data) => {
+    if (data.roomId === chatstore.currentChatUser && chatType.value === 'group') {
+      await getlists()
     }
   })
 
@@ -742,7 +823,7 @@ onMounted(() => {
     'private-file-message',
     async ({ from, fileUrl, fileName, fileType, messageType }) => {
       // 只有当消息来自当前聊天用户时才刷新消息列表
-      if (from === chatstore.currentChatUser) {
+      if (from === chatstore.currentChatUser && chatType.value === 'private') {
         await getlists()
       }
     }
@@ -786,7 +867,20 @@ watch(
       if (route.query.img) {
         avatar.value = route.query.img
       }
-      await getavatar()
+      if (route.query.chatType) {
+        chatType.value = route.query.chatType
+      }
+      if (route.query.groupMembers) {
+        try {
+          groupMembers.value = JSON.parse(route.query.groupMembers)
+        } catch (e) {
+          groupMembers.value = []
+        }
+      }
+      
+      if (chatType.value === 'private') {
+        await getavatar()
+      }
       await getMyAvatar()
       await getlists()
       
@@ -805,6 +899,15 @@ watch(
   () => route.query.uname,
   (new_uname) => {
     uname.value = new_uname
+  }
+)
+
+watch(
+  () => route.query.chatType,
+  (newType) => {
+    if (newType) {
+      chatType.value = newType
+    }
   }
 )
 
@@ -884,6 +987,15 @@ onBeforeUnmount(() => {
         background-color: #e8f5e9;
         color: #4caf50;
       }
+    }
+    
+    .group-member-count {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background-color: #e3f2fd;
+      color: #1976d2;
+      font-weight: 500;
     }
 
     .header-right {

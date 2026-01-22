@@ -169,7 +169,7 @@ function setcolor(data) {
 }
 
 //显示聊天内容
-function showdetail({ uname, img, userId }) {
+function showdetail({ uname, img, userId, chatType = 'private', groupMembers = [] }) {
   showcontent.value = true
 
   // 设置当前聊天用户
@@ -177,9 +177,16 @@ function showdetail({ uname, img, userId }) {
     chatStore.switchChatUser(userId)
   }
 
+  const query = { uname, img, userId, chatType }
+  
+  // 如果是群聊，添加群成员信息
+  if (chatType === 'group' && groupMembers.length > 0) {
+    query.groupMembers = JSON.stringify(groupMembers)
+  }
+
   router.push({
     path: '/chatdetail',
-    query: { uname, img, userId },
+    query: query,
   })
 }
 

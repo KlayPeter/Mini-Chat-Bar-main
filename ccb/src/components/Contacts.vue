@@ -4,45 +4,150 @@
       <div class="top_child">
         <input type="button" value="◁" @click="back" id="button" />
         <span>通讯录</span>
+        <!-- 添加按钮 -->
+        <div class="add-menu-container">
+          <button class="add-btn" @click="toggleAddMenu">+</button>
+          <div v-if="showAddMenu" class="add-dropdown-menu">
+            <div class="add-menu-item" @click="showAddFriendSearch">
+              <font-awesome-icon icon="user-plus" />
+              <span>加好友</span>
+            </div>
+            <div class="add-menu-item" @click="showCreateGroupDialog">
+              <font-awesome-icon icon="users" />
+              <span>新建群聊</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    
+    <!-- Tab 切换 -->
+    <div class="tabs">
+      <div 
+        class="tab-item" 
+        :class="{ active: activeTab === 'friends' }"
+        @click="activeTab = 'friends'"
+      >
+        好友
+      </div>
+      <div 
+        class="tab-item" 
+        :class="{ active: activeTab === 'groups' }"
+        @click="activeTab = 'groups'"
+      >
+        群聊
+      </div>
+    </div>
+    
     <div class="bottom">
-      <!-- 搜索联系人功能 -->
-      <div class="contact-search">
-        <input
-          type="text"
-          placeholder="搜索联系人或添加新好友..."
-          v-model="searchKeyword"
-          @input="handleSearch"
-          class="search-input"
-        />
+      <!-- 好友列表 Tab -->
+      <div v-if="activeTab === 'friends'">
+        <!-- 搜索联系人功能 -->
+        <div class="contact-search" v-if="showSearchInput">
+          <input
+            type="text"
+            placeholder="搜索联系人或添加新好友..."
+            v-model="searchKeyword"
+            @input="handleSearch"
+            class="search-input"
+          />
+        </div>
+        
+        <!-- 显示搜索结果或好友列表 -->
+        <div v-if="!searchKeyword || searchKeyword.trim() === ''">
+          <!-- 好友列表 -->
+          <ul class="chat-list" v-if="friends.length > 0">
+            <li
+              class="chat-item"
+              v-for="friend in friends"
+              :key="friend.id"
+              @click="switchChat(friend)"
+              @contextmenu.prevent="showContextMenu($event, friend)"
+            >
+              <div class="avatar-box">
+                <div class="avatar-small">
+                  <img :src="getAvatarUrl(friend.avatar)" alt="图片" @error="handleAvatarError" />
+                  <!-- 在线状态指示器 -->
+                  <span 
+                    class="online-status-dot" 
+                    :class="{ online: isUserOnline(friend.id) }"
+                    :title="isUserOnline(friend.id) ? '在线' : '离线'"
+                  ></span>
+                </div>
+              </div>
+              <div class="detail">
+                <div class="name">{{ friend.name }}</div>
+              </div>
+            </li>
+          </ul>
+          
+          <!-- 空状态提示 -->
+          <div v-else class="empty-state">
+            <div class="empty-icon"><Group class="empty-community-icon" /></div>
+            <p class="empty-text">暂无好友</p>
+            <p class="empty-subtext">点击右上角"+"添加好友</p>
+          </div>
+        </div>
+        
+        <!-- 搜索中提示 -->
+        <div v-else-if="isSearching" class="search-status">
+          <div class="loading">搜索中...</div>
+        </div>
+        
+        <!-- 用户搜索结果列表 -->
+        <div v-else-if="searchResults.length > 0" class="search-results-container">
+          <div class="search-section">
+            <div class="search-section-header">
+              <span class="section-title">搜索结果</span>
+              <span class="section-count">{{ searchResults.length }}</span>
+            </div>
+            <ul class="search-results-list">
+              <li
+                v-for="user in searchResults"
+                :key="'user-' + user._id"
+                class="search-result-item user-result"
+                :class="{ 'already-friend-item': user.isAlreadyFriend }"
+                @click="user.isAlreadyFriend ? null : showAddFriendDialog(user)"
+              >
+                <div class="avatar-box">
+                  <div class="avatar-small">
+                    <img :src="getAvatarUrl(user.uAvatar)" alt="头像" @error="handleAvatarError" />
+                  </div>
+                </div>
+                <div class="detail">
+                  <div class="name" v-html="user.highlightedName || user.uName || user.name"></div>
+                  <div class="info" :class="{ 'already-friend': user.isAlreadyFriend }">
+                    {{ user.isAlreadyFriend ? '已经是好友' : '点击添加好友' }}
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 无搜索结果 -->
+        <div v-else-if="searchKeyword.trim() !== ''" class="no-results">
+          <p>未找到相关用户</p>
+        </div>
       </div>
       
-      <!-- 显示搜索结果或好友列表 -->
-      <div v-if="!searchKeyword || searchKeyword.trim() === ''">
-        <!-- 好友列表 -->
-        <ul class="chat-list" v-if="friends.length > 0">
+      <!-- 群聊列表 Tab -->
+      <div v-if="activeTab === 'groups'">
+        <ul class="chat-list" v-if="groups.length > 0">
           <li
             class="chat-item"
-            v-for="friend in friends"
-            :key="friend.id"
-            @click="switchChat(friend)"
-            @contextmenu.prevent="showContextMenu($event, friend)"
+            v-for="group in groups"
+            :key="group.RoomID"
+            @click="switchToGroup(group)"
           >
             <div class="avatar-box">
-              <div class="avatar-small">
-                <div :class="{ tips: friend.isNewmsg }"></div>
-                <img :src="getAvatarUrl(friend.avatar)" alt="图片" @error="handleAvatarError" />
-                <!-- 在线状态指示器 -->
-                <span 
-                  class="online-status-dot" 
-                  :class="{ online: isUserOnline(friend.id) }"
-                  :title="isUserOnline(friend.id) ? '在线' : '离线'"
-                ></span>
+              <div class="avatar-small group-avatar">
+                <GroupAvatar :members="group.Members" :size="48" />
               </div>
             </div>
             <div class="detail">
-              <div class="name">{{ friend.name }}</div>
+              <div class="name">{{ group.RoomName }}</div>
+              <div class="info">{{ group.Members.length }} 人</div>
             </div>
           </li>
         </ul>
@@ -50,50 +155,9 @@
         <!-- 空状态提示 -->
         <div v-else class="empty-state">
           <div class="empty-icon"><Group class="empty-community-icon" /></div>
-          <p class="empty-text">暂无好友</p>
-          <p class="empty-subtext">在上方搜索框输入用户名或邮箱添加好友</p>
+          <p class="empty-text">暂无群聊</p>
+          <p class="empty-subtext">点击右上角"+"创建群聊</p>
         </div>
-      </div>
-      
-      <!-- 搜索中提示 -->
-      <div v-else-if="isSearching" class="search-status">
-        <div class="loading">搜索中...</div>
-      </div>
-      
-      <!-- 用户搜索结果列表 -->
-      <div v-else-if="searchResults.length > 0" class="search-results-container">
-        <div class="search-section">
-          <div class="search-section-header">
-            <span class="section-title">搜索结果</span>
-            <span class="section-count">{{ searchResults.length }}</span>
-          </div>
-          <ul class="search-results-list">
-            <li
-              v-for="user in searchResults"
-              :key="'user-' + user._id"
-              class="search-result-item user-result"
-              :class="{ 'already-friend-item': user.isAlreadyFriend }"
-              @click="user.isAlreadyFriend ? null : showAddFriendDialog(user)"
-            >
-              <div class="avatar-box">
-                <div class="avatar-small">
-                  <img :src="getAvatarUrl(user.uAvatar)" alt="头像" @error="handleAvatarError" />
-                </div>
-              </div>
-              <div class="detail">
-                <div class="name" v-html="user.highlightedName || user.uName || user.name"></div>
-                <div class="info" :class="{ 'already-friend': user.isAlreadyFriend }">
-                  {{ user.isAlreadyFriend ? '已经是好友' : '点击添加好友' }}
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
-      
-      <!-- 无搜索结果 -->
-      <div v-else-if="searchKeyword.trim() !== ''" class="no-results">
-        <p>未找到相关用户</p>
       </div>
     </div>
 
@@ -161,6 +225,62 @@
       </div>
     </div>
   </div>
+  
+  <!-- 创建群聊弹窗 -->
+  <div v-if="showCreateGroupModal" class="modal-overlay" @click="closeCreateGroupDialog">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>创建群聊</h3>
+        <button class="close-btn" @click="closeCreateGroupDialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>群名称</label>
+          <input
+            v-model="newGroupName"
+            type="text"
+            placeholder="请输入群名称"
+            maxlength="20"
+            class="group-name-input"
+          />
+        </div>
+        <div class="form-group">
+          <label>选择成员 ({{ selectedFriends.length }})</label>
+          <div class="friend-selection-list">
+            <div
+              v-for="friend in friends"
+              :key="friend.id"
+              class="friend-selection-item"
+              @click="toggleFriendSelection(friend.id)"
+            >
+              <input 
+                type="checkbox" 
+                :checked="selectedFriends.includes(friend.id)"
+                @click.stop
+              />
+              <img :src="getAvatarUrl(friend.avatar)" alt="头像" />
+              <span>{{ friend.name }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button 
+          class="btn-cancel" 
+          @click="closeCreateGroupDialog"
+        >
+          取消
+        </button>
+        <button 
+          class="btn-confirm" 
+          @click="createGroupChat"
+          :disabled="!newGroupName.trim() || selectedFriends.length === 0"
+        >
+          创建
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -171,14 +291,19 @@ import { useChatStore } from "../stores/useChatStore";
 import { useOnlineStatus } from "../composables/useOnlineStatus";
 import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
+import { useRouter } from 'vue-router';
 import { Group } from '@iconoir/vue';
 import { getAvatarUrl } from '../utils/avatarHelper';
+import GroupAvatar from './GroupAvatar.vue';
 
 const { isUserOnline } = useOnlineStatus()
 const toast = useToast()
 const { confirm } = useConfirm()
+const router = useRouter()
 
 const friends = ref([]);
+const groups = ref([]); // 群聊列表
+const activeTab = ref('friends'); // 当前激活的tab
 const searchKeyword = ref("");
 const filteredFriends = ref([]);
 const searchResults = ref([]);
@@ -186,6 +311,8 @@ const isSearching = ref(false);
 const showAddFriendModal = ref(false);
 const selectedUser = ref(null);
 const isAddingFriend = ref(false);
+const showAddMenu = ref(false);
+const showSearchInput = ref(false);
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -200,6 +327,119 @@ const chatStore = useChatStore();
 const emit = defineEmits(["hidecontacts", "changecolor", "todetail"]);
 function back() {
   emit("hidecontacts", "关掉聊天");
+}
+
+// 切换添加菜单
+function toggleAddMenu() {
+  showAddMenu.value = !showAddMenu.value
+}
+
+// 显示添加好友搜索
+function showAddFriendSearch() {
+  showAddMenu.value = false
+  showSearchInput.value = true
+  activeTab.value = 'friends'
+}
+
+// 显示创建群聊对话框
+const showCreateGroupModal = ref(false)
+const newGroupName = ref('')
+const selectedFriends = ref([])
+
+function showCreateGroupDialog() {
+  showAddMenu.value = false
+  showCreateGroupModal.value = true
+  activeTab.value = 'groups'
+}
+
+// 切换好友选择
+function toggleFriendSelection(friendId) {
+  const index = selectedFriends.value.indexOf(friendId)
+  if (index > -1) {
+    selectedFriends.value.splice(index, 1)
+  } else {
+    selectedFriends.value.push(friendId)
+  }
+}
+
+// 创建群聊
+async function createGroupChat() {
+  if (!newGroupName.value.trim()) {
+    toast.warning('请输入群名称')
+    return
+  }
+  
+  if (selectedFriends.value.length === 0) {
+    toast.warning('请至少选择一个好友')
+    return
+  }
+  
+  try {
+    const token = localStorage.getItem("token")
+    const res = await axios.post(
+      `${import.meta.env.VITE_BASE_URL}/room/create`,
+      {
+        groupName: newGroupName.value,
+        memberIds: selectedFriends.value
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
+    
+    if (res.data.success) {
+      toast.success('群聊创建成功！')
+      showCreateGroupModal.value = false
+      newGroupName.value = ''
+      selectedFriends.value = []
+      
+      // 重新加载群聊列表
+      await loadGroups()
+      
+      // 自动跳转到新创建的群聊
+      if (res.data.room) {
+        switchToGroup(res.data.room)
+      }
+    }
+  } catch (err) {
+    console.error('创建群聊失败:', err)
+    toast.error(err.response?.data?.message || '创建群聊失败')
+  }
+}
+
+// 关闭创建群聊对话框
+function closeCreateGroupDialog() {
+  showCreateGroupModal.value = false
+  newGroupName.value = ''
+  selectedFriends.value = []
+}
+
+// 切换到群聊 - 使用统一的聊天页面
+function switchToGroup(group) {
+  chatStore.switchChatUser(group.RoomID)
+  emit('todetail', {
+    uname: group.RoomName,
+    img: '', // 群聊使用 GroupAvatar 组件
+    userId: group.RoomID,
+    chatType: 'group',
+    groupMembers: group.Members
+  })
+}
+
+// 获取群聊列表
+async function loadGroups() {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/room/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.data.success) {
+      groups.value = res.data.groups || [];
+    }
+  } catch (err) {
+    console.error('获取群聊列表失败:', err);
+  }
 }
 
 
@@ -449,6 +689,7 @@ async function deleteFriend() {
 // 初始化 friends 数组（获取好友基本信息和最近聊天内容）
 onMounted(async () => {
   await initFriends();
+  await loadGroups(); // 加载群聊列表
   
   // 点击其他地方关闭右键菜单
   document.addEventListener("click", hideContextMenu);
@@ -484,53 +725,120 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 1px 0px rgba(0, 0, 0, 0.1);
 }
 
-#button,
-.status,
-.search,
-.contact-search,
-.setting,
-.avatar,
-.chat-list,
-.friend_request button {
-  -webkit-app-region: no-drag;
-}
+.top_child {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
 
-.friend_request {
-  position: absolute;
-  right: 0;
-  transition: all 0.5s ease-in;
-
-  button {
+  input {
     width: 32px;
     height: 32px;
     border: none;
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: larger;
 
     &:hover {
       transform: scale(1.05);
-
-      &::after {
-        opacity: 1;
+    }
+  }
+  
+  span {
+    flex: 1;
+  }
+  
+  .add-menu-container {
+    position: relative;
+    
+    .add-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        transform: scale(1.1);
       }
     }
-
-    &::after {
-      content: "添加新好友";
+    
+    .add-dropdown-menu {
       position: absolute;
-      top: 50%;
-      left: -200%;
-      transform: translateY(-50%);
-      white-space: nowrap;
-      background: rgba(0, 0, 0, 0.75);
-      color: white;
-      padding: 4px 8px;
-      border-radius: 6px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
+      top: 40px;
+      right: 0;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 150px;
+      z-index: 100;
+      
+      .add-menu-item {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        
+        &:hover {
+          background: rgba(165, 42, 42, 0.05);
+        }
+        
+        &:first-child {
+          border-radius: 8px 8px 0 0;
+        }
+        
+        &:last-child {
+          border-radius: 0 0 8px 8px;
+        }
+      }
+    }
+  }
+}
+
+/* Tab 切换样式 */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-tertiary, white);
+  
+  .tab-item {
+    flex: 1;
+    padding: 12px 0;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    
+    &.active {
+      color: var(--primary-color, rgba(165, 42, 42, 1));
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 3px;
+        background: var(--primary-gradient, linear-gradient(135deg, rgba(165, 42, 42, 0.9) 0%, rgba(140, 35, 35, 0.95) 100%));
+        border-radius: 3px 3px 0 0;
+      }
+    }
+    
+    &:hover:not(.active) {
+      background: rgba(165, 42, 42, 0.02);
     }
   }
 }
@@ -566,69 +874,6 @@ onBeforeUnmount(() => {
   p {
     margin: 0;
     font-size: 0.9rem;
-  }
-}
-
-.search {
-  position: absolute;
-  left: 5px;
-  bottom: 15px;
-  width: 100%;
-  margin-top: 1rem;
-  animation: appear 1.5s ease-out;
-  display: flex;
-  flex-direction: row;
-
-  input {
-    width: 50%;
-    padding: 0.75rem 2.5rem 0.75rem 1rem;
-    border: none;
-    border-radius: 20px;
-    background-color: rgba(0, 0, 0, 0.05);
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-
-    &[type="button"] {
-      padding: 0 10px;
-      width: fit-content;
-      margin-left: 5%;
-      margin-right: 5%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      /* background-color:rgba(165, 42, 42, 0.485);
-         */
-      background-color: var(--primary-dark, rgba(120, 25, 25, 0.6));
-      color: var(--text-inverse, white);
-      cursor: pointer;
-      transition: all 0.7s ease;
-
-      &:hover {
-        transform: translateX(5px);
-        background-color: var(--primary-color, rgba(165, 42, 42, 0.85));
-      }
-    }
-  }
-}
-
-.top_child {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  position: relative;
-
-  input {
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: scale(1.05);
-    }
   }
 }
 
@@ -697,6 +942,15 @@ onBeforeUnmount(() => {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
+  }
+  
+  &.group-avatar {
+    border-radius: 10px;
+    overflow: hidden;
+    
+    img {
+      border-radius: 0;
+    }
   }
   
   /* 在线状态指示器 */
@@ -1139,6 +1393,66 @@ onBeforeUnmount(() => {
       &:hover:not(:disabled) {
         background-color: #0056b3;
       }
+    }
+  }
+}
+
+/* 创建群聊弹窗特定样式 */
+.form-group {
+  margin-bottom: 1.5rem;
+  
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .group-name-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    
+    &:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+  }
+}
+
+.friend-selection-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  
+  .friend-selection-item {
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    
+    &:hover {
+      background: #f5f5f5;
+    }
+    
+    input[type="checkbox"] {
+      cursor: pointer;
+    }
+    
+    img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    span {
+      font-size: 0.9rem;
     }
   }
 }
