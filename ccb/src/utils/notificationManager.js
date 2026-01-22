@@ -6,7 +6,7 @@ class NotificationManager {
   }
   
   // 收到新消息
-  onNewMessage(from, content, avatar, type = 'private') {
+  onNewMessage(from, content, avatar, type = 'private', userId = null) {
     // 添加到最近消息列表
     const existingIndex = this.recentMessages.findIndex(msg => msg.from === from);
     
@@ -17,7 +17,8 @@ class NotificationManager {
         from: from || '未知用户',
         avatar: avatar || '',
         count: 1,
-        type: type
+        type: type,
+        userId: userId // 保存用户ID或群ID，用于点击跳转
       });
     }
     

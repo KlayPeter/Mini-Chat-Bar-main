@@ -15,5 +15,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 更新最近消息列表
   updateRecentMessages: (messages) => {
     ipcRenderer.send('update-recent-messages', messages);
+  },
+  
+  // 发送消息到主进程（用于预览窗口）
+  send: (channel, data) => {
+    ipcRenderer.send(channel, data);
+  },
+  
+  // 监听主进程消息
+  on: (channel, callback) => {
+    ipcRenderer.on(channel, (event, ...args) => callback(...args));
   }
 });

@@ -560,6 +560,7 @@ async function switchChat(friend) {
 
 // 统一的聊天切换函数（支持私聊和群聊）
 async function switchToChat(chat) {
+  
   if (chat.type === 'private') {
     // 私聊
     chatStore.switchChatUser(chat.id)
@@ -968,6 +969,50 @@ onMounted(async () => {
     }
   })
   
+  // 监听 Electron 通知点击事件（只注册一次）
+  if (window.electronAPI && !window._openChatListenerRegistered) {
+    window._openChatListenerRegistered = true
+    
+    window.electronAPI.on('open-chat', (data) => {
+      const { userId, type } = data
+      
+      if (type === 'private') {
+        // 打开私聊
+        const friend = friends.value.find(f => f.id === userId)
+        if (friend) {
+          // 构造正确的 chat 对象
+          const chat = {
+            type: 'private',
+            id: friend.id,
+            name: friend.name,
+            avatar: friend.avatar,
+            unreadCount: friend.unreadCount || 0
+          }
+          switchToChat(chat)
+        } else {
+          console.warn('❌ 未找到好友:', userId)
+        }
+      } else if (type === 'group') {
+        // 打开群聊
+        const group = groups.value.find(g => g.RoomID === userId)
+        if (group) {
+          const chat = {
+            type: 'group',
+            id: group.RoomID,
+            name: group.RoomName,
+            members: group.Members
+          }
+          switchToChat(chat)
+        } else {
+          console.warn('❌ 未找到群聊:', userId)
+        }
+      }
+    })
+  } else if (window._openChatListenerRegistered) {
+  } else {
+    console.warn('❌ window.electronAPI 不可用')
+  }
+  
   await getinfo()
   await getfriends()
   await getGroups() // 加载群聊列表
@@ -993,7 +1038,7 @@ onMounted(async () => {
       const senderAvatar = sender?.avatar || '';
       
       import('@/utils/notificationManager').then(module => {
-        module.default.onNewMessage(senderName, content, senderAvatar, 'private');
+        module.default.onNewMessage(senderName, content, senderAvatar, 'private', from);
       });
     } else if (from?.toString() === userid.value?.toString()) {
       // 自己发送的消息，更新lastChat但不显示小红点
@@ -1023,6 +1068,27 @@ onMounted(async () => {
       }
       
       updateGroupMessage(data.roomId, data)
+      
+      // 触发 Electron 通知（仅当不是自己发的消息时）
+      const currentUserId = userid.value
+      const isMyMessage = String(data.from) === String(currentUserId)
+      
+      if (!isMyMessage && data.content) {
+        const group = groups.value.find(g => g.RoomID === data.roomId)
+        const groupName = group?.RoomName || '群聊'
+        const senderName = data.fromName || '群成员'
+        const senderAvatar = data.fromAvatar || ''
+        
+        import('@/utils/notificationManager').then(module => {
+          module.default.onNewMessage(
+            `${groupName} - ${senderName}`,
+            data.content,
+            senderAvatar,
+            'group',
+            data.roomId // 传递群ID
+          )
+        })
+      }
     }
   })
 

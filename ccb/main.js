@@ -174,7 +174,7 @@ function createPreviewWindow() {
   
   previewWindow = new BrowserWindow({
     width: 280,
-    height: 320,
+    height: 100, // 初始高度，会动态调整
     show: false,
     frame: false,
     resizable: false,
@@ -184,12 +184,19 @@ function createPreviewWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js') // 添加 preload 脚本
     }
   });
   
   updatePreviewContent();
   
+  // 临时：打开开发者工具调试
+  if (isDev) {
+    previewWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+  
+  // 鼠标离开预览窗口时立即隐藏（像微信一样）
   previewWindow.on('blur', () => {
     if (previewWindow) {
       previewWindow.hide();
@@ -201,26 +208,47 @@ function createPreviewWindow() {
 function updatePreviewContent() {
   if (!previewWindow) return;
   
+  // 只显示有未读消息的聊天
+  const unreadMessages = recentMessages.filter(msg => msg.count > 0);
+  
   let messagesHTML = '';
   
-  if (recentMessages.length > 0) {
-    messagesHTML = recentMessages.slice(0, 5).map(msg => `
-      <div class="message-item">
+  if (unreadMessages.length > 0) {
+    messagesHTML = unreadMessages.slice(0, 5).map((msg, index) => {
+      // 找到原始索引
+      const originalIndex = recentMessages.indexOf(msg);
+      return `
+      <div class="message-item" onclick="window.openChat('${msg.userId}', '${msg.type}', ${originalIndex})">
         <div class="avatar-container">
           ${msg.avatar ? 
             `<img src="${msg.avatar}" class="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23${msg.type === 'group' ? '2196F3' : '4CAF50'}%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2218%22>${msg.from.charAt(0)}</text></svg>'"/>` :
             `<div class="avatar-placeholder ${msg.type === 'group' ? 'group' : ''}">${msg.from.charAt(0)}</div>`
           }
-          ${msg.count > 0 ? `<div class="badge">${msg.count > 99 ? '99+' : msg.count}</div>` : ''}
+          <div class="badge">${msg.count > 99 ? '99+' : msg.count}</div>
         </div>
         <div class="message-info">
           <div class="message-from">${msg.from}</div>
           <div class="message-type">${msg.type === 'group' ? '[群聊]' : '[私聊]'}</div>
         </div>
       </div>
-    `).join('');
+    `}).join('');
   } else {
     messagesHTML = '<div class="no-messages">暂无新消息</div>';
+  }
+  
+  // 动态计算窗口高度
+  const headerHeight = 50; // 标题栏高度
+  const itemHeight = 64; // 每个消息项高度
+  const padding = 24; // 上下padding
+  const noMessageHeight = 100; // 无消息时的高度
+  
+  const contentHeight = unreadMessages.length > 0 
+    ? headerHeight + (unreadMessages.length * itemHeight) + padding
+    : noMessageHeight;
+  
+  // 设置窗口高度
+  if (previewWindow) {
+    previewWindow.setSize(280, contentHeight);
   }
   
   const previewHTML = `
@@ -257,7 +285,7 @@ function updatePreviewContent() {
           transition: background 0.2s;
         }
         .message-item:hover {
-          background: rgba(0,0,0,0.05);
+          background: rgba(0,0,0,0.08);
         }
         .avatar-container {
           position: relative;
@@ -320,6 +348,20 @@ function updatePreviewContent() {
           font-size: 12px;
         }
       </style>
+      <script>
+        window.openChat = function(userId, type, index) {
+          console.log('预览窗口点击:', { userId, type, index });
+          // 使用 electronAPI（通过 preload 脚本暴露）
+          if (window.electronAPI && window.electronAPI.send) {
+            window.electronAPI.send('open-chat-from-notification', { userId, type, index });
+          } else {
+            console.error('electronAPI 不可用');
+          }
+        }
+        
+        // 测试 electronAPI 是否可用
+        console.log('electronAPI 可用:', !!window.electronAPI);
+      </script>
     </head>
     <body>
       <div class="header">Mini Chat Bar${unreadCount > 0 ? ` (${unreadCount})` : ''}</div>
@@ -339,13 +381,22 @@ function showTrayPreview() {
     updatePreviewContent(); // 更新内容
   }
   
-  // 获取托盘图标位置
+  // 获取托盘图标位置和屏幕信息
   const bounds = tray.getBounds();
   const display = screen.getPrimaryDisplay();
+  const screenHeight = display.bounds.height; // 屏幕总高度
+  const workArea = display.workArea; // 工作区域（不包括任务栏）
+  const taskbarHeight = screenHeight - workArea.height; // 任务栏高度
+  const windowSize = previewWindow.getSize();
+  const windowWidth = windowSize[0];
+  const windowHeight = windowSize[1];
   
-  // 计算预览窗口位置（在托盘图标上方）
-  const x = Math.round(bounds.x + (bounds.width / 2) - 140); // 居中
-  const y = Math.round(bounds.y - 330); // 在图标上方
+  // Windows 任务栏通常在底部
+  // 计算位置：在任务栏上方，水平居中对齐托盘图标
+  const x = Math.round(bounds.x + (bounds.width / 2) - (windowWidth / 2));
+  const y = screenHeight - taskbarHeight - windowHeight - 5; // 任务栏上方，留5px间距
+  
+  console.log('预览窗口位置:', { x, y, screenHeight, taskbarHeight, windowHeight });
   
   previewWindow.setPosition(x, y);
   previewWindow.show();
@@ -380,6 +431,35 @@ ipcMain.on('update-recent-messages', (event, messages) => {
   if (previewWindow) {
     updatePreviewContent();
   }
+});
+
+// 处理从通知打开聊天
+ipcMain.on('open-chat-from-notification', (event, data) => {
+  console.log('🔔 主进程收到打开聊天请求:', data);
+  const { userId, type, index } = data;
+  
+  // 显示并聚焦主窗口
+  if (mainWindow) {
+    console.log('📱 显示主窗口');
+    mainWindow.show();
+    mainWindow.focus();
+    
+    // 发送消息给渲染进程，让它打开对应的聊天
+    console.log('📤 发送 open-chat 事件到渲染进程:', { userId, type });
+    mainWindow.webContents.send('open-chat', { userId, type });
+    
+    // 从列表中移除已读的消息
+    if (index !== undefined && recentMessages[index]) {
+      recentMessages.splice(index, 1);
+      // 重新计算未读数
+      unreadCount = recentMessages.reduce((sum, msg) => sum + (msg.count || 0), 0);
+      setBadge(unreadCount);
+      updatePreviewContent();
+    }
+  }
+  
+  // 隐藏预览窗口
+  hideTrayPreview();
 });
 
 // 在app ready之前注册协议为特权协议
@@ -456,23 +536,18 @@ function createTray() {
       clearTimeout(previewTimeout);
     }
     
-    // 延迟500ms显示预览窗口
+    // 延迟300ms显示预览窗口（微信风格）
     previewTimeout = setTimeout(() => {
       showTrayPreview();
-    }, 500);
+    }, 300);
   });
   
-  // 鼠标离开托盘区域时隐藏预览
+  // 鼠标离开托盘区域时取消显示
   tray.on('mouse-leave', () => {
     if (previewTimeout) {
       clearTimeout(previewTimeout);
       previewTimeout = null;
     }
-    
-    // 延迟隐藏，给用户时间移动到预览窗口
-    setTimeout(() => {
-      hideTrayPreview();
-    }, 200);
   });
 }
 

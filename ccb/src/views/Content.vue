@@ -513,10 +513,10 @@ async function sendMessage(content) {
         // 发送成功，刷新消息列表
         await getlists()
         
-        // 滚动到底部
+        // 强制滚动到底部
         await nextTick(() => {
           if (messageListRef.value) {
-            messageListRef.value.scrollToBottom()
+            messageListRef.value.scrollToBottom(true) // 强制滚动
           }
         })
         
@@ -551,10 +551,10 @@ async function sendMessage(content) {
       // 发送成功，刷新消息列表
       await getlists()
       
-      // 强制触发ChatMessageList重新渲染
+      // 强制滚动到底部
       await nextTick(() => {
         if (messageListRef.value) {
-          messageListRef.value.scrollToBottom()
+          messageListRef.value.scrollToBottom(true) // 强制滚动
         }
       })
       
@@ -776,11 +776,13 @@ onMounted(() => {
     
     // 获取消息列表
     getlists().then(() => {
-      // 消息加载完成后滚动到底部
+      // 消息加载完成后强制滚动到底部
       nextTick(() => {
-        if (messageListRef.value) {
-          messageListRef.value.scrollToBottom()
-        }
+        setTimeout(() => {
+          if (messageListRef.value) {
+            messageListRef.value.scrollToBottom(true) // 传入 true 强制滚动
+          }
+        }, 200)
       })
     })
     
@@ -840,10 +842,10 @@ onMounted(() => {
       // 刷新当前聊天的消息列表
       await getlists()
       
-      // 滚动到底部
+      // 强制滚动到底部
       await nextTick(() => {
         if (messageListRef.value) {
-          messageListRef.value.scrollToBottom()
+          messageListRef.value.scrollToBottom(true) // 强制滚动
         }
       })
       
@@ -928,13 +930,13 @@ watch(
       await getMyAvatar()
       await getlists()
       
-      // 确保DOM完全更新后再滚动到底部
+      // 确保DOM完全更新后强制滚动到底部
       await nextTick()
       setTimeout(() => {
         if (messageListRef.value) {
-          messageListRef.value.scrollToBottom()
+          messageListRef.value.scrollToBottom(true) // 传入 true 强制滚动
         }
-      }, 100)
+      }, 300)
     }
   }
 )
