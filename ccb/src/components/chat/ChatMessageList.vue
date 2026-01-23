@@ -79,35 +79,54 @@
       <p>{{ emptyMessage }}</p>
     </div>
 
-    <!-- 消息列表 -->
-    <template v-else>
-      <ChatMessage
-        v-for="(message, index) in messages"
-        :key="getMessageKey(message, index)"
-        :message="message"
-        :messageIndex="index"
-        :currentUserId="currentUserId"
-        :myAvatar="myAvatar"
-        :otherUserAvatar="otherUserAvatar"
-        :baseUrl="baseUrl"
-        :messageType="messageType"
-        :showAvatar="showAvatar"
-        :showSenderName="showSenderName"
-        :showSelectionMode="selectionMode"
-        :isSelected="selectedMessages.includes(index)"
-        :isHighlighted="message && highlightedMessageId === (message._id || message.id)"
-        :hideTime="shouldHideTime(message, index)"
-        @click="handleMessageClick"
-        @contextmenu="handleMessageContextMenu"
-        @toggle-selection="handleToggleSelection"
-        @preview-image="handlePreviewImage"
-        @preview-video="handlePreviewVideo"
-        @preview-file="handlePreviewFile"
-        @play-voice="handlePlayVoice"
-        @re-edit-message="handleReEditMessage"
-        @jump-to-quoted-message="handleJumpToQuotedMessage"
-      />
-    </template>
+    <!-- 虚拟滚动消息列表 - 使用 DynamicScroller 支持动态高度 -->
+    <DynamicScroller
+      v-else
+      ref="dynamicScrollerRef"
+      class="message-scroller"
+      :items="messagesWithId"
+      :min-item-size="50"
+      key-field="id"
+      :emit-update="true"
+    >
+      <template v-slot="{ item: message, index, active }">
+        <DynamicScrollerItem
+          :item="message"
+          :active="active"
+          :size-dependencies="[
+            message.content,
+            message.messageType,
+          ]"
+          :data-index="index"
+        >
+          <ChatMessage
+            :key="getMessageKey(message, index)"
+            :message="message"
+            :messageIndex="index"
+            :currentUserId="currentUserId"
+            :myAvatar="myAvatar"
+            :otherUserAvatar="otherUserAvatar"
+            :baseUrl="baseUrl"
+            :messageType="messageType"
+            :showAvatar="showAvatar"
+            :showSenderName="showSenderName"
+            :showSelectionMode="selectionMode"
+            :isSelected="selectedMessages.includes(index)"
+            :isHighlighted="message && highlightedMessageId === (message._id || message.id)"
+            :hideTime="shouldHideTime(message, index)"
+            @click="handleMessageClick"
+            @contextmenu="handleMessageContextMenu"
+            @toggle-selection="handleToggleSelection"
+            @preview-image="handlePreviewImage"
+            @preview-video="handlePreviewVideo"
+            @preview-file="handlePreviewFile"
+            @play-voice="handlePlayVoice"
+            @re-edit-message="handleReEditMessage"
+            @jump-to-quoted-message="handleJumpToQuotedMessage"
+          />
+        </DynamicScrollerItem>
+      </template>
+    </DynamicScroller>
 
     <!-- 右键菜单 -->
     <MessageContextMenu
@@ -133,7 +152,9 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, watch, onMounted, onUnmounted, onUpdated, nextTick } from 'vue'
+import { ref, defineProps, defineEmits, watch, onMounted, onUnmounted, onUpdated, nextTick, computed } from 'vue'
+import { DynamicScroller, DynamicScrollerItem } from 'vue3-virtual-scroller'
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import ChatMessage from './ChatMessage.vue'
 import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
 import MessageContextMenu from './MessageContextMenu.vue'
@@ -199,6 +220,21 @@ const props = defineProps({
   }
 })
 
+// 虚拟滚动配置 - 使用 DynamicScroller 不需要固定高度
+// const estimatedItemSize = 80 // 移除固定高度
+// const buffer = 200 // 移除缓冲区配置
+
+// 为虚拟滚动准备消息数据（确保每条消息都有 id 字段）
+const messagesWithId = computed(() => {
+  return props.messages.map((msg, index) => {
+    if (!msg) return { id: `msg-${index}`, ...msg }
+    return {
+      ...msg,
+      id: msg._id || msg.id || `msg-${index}`
+    }
+  })
+})
+
 const emit = defineEmits([
   'message-click',
   'message-contextmenu',
@@ -222,6 +258,7 @@ const emit = defineEmits([
 ])
 
 const messageListRef = ref(null)
+const dynamicScrollerRef = ref(null)
 const selectionMode = ref(false)
 const selectedMessages = ref([])
 const isShowingContextMenu = ref(false)
@@ -553,7 +590,7 @@ function handleQuote(text) {
   emit('quote-reply', { content: text })
 }
 
-// 滚动到底部
+// 滚动到底部 - 兼容 DynamicScroller
 function scrollToBottom(force = false) {
   if (!messageListRef.value) return
   if (!force && (!props.autoScroll || preventAutoScroll.value)) return
@@ -564,22 +601,60 @@ function scrollToBottom(force = false) {
   }
   
   nextTick(() => {
+    // 方法1: 使用 DynamicScroller 的 scrollToBottom 方法
+    if (dynamicScrollerRef.value && typeof dynamicScrollerRef.value.scrollToBottom === 'function') {
+      dynamicScrollerRef.value.scrollToBottom()
+    }
+    
+    // 方法2: 直接操作外层容器的 scrollTop
     if (messageListRef.value) {
       messageListRef.value.scrollTop = messageListRef.value.scrollHeight
     }
+    
+    // 方法3: 延迟再次尝试（确保 DynamicScroller 渲染完成）
+    setTimeout(() => {
+      if (dynamicScrollerRef.value && typeof dynamicScrollerRef.value.scrollToBottom === 'function') {
+        dynamicScrollerRef.value.scrollToBottom()
+      }
+      if (messageListRef.value) {
+        messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+      }
+    }, 100)
+    
+    // 方法4: 再次延迟确保滚动到底部
+    setTimeout(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+      }
+    }, 300)
   })
 }
 
-// 滚动到指定消息
+// 滚动到指定消息 - 兼容 DynamicScroller
 function scrollToMessage(messageId) {
   if (!messageListRef.value || !messageId) return
   
-  const targetElement = messageListRef.value.querySelector(`[data-message-id="${messageId}"]`)
-  if (targetElement) {
-    targetElement.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    })
+  // 查找消息索引
+  const messageIndex = props.messages.findIndex(msg => 
+    (msg._id || msg.id) === messageId
+  )
+  
+  if (messageIndex !== -1) {
+    // 使用 DynamicScroller 的 scrollToItem 方法
+    if (dynamicScrollerRef.value && typeof dynamicScrollerRef.value.scrollToItem === 'function') {
+      dynamicScrollerRef.value.scrollToItem(messageIndex)
+    } else {
+      // 降级方案：使用 DOM 查询
+      nextTick(() => {
+        const targetElement = messageListRef.value.querySelector(`[data-message-id="${messageId}"]`)
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          })
+        }
+      })
+    }
   }
 }
 
@@ -640,7 +715,10 @@ function handleScroll() {
 }
 
 onMounted(() => {
-  scrollToBottom()
+  // 初始加载时滚动到底部
+  setTimeout(() => {
+    scrollToBottom(true)
+  }, 300)
   
   // 点击其他地方隐藏各种弹窗
   document.addEventListener('mousedown', (e) => {
@@ -663,6 +741,15 @@ onMounted(() => {
       hideContextMenu()
     }
   })
+})
+
+onUpdated(() => {
+  // 当组件更新时，如果应该自动滚动，则滚动到底部
+  if (props.autoScroll && !preventAutoScroll.value) {
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
 })
 
 onUnmounted(() => {
@@ -699,6 +786,42 @@ defineExpose({
   background: transparent;
   border-radius: 1rem;
   -webkit-app-region: no-drag;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  
+  // 虚拟滚动容器样式 - 关键修复（DynamicScroller）
+  .message-scroller {
+    flex: 1;
+    width: 100%;
+    min-height: 0; // 关键：允许flex子元素收缩
+    
+    // 确保虚拟滚动容器内部样式正确
+    :deep(.vue-recycle-scroller) {
+      height: 100% !important;
+    }
+    
+    :deep(.vue-recycle-scroller__slot) {
+      padding: 0;
+    }
+    
+    :deep(.vue-recycle-scroller__item-wrapper) {
+      overflow: visible;
+      box-sizing: border-box;
+    }
+    
+    :deep(.vue-recycle-scroller__item-view) {
+      overflow: visible;
+      width: 100%;
+    }
+    
+    // DynamicScrollerItem 样式
+    :deep(.vue-recycle-scroller__item-view) {
+      .dynamic-scroller-item {
+        overflow: visible;
+      }
+    }
+  }
 
   // 加载更多样式
   .loading-more {

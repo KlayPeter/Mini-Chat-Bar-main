@@ -8,31 +8,36 @@
     </div>
 
     <div class="groups">
-      <div
-        v-for="group in groups"
-        :key="group.RoomID"
-        class="group-item"
-        :class="{ active: currentGroupId === group.RoomID }"
-        @click="selectGroup(group)"
+      <RecycleScroller
+        :items="groupsWithId"
+        :item-size="groupItemSize"
+        key-field="id"
+        v-slot="{ item: group }"
       >
-        <div class="group-avatar">
-          <GroupAvatar :members="group.Members" :size="45" />
-          <!-- @提醒红色标记 -->
-          <span v-if="hasMentionAlert(group.RoomID)" class="mention-badge">有人@你</span>
-          <!-- 未读消息数字红点 -->
-          <span v-else-if="getUnreadCount(group.RoomID) > 0" class="unread-count-badge">
-            {{ getUnreadCount(group.RoomID) > 99 ? '99+' : getUnreadCount(group.RoomID) }}
-          </span>
-        </div>
-        <div class="group-info">
-          <div class="group-name-row">
-            <span class="group-name">{{ group.RoomName }}</span>
-            <span class="member-count">({{ group.Members.length }})</span>
-            <span class="last-time">{{ getLastTime(group) }}</span>
+        <div
+          class="group-item"
+          :class="{ active: currentGroupId === group.RoomID }"
+          @click="selectGroup(group)"
+        >
+          <div class="group-avatar">
+            <GroupAvatar :members="group.Members" :size="45" />
+            <!-- @提醒红色标记 -->
+            <span v-if="hasMentionAlert(group.RoomID)" class="mention-badge">有人@你</span>
+            <!-- 未读消息数字红点 -->
+            <span v-else-if="getUnreadCount(group.RoomID) > 0" class="unread-count-badge">
+              {{ getUnreadCount(group.RoomID) > 99 ? '99+' : getUnreadCount(group.RoomID) }}
+            </span>
           </div>
-          <div class="last-message">{{ getLastMessage(group) }}</div>
+          <div class="group-info">
+            <div class="group-name-row">
+              <span class="group-name">{{ group.RoomName }}</span>
+              <span class="member-count">({{ group.Members.length }})</span>
+              <span class="last-time">{{ getLastTime(group) }}</span>
+            </div>
+            <div class="last-message">{{ getLastMessage(group) }}</div>
+          </div>
         </div>
-      </div>
+      </RecycleScroller>
     </div>
 
     <!-- 创建群聊对话框 -->
@@ -81,6 +86,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { RecycleScroller } from 'vue3-virtual-scroller'
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import { Plus } from '@iconoir/vue'
@@ -105,6 +112,17 @@ const unreadGroups = ref(new Set()) // 存储有未读消息的群ID
 const unreadCounts = ref({}) // 存储每个群的未读消息数量
 const mentionAlerts = ref(new Set()) // 存储有@提醒的群ID
 let groupSocket = null // 群聊专用Socket连接实例
+
+// 虚拟滚动配置
+const groupItemSize = 72 // 每个群聊项的高度（像素）
+
+// 为虚拟滚动准备群聊数据（确保每个群都有唯一 id）
+const groupsWithId = computed(() => {
+  return groups.value.map(group => ({
+    ...group,
+    id: group.RoomID
+  }))
+})
 
 // 获取群聊列表
 async function loadGroups() {
@@ -762,6 +780,24 @@ defineExpose({
   overflow-y: auto;
   background: var(--bg-tertiary, white);
   padding-right: 5px;
+  display: flex;
+  flex-direction: column;
+  
+  // 虚拟滚动容器样式 - 关键修复
+  :deep(.vue-recycle-scroller) {
+    flex: 1;
+    height: 100% !important;
+  }
+  
+  :deep(.vue-recycle-scroller__item-wrapper) {
+    overflow: visible;
+    width: 100%;
+  }
+  
+  :deep(.vue-recycle-scroller__item-view) {
+    overflow: visible;
+    width: 100%;
+  }
 }
 
 .group-item {

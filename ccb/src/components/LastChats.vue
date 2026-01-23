@@ -227,44 +227,50 @@
       </div>
 
       <!-- 混合聊天列表（私聊+群聊） -->
-      <ul class="chat-list" v-else>
-        <li
-          class="chat-item"
-          v-for="chat in allChats"
-          :key="chat.id"
-          @click="switchToChat(chat)"
-          @contextmenu.prevent="showContextMenu($event, chat)"
+      <div v-else class="chat-list-wrapper">
+        <RecycleScroller
+          class="chat-list"
+          :items="allChatsWithId"
+          :item-size="chatItemSize"
+          key-field="id"
+          v-slot="{ item: chat }"
         >
-          <div class="chat-avatar">
-            <div v-if="chat.unreadCount > 0" class="unread-count-badge">
-              {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
+          <div
+            class="chat-item"
+            @click="switchToChat(chat)"
+            @contextmenu.prevent="showContextMenu($event, chat)"
+          >
+            <div class="chat-avatar">
+              <div v-if="chat.unreadCount > 0" class="unread-count-badge">
+                {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
+              </div>
+              <!-- 群聊头像 -->
+              <GroupAvatar v-if="chat.type === 'group'" :members="chat.members" :size="48" />
+              <!-- 私聊头像 -->
+              <template v-else>
+                <img :src="getAvatarUrl(chat.avatar)" alt="avatar" @error="handleAvatarError" />
+                <span 
+                  class="online-dot" 
+                  :class="{ online: isUserOnline(chat.id) }"
+                ></span>
+              </template>
             </div>
-            <!-- 群聊头像 -->
-            <GroupAvatar v-if="chat.type === 'group'" :members="chat.members" :size="48" />
-            <!-- 私聊头像 -->
-            <template v-else>
-              <img :src="getAvatarUrl(chat.avatar)" alt="avatar" @error="handleAvatarError" />
-              <span 
-                class="online-dot" 
-                :class="{ online: isUserOnline(chat.id) }"
-              ></span>
-            </template>
+            <div class="chat-details">
+              <div class="chat-name">
+                {{ chat.name }}
+                <span v-if="chat.type === 'group'" class="group-tag">[群聊]</span>
+              </div>
+              <div
+                class="chat-message"
+                :class="{ 'unread-text': chat.unreadCount > 0 }"
+              >
+                {{ chat.lastMessage }}
+              </div>
+            </div>
+            <div class="chat-time">{{ formatDate(chat.lastTime) }}</div>
           </div>
-          <div class="chat-details">
-            <div class="chat-name">
-              {{ chat.name }}
-              <span v-if="chat.type === 'group'" class="group-tag">[群聊]</span>
-            </div>
-            <div
-              class="chat-message"
-              :class="{ 'unread-text': chat.unreadCount > 0 }"
-            >
-              {{ chat.lastMessage }}
-            </div>
-          </div>
-          <div class="chat-time">{{ formatDate(chat.lastTime) }}</div>
-        </li>
-      </ul>
+        </RecycleScroller>
+      </div>
     </div>
 
     <!-- 头像选择器 -->
@@ -367,6 +373,8 @@
 <script setup>
 import axios from 'axios'
 import { onBeforeUnmount, ref, nextTick, computed } from 'vue'
+import { RecycleScroller } from 'vue3-virtual-scroller'
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import { defineEmits } from 'vue'
 import { onMounted } from 'vue'
 import { Palette, Xmark, Trash } from '@iconoir/vue'
@@ -392,6 +400,17 @@ const showSettingsDialog = ref(false)
 
 // 在线状态管理
 const { isUserOnline, onlineUsers } = useOnlineStatus()
+
+// 虚拟滚动配置
+const chatItemSize = 72 // 每个聊天项的高度（像素）
+
+// 为虚拟滚动准备聊天数据（确保每个聊天都有唯一 id）
+const allChatsWithId = computed(() => {
+  return allChats.value.map(chat => ({
+    ...chat,
+    id: chat.id || `chat-${chat.type}-${chat.name}`
+  }))
+})
 
 // 检测屏幕尺寸
 function checkScreen() {
@@ -1869,12 +1888,20 @@ onBeforeUnmount(() => {
     }
   }
 
+  .chat-list-wrapper {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   .chat-list {
     list-style: none;
     padding: 0;
     margin: 0;
     overflow-y: auto;
     flex: 1;
+    height: 100%;
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -1883,6 +1910,22 @@ onBeforeUnmount(() => {
     &::-webkit-scrollbar-thumb {
       background-color: var(--border-color, rgba(0, 0, 0, 0.1));
       border-radius: 4px;
+    }
+    
+    // 虚拟滚动容器样式 - 关键修复
+    :deep(.vue-recycle-scroller) {
+      flex: 1;
+      height: 100% !important;
+    }
+    
+    :deep(.vue-recycle-scroller__item-wrapper) {
+      overflow: visible;
+      width: 100%;
+    }
+    
+    :deep(.vue-recycle-scroller__item-view) {
+      overflow: visible;
+      width: 100%;
     }
 
     .chat-item {

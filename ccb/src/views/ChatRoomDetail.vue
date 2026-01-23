@@ -80,19 +80,26 @@
             </div>
           </div>
           
-          <!-- 所有消息按时间顺序显示 -->
-          <div 
-            v-for="(message, index) in messages" 
-            :key="message._id || index" 
-            :data-message-id="message._id"
-            class="message-wrapper"
+          <!-- 虚拟滚动消息列表 -->
+          <RecycleScroller
+            v-if="messages.length > 0"
+            class="message-scroller"
+            :items="messagesWithId"
+            :item-size="120"
+            :buffer="300"
+            key-field="id"
+            v-slot="{ item: message, index }"
           >
-            <!-- AI 消息 -->
-            <ChatRoomAIMessage 
-              v-if="message.from === 'AI' || message.isAI"
-              :message="message"
-              @copy="copyToClipboard"
-            />
+            <div 
+              :data-message-id="message._id"
+              class="message-wrapper"
+            >
+              <!-- AI 消息 -->
+              <ChatRoomAIMessage 
+                v-if="message.from === 'AI' || message.isAI"
+                :message="message"
+                @copy="copyToClipboard"
+              />
             
             <!-- 代码消息 -->
             <CodeMessage 
@@ -236,7 +243,8 @@
                 {{ message.content }}
               </div>
             </div>
-          </div>
+            </div>
+          </RecycleScroller>
         </div>
       </div>
       <!-- 输入区域 -->
@@ -339,6 +347,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { RecycleScroller } from 'vue3-virtual-scroller'
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -369,6 +379,17 @@ const currentRoom = ref(null)
 const messages = ref([])
 const currentUserId = ref('')
 const myAvatar = ref('')
+
+// 为虚拟滚动准备消息数据（确保每条消息都有 id 字段）
+const messagesWithId = computed(() => {
+  return messages.value.map((msg, index) => {
+    if (!msg) return { id: `msg-${index}`, ...msg }
+    return {
+      ...msg,
+      id: msg._id || msg.id || `msg-${index}`
+    }
+  })
+})
 const showRoomDetail = ref(false)
 const showSummaryDialog = ref(false)
 const showCodeInput = ref(false)
@@ -1853,6 +1874,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    position: relative;
     
     &::-webkit-scrollbar {
       width: 6px;
@@ -1864,6 +1886,27 @@ onUnmounted(() => {
       
       &:hover {
         background: #b0b0b0;
+      }
+    }
+    
+    // 虚拟滚动容器样式 - 关键修复
+    .message-scroller {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      
+      :deep(.vue-recycle-scroller) {
+        height: 100% !important;
+      }
+      
+      :deep(.vue-recycle-scroller__item-wrapper) {
+        overflow: visible;
+        width: 100%;
+      }
+      
+      :deep(.vue-recycle-scroller__item-view) {
+        overflow: visible;
+        width: 100%;
       }
     }
   }
