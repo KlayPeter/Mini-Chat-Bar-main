@@ -160,6 +160,7 @@ import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
 import MessageContextMenu from './MessageContextMenu.vue'
 import TextSelectionToolbar from '../TextSelectionToolbar.vue'
 import AIExplainDialog from '../AIExplainDialog.vue'
+import { throttle } from '../../utils/performance'
 
 const props = defineProps({
   messages: {
@@ -675,9 +676,9 @@ watch(() => props.highlightedMessageId, (newId) => {
   }
 })
 
-// 处理滚动事件
+// 处理滚动事件 - 使用节流优化性能
 let scrollTimeout = null
-function handleScroll() {
+const handleScroll = throttle(function() {
   if (!messageListRef.value) return
   
   const { scrollTop, scrollHeight, clientHeight } = messageListRef.value
@@ -712,7 +713,7 @@ function handleScroll() {
       preventAutoScroll.value = false
     }
   }
-}
+}, 100) // 节流 100ms
 
 onMounted(() => {
   // 初始加载时滚动到底部

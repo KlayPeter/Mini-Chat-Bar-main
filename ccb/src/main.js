@@ -9,6 +9,9 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { fas } from '@fortawesome/free-solid-svg-icons'
 
+// 图片懒加载指令
+import lazyLoadDirective from './directives/lazyLoad'
+
 // 添加所有 solid 图标到库中
 library.add(fas)
 
@@ -43,5 +46,8 @@ const pinia = createPinia()
 
 // 注册 FontAwesome 组件
 app.component('font-awesome-icon', FontAwesomeIcon)
+
+// 注册懒加载指令
+app.use(lazyLoadDirective)
 
 app.use(router).use(pinia).mount('#app')
