@@ -66,6 +66,7 @@
         @preview-video="handlePreviewVideo"
         @preview-file="handlePreviewFile"
         @play-voice="handlePlayVoice"
+        @voice-played="handleVoicePlayed"
         @forward-message="handleForwardMessage"
         @forward-messages="handleForwardMessages"
         @download-file="handleDownloadFile"
@@ -87,8 +88,14 @@
         :showSearchButton="false"
         :groupMembers="chatType === 'group' ? groupMembers : []"
         :currentUserId="currentUserId"
+        :isRecording="isRecording"
+        :recordingTime="recordingTime"
         @send-message="handleSendMessage"
         @send-file="handleSendFile"
+        @start-recording="handleStartRecording"
+        @stop-recording="handleStopRecording"
+        @cancel-recording="handleCancelRecording"
+        @send-voice="handleSendVoice"
         @typing-start="handleTypingStart"
         @typing-stop="handleTypingStop"
       />
@@ -138,6 +145,7 @@ import GroupDetail from '../components/GroupDetail.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
+import { useAudioRecorder } from '../composables/useAudioRecorder'
 import GroupAvatar from '../components/GroupAvatar.vue'
 
 // 总结对话框
@@ -165,6 +173,16 @@ const { confirm } = useConfirm()
 
 // 在线状态管理
 const { isUserOnline } = useOnlineStatus()
+
+// 语音录制相关
+const {
+  isRecording,
+  recordingTime,
+  audioBlob,
+  startRecording,
+  stopRecording,
+  cancelRecording,
+} = useAudioRecorder()
 
 // 新增事件处理函数
 function handleSendMessage(messageData) {
@@ -253,12 +271,144 @@ function handlePreviewFile(fileInfo) {
   window.open(baseUrl + fileInfo.fileUrl, '_blank')
 }
 
-function handlePlayVoice(fileInfo) {
-  const audio = new Audio(baseUrl + fileInfo.fileUrl)
-  audio.play().catch(err => {
-    console.error('播放语音失败:', err)
-    toast.error('播放语音失败')
-  })
+function handlePlayVoice(fileInfo, callback) {
+  try {
+    const audioUrl = fileInfo.fileUrl.startsWith('http') 
+      ? fileInfo.fileUrl 
+      : baseUrl + fileInfo.fileUrl
+    
+    const audio = new Audio()
+    audio.volume = 1.0
+    audio.preload = 'auto'
+    audio.src = audioUrl
+    
+    audio.addEventListener('ended', () => {
+      if (callback) {
+        // 通知播放结束
+      }
+    })
+    
+    audio.addEventListener('error', (e) => {
+      console.error('语音播放失败:', audio.error)
+      toast.error('语音播放失败')
+    })
+    
+    // 先调用 callback 传递 audio 对象
+    if (callback) {
+      callback(audio)
+    }
+    
+    // 播放
+    audio.play().catch(err => {
+      console.error('播放失败:', err)
+      toast.error('播放失败: ' + err.message)
+    })
+  } catch (err) {
+    console.error('播放异常:', err)
+    toast.error('播放失败')
+  }
+}
+
+// 标记语音消息为已播放
+async function handleVoicePlayed(messageId) {
+  try {
+    const token = localStorage.getItem('token')
+    // 这里可以调用后端API标记消息为已播放
+    // 暂时只在前端标记
+    const messageIndex = messages.value.findIndex(m => (m._id || m.id) === messageId)
+    if (messageIndex !== -1) {
+      messages.value[messageIndex].isPlayed = true
+    }
+  } catch (err) {
+    console.error('标记语音已播放失败:', err)
+  }
+}
+
+// 录音相关处理函数
+function handleStartRecording() {
+  startRecording()
+}
+
+function handleStopRecording() {
+  stopRecording()
+  // 只停止录音，不发送
+}
+
+function handleCancelRecording() {
+  cancelRecording()
+}
+
+function handleSendVoice() {
+  // 用户点击发送按钮后才发送语音
+  if (audioBlob.value) {
+    sendVoiceMessage()
+  }
+}
+
+async function sendVoiceMessage() {
+  if (!audioBlob.value) return
+
+  const token = localStorage.getItem('token')
+  const formData = new FormData()
+  
+  const fileExtension = audioBlob.value.type.includes('webm') ? 'webm' : 
+                        audioBlob.value.type.includes('ogg') ? 'ogg' : 'wav'
+  const fileName = `voice-${Date.now()}.${fileExtension}`
+  
+  formData.append('file', audioBlob.value, fileName)
+
+  try {
+    const uploadRes = await axios.post(`${baseUrl}/api/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (uploadRes.data && uploadRes.data.fileUrl) {
+      const fileInfo = {
+        fileName: uploadRes.data.fileName,
+        fileUrl: uploadRes.data.fileUrl,
+        fileSize: uploadRes.data.fileSize,
+        fileType: uploadRes.data.fileType,
+        duration: recordingTime.value
+      }
+      
+      const messageData = {
+        content: '',
+        messageType: 'audio',
+        fileInfo: fileInfo
+      }
+      
+      const messageRes = await axios.post(
+        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+        messageData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      if (messageRes.data) {
+        socket.emit('private-message', {
+          from: currentUserId.value,
+          to: chatstore.currentChatUser,
+          content: '',
+          messageType: 'audio',
+          fileInfo: fileInfo,
+          timestamp: new Date().toISOString()
+        })
+        
+        await getlists()
+        toast.success('语音发送成功')
+        cancelRecording()
+      }
+    } else {
+      toast.error('语音文件上传失败')
+    }
+  } catch (err) {
+    console.error('语音发送失败:', err)
+    toast.error('语音发送失败: ' + (err.response?.data?.message || err.message))
+  }
 }
 
 function handleForwardMessage(message) {

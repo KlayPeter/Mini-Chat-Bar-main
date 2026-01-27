@@ -8,14 +8,15 @@ const groupMessageSchema = new mongoose.Schema({
   content: { type: String },
   messageType: { 
     type: String, 
-    enum: ['text', 'image', 'file', 'video', 'system', 'code', 'chatroom_invite'],
+    enum: ['text', 'image', 'file', 'video', 'audio', 'system', 'code', 'chatroom_invite'],
     default: 'text' 
   },
   fileInfo: {
     fileName: String,
     fileUrl: String,
     fileType: String,
-    fileSize: Number
+    fileSize: Number,
+    duration: Number // 语音/视频时长（秒）
   },
   // 新增：代码消息信息
   codeInfo: {

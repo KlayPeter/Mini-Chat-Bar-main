@@ -148,14 +148,26 @@
           </template>
 
           <!-- 语音消息 -->
-          <template v-else-if="message.messageType === 'voice' && message.fileInfo">
-            <div class="voice-message">
+          <template v-else-if="(message.messageType === 'voice' || message.messageType === 'audio') && message.fileInfo">
+            <div 
+              class="content voice-message-bubble" 
+              :class="{ 'voice-playing': isPlayingVoice(message._id || message.id) }"
+              @click="handleVoiceClick(message)"
+            >
               <div class="voice-content">
-                <button class="voice-play-btn" @click="$emit('play-voice', message.fileInfo)">
+                <!-- 未读红点 -->
+                <span v-if="!isMyMessage && !message.isPlayed" class="voice-unread-dot"></span>
+                
+                <div class="voice-icon-wrapper">
                   <Microphone class="voice-icon" />
-                </button>
+                  <div class="voice-waves">
+                    <span class="wave"></span>
+                    <span class="wave"></span>
+                    <span class="wave"></span>
+                  </div>
+                </div>
                 <div class="voice-duration">
-                  {{ formatRecordingTime(message.fileInfo.duration || 0) }}
+                  {{ getVoiceDurationText(message) }}"
                 </div>
               </div>
             </div>
@@ -191,6 +203,7 @@ import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 import { getAvatarUrl } from '../../utils/avatarHelper'
+import { ref, onUnmounted } from 'vue'
 
 // 配置 marked
 marked.setOptions({
@@ -276,8 +289,14 @@ const emit = defineEmits([
   'preview-file',
   'play-voice',
   're-edit-message',
-  'jump-to-quoted-message'
+  'jump-to-quoted-message',
+  'voice-played'
 ])
+
+// 语音播放状态管理
+const playingVoiceId = ref(null)
+const voiceRemainingTimes = ref({}) // 存储每个语音的剩余时间
+let countdownTimers = {} // 存储每个语音的定时器
 
 // 计算是否为我的消息
 const isMyMessage = computed(() => {
@@ -484,6 +503,106 @@ function parseInviteData(content) {
     return {}
   }
 }
+
+// 语音播放相关函数
+function isPlayingVoice(messageId) {
+  return playingVoiceId.value === messageId
+}
+
+function getVoiceDurationText(message) {
+  const messageId = message._id || message.id
+  if (isPlayingVoice(messageId) && voiceRemainingTimes.value[messageId] > 0) {
+    // 播放中显示倒计时
+    return Math.ceil(voiceRemainingTimes.value[messageId])
+  }
+  // 未播放显示总时长
+  return formatRecordingTime(message.fileInfo?.duration || 0)
+}
+
+function handleVoiceClick(message) {
+  const messageId = message._id || message.id
+  
+  // 如果正在播放这条语音，停止播放
+  if (isPlayingVoice(messageId)) {
+    stopVoicePlayback(messageId)
+    return
+  }
+  
+  // 停止之前的播放
+  if (playingVoiceId.value) {
+    stopVoicePlayback(playingVoiceId.value)
+  }
+  
+  // 开始播放新的语音
+  playingVoiceId.value = messageId
+  
+  // 标记为已播放
+  if (!isMyMessage.value && !message.isPlayed) {
+    emit('voice-played', messageId)
+  }
+  
+  // 触发播放事件
+  emit('play-voice', message.fileInfo, (audio) => {
+    if (audio) {
+      const duration = message.fileInfo?.duration || audio.duration || 0
+      voiceRemainingTimes.value[messageId] = duration
+      
+      // 开始倒计时
+      startCountdown(messageId, audio)
+      
+      // 监听播放结束
+      audio.addEventListener('ended', () => {
+        stopVoicePlayback(messageId)
+      })
+      
+      audio.addEventListener('error', () => {
+        stopVoicePlayback(messageId)
+      })
+    }
+  })
+}
+
+function startCountdown(messageId, audio) {
+  // 清除旧的定时器
+  if (countdownTimers[messageId]) {
+    clearInterval(countdownTimers[messageId])
+  }
+  
+  countdownTimers[messageId] = setInterval(() => {
+    if (voiceRemainingTimes.value[messageId] > 0) {
+      voiceRemainingTimes.value[messageId] -= 0.1
+    } else {
+      stopVoicePlayback(messageId)
+    }
+  }, 100)
+}
+
+function stopVoicePlayback(messageId) {
+  // 清除定时器
+  if (countdownTimers[messageId]) {
+    clearInterval(countdownTimers[messageId])
+    delete countdownTimers[messageId]
+  }
+  
+  // 清除剩余时间
+  delete voiceRemainingTimes.value[messageId]
+  
+  // 如果是当前播放的语音，清除播放状态
+  if (playingVoiceId.value === messageId) {
+    playingVoiceId.value = null
+  }
+}
+
+// 组件卸载时清理
+onUnmounted(() => {
+  // 清理所有定时器
+  Object.keys(countdownTimers).forEach(messageId => {
+    if (countdownTimers[messageId]) {
+      clearInterval(countdownTimers[messageId])
+    }
+  })
+  countdownTimers = {}
+})
 </script>
 
 <style scoped lang="scss">
@@ -1078,48 +1197,154 @@ function parseInviteData(content) {
   }
 }
 
-/* 语音消息样式 */
-.voice-message {
+/* 语音消息样式 - 仿微信风格 */
+.voice-message-bubble {
+  cursor: pointer;
+  user-select: none;
+  min-width: 100px !important;
+  max-width: 200px !important;
+  position: relative;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    opacity: 0.9;
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  // 播放中的样式
+  &.voice-playing {
+    .voice-waves .wave {
+      animation-play-state: running;
+      background: currentColor;
+    }
+  }
+  
   .voice-content {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: #f0f0f0;
-    border-radius: 20px;
-    cursor: pointer;
-
-    .voice-play-btn {
-      width: 40px;
-      height: 40px;
+    gap: 8px;
+    padding: 0;
+    position: relative;
+    
+    // 未读红点
+    .voice-unread-dot {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 8px;
+      height: 8px;
+      background: #ff4d4f;
       border-radius: 50%;
-      background: #07c160;
-      color: white;
-      border: none;
+      border: 2px solid white;
+      z-index: 10;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    
+    .voice-icon-wrapper {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      font-size: 16px;
-
+      width: 24px;
+      height: 24px;
+      
       .voice-icon {
-        width: 16px;
-        height: 16px;
-        stroke-width: 1.5;
+        width: 20px;
+        height: 20px;
+        stroke-width: 2;
+        color: inherit;
+        z-index: 2;
+      }
+      
+      .voice-waves {
+        position: absolute;
+        right: -20px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        
+        .wave {
+          width: 2px;
+          background: currentColor;
+          border-radius: 1px;
+          animation: voice-wave 1.2s ease-in-out infinite;
+          animation-play-state: paused;
+          
+          &:nth-child(1) {
+            height: 8px;
+            animation-delay: 0s;
+          }
+          
+          &:nth-child(2) {
+            height: 12px;
+            animation-delay: 0.2s;
+          }
+          
+          &:nth-child(3) {
+            height: 6px;
+            animation-delay: 0.4s;
+          }
+        }
       }
     }
 
-    .file-type-icon {
-      width: 16px;
-      height: 16px;
-      stroke-width: 1.5;
-      margin-right: 4px;
-    }
-
     .voice-duration {
-      font-size: 14px;
-      color: #666;
+      font-size: 13px;
+      color: inherit;
+      font-weight: 400;
+      margin-left: 16px;
+      min-width: 20px;
+      text-align: right;
     }
+  }
+}
+
+// 自己发送的语音消息样式
+.me .voice-message-bubble {
+  .voice-content {
+    flex-direction: row-reverse;
+    
+    .voice-unread-dot {
+      right: auto;
+      left: -4px;
+    }
+    
+    .voice-icon-wrapper {
+      .voice-waves {
+        right: auto;
+        left: -20px;
+        flex-direction: row-reverse;
+      }
+    }
+    
+    .voice-duration {
+      margin-left: 0;
+      margin-right: 16px;
+      text-align: left;
+    }
+  }
+}
+
+@keyframes voice-wave {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.5);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
   }
 }
 

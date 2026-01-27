@@ -109,8 +109,9 @@
 
         <!-- 录音按钮 -->
         <template v-if="showVoiceButton">
+          <!-- 未录音状态：显示录音按钮 -->
           <button
-            v-if="!isRecording"
+            v-if="!isRecording && !hasRecordedAudio"
             class="tool-btn voice-btn"
             @click="startRecording"
             title="录音"
@@ -118,11 +119,13 @@
           >
             <Microphone class="icon" />
           </button>
+          
+          <!-- 录音中状态：显示停止按钮和取消按钮 -->
           <button
-            v-else
+            v-if="isRecording"
             class="tool-btn voice-recording"
             @click="stopRecording"
-            title="点击发送"
+            title="停止录音"
           >
             <Pause class="icon" />
             {{ formatRecordingTime(recordingTime) }}
@@ -132,6 +135,28 @@
             class="tool-btn voice-cancel"
             @click="cancelRecording"
             title="取消录音"
+          >
+            <Xmark class="icon" />
+          </button>
+          
+          <!-- 录音完成状态：显示发送和取消按钮 -->
+          <button
+            v-if="!isRecording && hasRecordedAudio"
+            class="tool-btn voice-send"
+            @click="sendVoiceRecording"
+            title="发送语音"
+          >
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            {{ formatRecordingTime(recordingTime) }}"
+          </button>
+          <button
+            v-if="!isRecording && hasRecordedAudio"
+            class="tool-btn voice-cancel"
+            @click="cancelRecording"
+            title="取消"
           >
             <Xmark class="icon" />
           </button>
@@ -410,6 +435,7 @@ const showMarkdownMenu = ref(false)
 const showMarkdownPreview = ref(false)
 const isTyping = ref(false)
 const typingTimer = ref(null)
+const hasRecordedAudio = ref(false) // 是否有录制好的音频待发送
 
 // @提及功能相关数据
 const showMentionList = ref(false)
@@ -901,15 +927,24 @@ function handleSelectSticker(sticker) {
 
 // 录音相关方法
 function startRecording() {
+  hasRecordedAudio.value = false
   emit('start-recording')
 }
 
 function stopRecording() {
   emit('stop-recording')
+  // 停止录音后，设置为有录音待发送状态
+  hasRecordedAudio.value = true
 }
 
 function cancelRecording() {
+  hasRecordedAudio.value = false
   emit('cancel-recording')
+}
+
+function sendVoiceRecording() {
+  hasRecordedAudio.value = false
+  emit('send-voice')
 }
 
 function formatRecordingTime(seconds) {
@@ -1482,6 +1517,21 @@ defineExpose({
           font-weight: 600;
           box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
           animation: recordingPulse 1.5s ease-in-out infinite;
+        }
+        
+        &.voice-send {
+          background: linear-gradient(135deg, #07c160 0%, #06ad56 100%);
+          color: white;
+          border-radius: 18px;
+          width: auto;
+          padding: 0 14px;
+          font-size: 12px;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(7, 193, 96, 0.3);
+          
+          &:hover:not(:disabled) {
+            background: linear-gradient(135deg, #06ad56 0%, #059748 100%);
+          }
         }
 
         &.voice-cancel {

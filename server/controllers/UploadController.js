@@ -24,6 +24,7 @@ class UploadController {
       }
 
       res.json({
+        success: true,
         message: '文件上传成功',
         fileName: originalName,
         fileUrl: fileUrl,

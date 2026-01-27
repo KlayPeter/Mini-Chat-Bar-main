@@ -15,7 +15,8 @@ const msgSchema = new mongoose.Schema({
         fileUrl: String,
         fileSize: Number,
         fileType: String, // MIME类型
-        thumbnailUrl: String // 图片缩略图URL（可选）
+        thumbnailUrl: String, // 图片缩略图URL（可选）
+        duration: Number // 语音/视频时长（秒）
     },
     isForwarded: {
         type: Boolean,

@@ -12,43 +12,52 @@ export function useAudioRecorder() {
 
   const startRecording = async () => {
     try {
-      // 请求麦克风权限
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
-      // 创建 MediaRecorder
-      mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
+      let mimeType = 'audio/webm;codecs=opus'
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm'
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/ogg;codecs=opus'
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = ''
+          }
+        }
+      }
+      
+      const options = mimeType ? { mimeType } : {}
+      mediaRecorder = new MediaRecorder(stream, options)
       
       audioChunks = []
       recordingTime.value = 0
       
-      // 监听数据可用事件
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data)
         }
       }
       
-      // 监听停止事件
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' })
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' })
         audioBlob.value = blob
       }
       
-      // 开始录音
       mediaRecorder.start()
       isRecording.value = true
       
-      // 开始计时
       timerInterval = setInterval(() => {
         recordingTime.value++
       }, 1000)
       
       return true
     } catch (error) {
-      console.error('启动录音失败:', error)
-      alert('无法访问麦克风，请检查权限设置')
+      if (error.name === 'NotAllowedError') {
+        alert('麦克风权限被拒绝，请在浏览器设置中允许访问麦克风')
+      } else if (error.name === 'NotFoundError') {
+        alert('未找到麦克风设备，请检查设备连接')
+      } else {
+        alert('无法访问麦克风: ' + error.message)
+      }
       return false
     }
   }

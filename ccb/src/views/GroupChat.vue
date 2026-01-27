@@ -84,6 +84,7 @@
           @preview-video="previewVideo"
           @preview-file="previewFile"
           @play-voice="playVoice"
+          @voice-played="handleVoicePlayed"
           @forward-message="handleForwardMessage"
           @forward-messages="handleForwardMessages"
           @download-file="handleDownloadFile"
@@ -112,6 +113,7 @@
           @start-recording="handleStartRecording"
           @stop-recording="handleStopRecording"
           @cancel-recording="handleCancelRecording"
+          @send-voice="handleSendVoice"
           @search="showSearchModal = true"
           @typing-start="handleTypingStart"
           @typing-stop="handleTypingStop"
@@ -740,13 +742,56 @@ function previewFile(fileInfo) {
   window.open(baseUrl + fileInfo.fileUrl, '_blank')
 }
 
-function playVoice(fileInfo) {
-  // 播放语音消息
-  const audio = new Audio(baseUrl + fileInfo.fileUrl)
-  audio.play().catch(err => {
-    console.error('播放语音失败:', err)
-    toast.error('播放语音失败')
-  })
+function playVoice(fileInfo, callback) {
+  try {
+    const audioUrl = fileInfo.fileUrl.startsWith('http') 
+      ? fileInfo.fileUrl 
+      : baseUrl + fileInfo.fileUrl
+    
+    const audio = new Audio()
+    audio.volume = 1.0
+    audio.preload = 'auto'
+    audio.src = audioUrl
+    
+    audio.addEventListener('ended', () => {
+      if (callback) {
+        // 通知播放结束
+      }
+    })
+    
+    audio.addEventListener('error', (e) => {
+      console.error('语音播放失败:', audio.error)
+      toast.error('语音播放失败')
+    })
+    
+    // 先调用 callback 传递 audio 对象
+    if (callback) {
+      callback(audio)
+    }
+    
+    // 播放
+    audio.play().catch(err => {
+      console.error('播放失败:', err)
+      toast.error('播放失败: ' + err.message)
+    })
+  } catch (err) {
+    console.error('播放异常:', err)
+    toast.error('播放失败')
+  }
+}
+
+// 标记语音消息为已播放
+async function handleVoicePlayed(messageId) {
+  try {
+    // 这里可以调用后端API标记消息为已播放
+    // 暂时只在前端标记
+    const messageIndex = messages.value.findIndex(m => (m._id || m.id) === messageId)
+    if (messageIndex !== -1) {
+      messages.value[messageIndex].isPlayed = true
+    }
+  } catch (err) {
+    console.error('标记语音已播放失败:', err)
+  }
 }
 
 // 新组件需要的事件处理方法
@@ -1167,14 +1212,18 @@ function handleStartRecording() {
 
 function handleStopRecording() {
   stopRecording()
-  // 发送语音消息
-  if (audioBlob.value) {
-    sendVoiceMessage()
-  }
+  // 只停止录音，不发送
 }
 
 function handleCancelRecording() {
   cancelRecording()
+}
+
+function handleSendVoice() {
+  // 用户点击发送按钮后才发送语音
+  if (audioBlob.value) {
+    sendVoiceMessage()
+  }
 }
 
 async function sendVoiceMessage() {
@@ -1182,10 +1231,14 @@ async function sendVoiceMessage() {
 
   const token = localStorage.getItem('token')
   const formData = new FormData()
-  formData.append('file', audioBlob.value, 'voice.wav')
+  
+  const fileExtension = audioBlob.value.type.includes('webm') ? 'webm' : 
+                        audioBlob.value.type.includes('ogg') ? 'ogg' : 'wav'
+  const fileName = `voice-${Date.now()}.${fileExtension}`
+  
+  formData.append('file', audioBlob.value, fileName)
 
   try {
-    // 先上传语音文件
     const uploadRes = await axios.post(`${baseUrl}/api/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -1193,24 +1246,36 @@ async function sendVoiceMessage() {
       },
     })
 
-    if (uploadRes.data.success) {
-      // 发送语音消息
+    if (uploadRes.data && uploadRes.data.fileUrl) {
+      const fileInfo = {
+        fileName: uploadRes.data.fileName,
+        fileUrl: uploadRes.data.fileUrl,
+        fileSize: uploadRes.data.fileSize,
+        fileType: uploadRes.data.fileType,
+        duration: recordingTime.value
+      }
+      
+      const messageData = {
+        content: '',
+        messageType: 'audio',
+        fileInfo: fileInfo
+      }
+      
       const messageRes = await axios.post(
         `${baseUrl}/room/${currentGroup.value.RoomID}/messages`,
-        {
-          content: '',
-          messageType: 'voice',
-          fileInfo: uploadRes.data.file
-        },
+        messageData,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
       )
 
-      if (messageRes.data.success) {
+      if (messageRes.data) {
         await loadMessages()
         toast.success('语音发送成功')
+        cancelRecording()
       }
+    } else {
+      toast.error('语音文件上传失败')
     }
   } catch (err) {
     console.error('语音发送失败:', err)
