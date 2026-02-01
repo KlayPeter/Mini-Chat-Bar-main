@@ -1,4 +1,4 @@
-6<template>
+<template>
   <div class="container">
     <div class="section1">
       <Sidebar
