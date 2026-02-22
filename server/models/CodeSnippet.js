@@ -7,12 +7,14 @@ const codeSnippetSchema = new mongoose.Schema({
   description: String,
   tags: [String],
   author: { type: String, required: true },
+  roomId: String,
   isPublic: { type: Boolean, default: false },
   likes: { type: Number, default: 0 },
   views: { type: Number, default: 0 }
 }, { timestamps: true })
 
 codeSnippetSchema.index({ author: 1, createdAt: -1 })
+codeSnippetSchema.index({ roomId: 1, createdAt: -1 })
 codeSnippetSchema.index({ tags: 1 })
 
 module.exports = mongoose.model('CodeSnippet', codeSnippetSchema)

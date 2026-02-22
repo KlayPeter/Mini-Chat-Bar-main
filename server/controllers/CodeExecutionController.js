@@ -29,7 +29,8 @@ class CodeExecutionController {
       }
       
       console.log(`🚀 执行 JavaScript 代码，长度: ${code.length}`)
-      
+      console.log(`代码内容:`, JSON.stringify(code))
+
       // 创建安全的 VM 沙箱
       const vm = new VM({
         timeout: Math.min(timeout, 10000), // 最多 10 秒

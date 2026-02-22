@@ -653,7 +653,8 @@ async function handleSaveCode({ code, language }) {
     await axios.post(`${baseUrl}/api/snippet/save`, {
       title,
       code,
-      language
+      language,
+      roomId: currentRoom.value._id
     })
     toast.success('代码片段已保存')
   } catch (error) {
