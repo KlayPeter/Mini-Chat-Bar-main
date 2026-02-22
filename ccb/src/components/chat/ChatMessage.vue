@@ -180,9 +180,7 @@
 
           <!-- 文本消息 -->
           <div v-else class="content">
-            <div v-if="hasMentions" v-html="renderMentions(message.content)"></div>
-            <div v-else-if="hasMarkdown(message.content)" v-html="renderMarkdown(message.content)" class="markdown-content"></div>
-            <span v-else>{{ message.content }}</span>
+            <MessageContent :content="message.content" />
           </div>
         </div>
 
@@ -199,6 +197,7 @@
 import { computed } from 'vue'
 import { Search, Camera, Microphone } from '@iconoir/vue'
 import ChatRoomInviteCard from '../ChatRoomInviteCard.vue'
+import MessageContent from '../MessageContent.vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
@@ -784,6 +783,10 @@ onUnmounted(() => {
     line-height: 1.4;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(0, 0, 0, 0.04);
+
+    :deep(.message-content-wrapper) {
+      color: inherit;
+    }
     
     // Markdown 内容样式
     .markdown-content {

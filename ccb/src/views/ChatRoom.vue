@@ -115,7 +115,8 @@
                       {{ message.fromName }}
                     </div>
                     <div class="message-bubble" :class="{ 'system-message': message.messageType === 'system' }">
-                      {{ message.content }}
+                      <MessageContent v-if="message.messageType !== 'system'" :content="message.content" />
+                      <span v-else>{{ message.content }}</span>
                     </div>
                   </div>
                   <div class="message-avatar" v-if="message.from === currentUserId && message.messageType !== 'system'">
@@ -214,6 +215,7 @@ import SummaryDialog from '../components/SummaryDialog.vue'
 import QuestionBadge from '../components/QuestionBadge.vue'
 import MessageActions from '../components/MessageActions.vue'
 import QuotedMessage from '../components/QuotedMessage.vue'
+import MessageContent from '../components/MessageContent.vue'
 import { useToast } from '../composables/useToast'
 import { getAvatarUrl } from '../utils/avatarHelper'
 
@@ -839,6 +841,7 @@ async function handleInviteNavigation(roomId) {
 
 .message-wrapper {
   width: 100%;
+  margin-bottom: 20px;
 }
 
 .message-item {
@@ -895,7 +898,23 @@ async function handleInviteNavigation(roomId) {
       word-break: break-word;
       line-height: 1.5;
       box-shadow: var(--shadow-sm);
-      
+
+      // 重置 MessageContent 组件的样式
+      :deep(.message-content-container) {
+        max-width: 100%;
+      }
+
+      :deep(.message-content-wrapper) {
+        color: inherit;
+        font-size: inherit;
+        line-height: inherit;
+      }
+
+      :deep(.link-preview) {
+        background: rgba(0, 0, 0, 0.03);
+        border-color: rgba(0, 0, 0, 0.08);
+      }
+
       &.system-message {
         background: var(--bg-secondary);
         color: var(--text-tertiary);

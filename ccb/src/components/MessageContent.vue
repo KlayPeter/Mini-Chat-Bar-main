@@ -1,17 +1,40 @@
 <template>
-  <div class="message-content-wrapper" v-html="renderedContent"></div>
+  <div class="message-content-container">
+    <div class="message-content-wrapper" v-html="renderedContent"></div>
+    <LinkPreview
+      v-for="preview in linkPreviews"
+      :key="preview.url"
+      :preview="preview"
+    />
+  </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/vs2015.css'
+import LinkPreview from './LinkPreview.vue'
+import { extractUrls } from '../utils/urlHelper'
+import { useLinkPreview } from '../composables/useLinkPreview'
 
 const props = defineProps({
   content: {
     type: String,
     required: true
+  }
+})
+
+const linkPreviews = ref([])
+const { fetchPreview } = useLinkPreview()
+
+onMounted(async () => {
+  const urls = extractUrls(props.content)
+  for (const url of urls) {
+    const preview = await fetchPreview(url)
+    if (preview) {
+      linkPreviews.value.push(preview)
+    }
   }
 })
 
@@ -128,6 +151,7 @@ if (typeof window !== 'undefined') {
   :deep(p) {
     margin: 0 0 8px 0;
     
+    
     &:last-child {
       margin-bottom: 0;
     }
@@ -162,13 +186,13 @@ if (typeof window !== 'undefined') {
   }
   
   :deep(a) {
-    color: rgb(165, 42, 42);
+    color: rgb(255,255,255);
     text-decoration: none;
     border-bottom: 1px solid rgba(165, 42, 42, 0.3);
     transition: all 0.2s;
     
     &:hover {
-      border-bottom-color: rgb(165, 42, 42);
+      border-bottom-color: rgb(167, 90, 90);
       color: rgb(140, 30, 30);
     }
   }

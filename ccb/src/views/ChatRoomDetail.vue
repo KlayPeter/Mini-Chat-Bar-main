@@ -85,16 +85,22 @@
           </div>
           
           <!-- 虚拟滚动消息列表 -->
-          <RecycleScroller
+          <DynamicScroller
             v-if="messages.length > 0"
             class="message-scroller"
             :items="messagesWithId"
-            :item-size="120"
+            :min-item-size="120"
             :buffer="300"
             key-field="id"
-            v-slot="{ item: message, index }"
+            v-slot="{ item: message, index, active }"
           >
-            <div 
+            <DynamicScrollerItem
+              :item="message"
+              :active="active"
+              :size-dependencies="[message.content, message.messageType]"
+              :data-index="index"
+            >
+            <div
               :data-message-id="message._id"
               class="message-wrapper"
             >
@@ -248,7 +254,8 @@
               </div>
             </div>
             </div>
-          </RecycleScroller>
+            </DynamicScrollerItem>
+          </DynamicScroller>
         </div>
       </div>
 
@@ -357,7 +364,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { RecycleScroller } from 'vue3-virtual-scroller'
+import { DynamicScroller, DynamicScrollerItem } from 'vue3-virtual-scroller'
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon, ChevronLeft, Info } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
@@ -1983,6 +1990,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-bottom: 20px;
     animation: slideIn 0.2s ease-out;
     
     &.highlight-message {

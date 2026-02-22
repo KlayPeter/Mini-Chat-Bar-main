@@ -42,6 +42,8 @@ const codeSnippetRouter = require('./routes/codeSnippet')
 console.log('CodeSnippet路由导入成功')
 const questionRouter = require('./routes/question')
 console.log('Question路由导入成功')
+const linkPreviewRouter = require('./routes/linkPreview')
+console.log('LinkPreview路由导入成功')
 const auth = require('./middlewares/auth')
 console.log('Auth中间件导入成功')
 
@@ -136,6 +138,7 @@ app.use('/api/favorites', favoriteRouter)
 app.use('/api/code', codeExecutionRouter)
 app.use('/api/snippet', codeSnippetRouter)
 app.use('/api/question', questionRouter)
+app.use('/api/link-preview', linkPreviewRouter)
 
 // 静态文件服务 - 提供上传的文件访问
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
