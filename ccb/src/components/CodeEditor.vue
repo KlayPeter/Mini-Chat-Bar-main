@@ -8,15 +8,24 @@
         <option value="cpp">C++</option>
         <option value="go">Go</option>
       </select>
-      <button @click="runCode" class="run-btn">▶ 运行</button>
-      <button @click="saveSnippet" class="save-btn">💾 保存</button>
-      <button @click="toggleHistory" class="history-btn">📜 历史</button>
+      <button @click="runCode" class="run-btn">
+        <Play :size="16" />
+        <span>运行</span>
+      </button>
+      <button @click="saveSnippet" class="save-btn">
+        <Save :size="16" />
+        <span>保存</span>
+      </button>
+      <button @click="toggleHistory" class="history-btn">
+        <History :size="16" />
+        <span>历史</span>
+      </button>
       <div class="connection-status" :class="connectionStatus">
         <span class="status-dot"></span>
         {{ connectionText }}
       </div>
       <div class="online-users">
-        <span class="users-icon">👥</span>
+        <Users :size="16" />
         <span>{{ onlineUsers }}</span>
       </div>
     </div>
@@ -25,7 +34,9 @@
       <div v-if="showHistory" class="history-panel">
         <div class="history-header">
           <h3>代码历史</h3>
-          <button @click="showHistory = false" class="close-btn">✕</button>
+          <button @click="showHistory = false" class="close-btn">
+            <X :size="18" />
+          </button>
         </div>
         <div v-if="historyLoading" class="history-loading">加载中...</div>
         <div v-else-if="historyList.length === 0" class="history-empty">暂无历史记录</div>
@@ -50,6 +61,7 @@ import * as monaco from 'monaco-editor'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { MonacoBinding } from 'y-monaco'
+import { Play, Save, History, Users, X } from 'lucide-vue-next'
 import axios from 'axios'
 
 const props = defineProps({
@@ -266,16 +278,22 @@ const cleanup = () => {
 }
 
 .run-btn, .save-btn, .history-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 15px;
   background: #0e639c;
   color: #fff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
 }
 
 .run-btn:hover, .save-btn:hover, .history-btn:hover {
   background: #1177bb;
+  transform: translateY(-1px);
 }
 
 .editor-content {

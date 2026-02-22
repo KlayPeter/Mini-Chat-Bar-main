@@ -12,7 +12,7 @@
       <div class="chat-header">
         <!-- 移动端返回按钮 -->
         <button class="back-btn mobile-only" @click="backToList">
-          <i>←</i>
+          <ChevronLeft :size="20" />
         </button>
         
         <div class="room-info">
@@ -46,13 +46,14 @@
             <span class="countdown-text">{{ timeRemaining }}</span>
           </div>
           <button @click="showCodeEditor = !showCodeEditor" class="code-btn" :title="showCodeEditor ? '返回聊天' : '代码协作'">
-            <i>{{ showCodeEditor ? '💬' : '👨‍💻' }}</i>
+            <MessageSquare v-if="showCodeEditor" :size="20" />
+            <Code v-else :size="20" />
           </button>
           <button @click="showSummaryDialog = true" class="summary-btn" title="AI 生成总结">
             <FileText class="action-icon" />
           </button>
           <button @click="showRoomDetail = true" class="detail-btn" title="聊天室详情">
-            <i>ⓘ</i>
+            <Info :size="20" />
           </button>
         </div>
       </div>
@@ -358,7 +359,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { RecycleScroller } from 'vue3-virtual-scroller'
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
-import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon, ChevronLeft, Info } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'

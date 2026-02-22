@@ -48,7 +48,7 @@
           <div class="chat-header">
             <!-- 移动端返回按钮 -->
             <button class="back-btn mobile-only" @click="backToList">
-              <i>←</i>
+              <ChevronLeft :size="20" />
             </button>
             
             <div class="group-info">
@@ -122,23 +122,18 @@
                     <img :src="getAvatarUrl(myAvatar)" alt="avatar" @error="e => e.target.src = '/images/avatar/default-avatar.webp'" />
                   </div>
                 </div>
-                
-                <!-- 消息操作按钮 - 移到消息外面 -->
-                <div style="background: #f0f0f0; padding: 8px; margin: 4px 0; border-radius: 4px;">
-                  <MessageActions
-                    v-if="message.messageType !== 'system' && message.messageType !== 'code'"
-                    :message="message"
-                    :isMyMessage="message.from === currentUserId"
-                    :currentUserId="currentUserId"
-                    :replyingToQuestion="replyingToQuestion"
-                    @reply="handleReply(message)"
-                    @upvote="handleUpvote(message)"
-                    @mark-question="handleMarkQuestion(message)"
-                    @mark-solution="handleMarkSolution(message)"
-                    @mark-best-answer="handleMarkBestAnswer(message)"
-                    @quote="handleQuote(message)"
-                  />
-                </div>
+
+                <!-- 消息操作按钮 -->
+                <MessageActions
+                  v-if="message.messageType !== 'system' && message.messageType !== 'code'"
+                  :message="message"
+                  :isMyMessage="message.from === currentUserId"
+                  :currentUserId="currentUserId"
+                  :questionAuthorId="getQuestionAuthorId(message)"
+                  @reply="handleReply(message)"
+                  @mark-question="handleMarkQuestion(message)"
+                  @mark-best-answer="handleMarkBestAnswer(message)"
+                />
               </div>
             </div>
           </div>
@@ -240,7 +235,6 @@ const messageListRef = ref(null)
 const roomListRef = ref(null)
 const sidebarRef = ref(null)
 const replyingToQuestion = ref(null)
-const quotingMessage = ref(null)
 const isSection2Collapsed = ref(false) // 折叠状态
 
 // AI 助手上下文
@@ -390,15 +384,27 @@ async function handleSendCode(codeData) {
 async function sendMessage(content) {
   try {
     const token = localStorage.getItem('token')
+    const payload = {
+      content: content,
+      messageType: 'text'
+    }
+
+    // 如果正在回复问题，添加答案标记
+    if (replyingToQuestion.value) {
+      payload.replyTo = replyingToQuestion.value
+      payload.isSolution = true
+      payload.solutionTo = replyingToQuestion.value
+    }
+
     await axios.post(
       `${baseUrl}/room/${currentRoom.value.RoomID}/messages`,
-      {
-        content: content,
-        messageType: 'text'
-      },
+      payload,
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    
+
+    // 清除回复状态
+    replyingToQuestion.value = null
+
     await loadMessages()
     scrollToBottom()
   } catch (err) {
@@ -418,39 +424,21 @@ function isMessageBestAnswer(message) {
   return question?.bestAnswer === message._id
 }
 
-// 处理回复
-function handleReply(message) {
-  if (message.isQuestion) {
-    replyingToQuestion.value = message._id
-    toast.info('回复问题模式，发送的消息将标记为答案')
-  }
-  messageInput.value = `@${message.fromName} `
+// 获取问题作者ID（用于判断是否可以标记最佳答案）
+function getQuestionAuthorId(message) {
+  if (!message.isSolution || !message.solutionTo) return null
+  const question = messages.value.find(m => m._id === message.solutionTo)
+  return question?.from || null
 }
 
-// 处理点赞
-async function handleUpvote(message) {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.post(
-      `${baseUrl}/api/question/${message._id}/upvote`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    
-    // 更新本地消息
-    const msg = messages.value.find(m => m._id === message._id)
-    if (msg) {
-      msg.upvoteCount = res.data.upvoteCount
-      msg.upvotes = msg.upvotes || []
-      if (res.data.upvoted) {
-        msg.upvotes.push(currentUserId.value)
-      } else {
-        msg.upvotes = msg.upvotes.filter(id => id !== currentUserId.value)
-      }
-    }
-  } catch (err) {
-    console.error('点赞失败:', err)
-    toast.error('操作失败')
+// 处理回复
+function handleReply(message) {
+  messageInput.value = `@${message.fromName} `
+
+  // 如果回复的是问题，记录问题ID
+  if (message.isQuestion) {
+    replyingToQuestion.value = message._id
+    toast.info('回复问题中，发送的消息将自动标记为答案')
   }
 }
 
@@ -463,45 +451,15 @@ async function handleMarkQuestion(message) {
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    
+
     // 更新本地消息
     const msg = messages.value.find(m => m._id === message._id)
     if (msg) {
       msg.isQuestion = true
       msg.questionStatus = 'open'
     }
-    
-    toast.success('已标记为问题')
-  } catch (err) {
-    console.error('标记失败:', err)
-    toast.error(err.response?.data?.message || '标记失败')
-  }
-}
 
-// 标记为答案
-async function handleMarkSolution(message) {
-  if (!replyingToQuestion.value) {
-    toast.error('请先回复一个问题')
-    return
-  }
-  
-  try {
-    const token = localStorage.getItem('token')
-    await axios.post(
-      `${baseUrl}/api/question/${message._id}/mark-solution`,
-      { questionId: replyingToQuestion.value },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    
-    // 更新本地消息
-    const msg = messages.value.find(m => m._id === message._id)
-    if (msg) {
-      msg.isSolution = true
-      msg.solutionTo = replyingToQuestion.value
-    }
-    
-    replyingToQuestion.value = null
-    toast.success('已标记为答案')
+    toast.success('已标记为问题')
   } catch (err) {
     console.error('标记失败:', err)
     toast.error(err.response?.data?.message || '标记失败')
@@ -531,27 +489,6 @@ async function handleMarkBestAnswer(message) {
   } catch (err) {
     console.error('标记失败:', err)
     toast.error(err.response?.data?.message || '标记失败')
-  }
-}
-
-// 引用消息
-function handleQuote(message) {
-  quotingMessage.value = {
-    id: message._id,
-    content: message.content,
-    fromName: message.fromName,
-    messageType: message.messageType
-  }
-  messageInput.value = `> ${message.fromName}: ${message.content.substring(0, 50)}...\n\n`
-}
-
-// 复制消息
-async function handleCopy(message) {
-  try {
-    await navigator.clipboard.writeText(message.content)
-    toast.success('已复制')
-  } catch (err) {
-    toast.error('复制失败')
   }
 }
 
@@ -674,18 +611,6 @@ async function handleInviteNavigation(roomId) {
   transition: all 1.5s ease-in;
   overflow: hidden;
   position: relative;
-}
-
-.mobile-only {
-  display: none;
-}
-
-.mobile-only {
-  display: none;
-  
-  @media (max-width: 768px) {
-    display: block;
-  }
 }
 
 .section1,
@@ -1323,12 +1248,12 @@ async function handleInviteNavigation(roomId) {
     }
   }
 }
-</style>
 
+.message-wrapper {
   padding: 8px;
   border-radius: 8px;
   transition: background 0.3s;
-  
+
   &.highlight {
     animation: highlight-flash 2s ease-in-out;
   }
@@ -1342,3 +1267,4 @@ async function handleInviteNavigation(roomId) {
     background: rgba(165, 42, 42, 0.1);
   }
 }
+</style>

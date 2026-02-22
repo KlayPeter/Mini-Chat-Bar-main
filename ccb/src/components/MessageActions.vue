@@ -5,33 +5,34 @@
       <MessageCircle :size="16" />
       <span>回复</span>
     </button>
-    
+
     <!-- 标记为问题（仅自己的消息且不是问题时显示） -->
-    <button 
+    <button
       v-if="canMarkQuestion"
-      @click="$emit('mark-question')" 
+      @click="$emit('mark-question')"
       class="action-btn question-btn"
       title="标记为问题"
     >
       <HelpCircle :size="16" />
-      <span>标记问题</span>
+      <span>提问</span>
     </button>
-    
-    <!-- 收藏 -->
-    <button 
-      @click="$emit('favorite')" 
-      class="action-btn favorite-btn"
-      :class="{ active: isFavorited }"
-      title="收藏"
+
+    <!-- 标记最佳答案（仅问题作者可见） -->
+    <button
+      v-if="canMarkBestAnswer"
+      @click="$emit('mark-best-answer')"
+      class="action-btn best-answer-btn"
+      title="标记为最佳答案"
     >
-      <Star :size="16" :fill="isFavorited ? 'currentColor' : 'none'" />
+      <Award :size="16" />
+      <span>最佳</span>
     </button>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { MessageCircle, HelpCircle, CheckCircle, Star } from 'lucide-vue-next'
+import { MessageCircle, HelpCircle, Award } from 'lucide-vue-next'
 
 const props = defineProps({
   message: {
@@ -46,16 +47,24 @@ const props = defineProps({
     type: String,
     required: true
   },
-  isFavorited: {
-    type: Boolean,
-    default: false
+  questionAuthorId: {
+    type: String,
+    default: null
   }
 })
 
-defineEmits(['reply', 'mark-question', 'favorite'])
+defineEmits(['reply', 'mark-question', 'mark-best-answer'])
 
 const canMarkQuestion = computed(() => {
   return props.isMyMessage && !props.message.isQuestion && props.message.messageType === 'text'
+})
+
+const canMarkBestAnswer = computed(() => {
+  // 只有当消息是答案，且当前用户是问题作者时才显示
+  return props.message.isSolution &&
+         props.questionAuthorId &&
+         props.currentUserId === props.questionAuthorId &&
+         !props.message.bestAnswer
 })
 </script>
 
@@ -66,8 +75,6 @@ const canMarkQuestion = computed(() => {
   gap: 6px;
   margin-top: 8px;
   flex-wrap: wrap;
-  opacity: 0;
-  transition: opacity 0.2s;
 }
 
 .action-btn {
@@ -75,42 +82,44 @@ const canMarkQuestion = computed(() => {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border: 1px solid #e0e0e0;
-  background: white;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.2s;
-  
+
   &:hover {
-    background: #f5f5f5;
-    border-color: rgb(165, 42, 42);
-    color: rgb(165, 42, 42);
+    background: var(--hover-bg);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
     transform: translateY(-1px);
   }
-  
-  &.question-btn {
-    &:hover {
-      background: #fff3cd;
-      border-color: #ffc107;
-      color: #856404;
-    }
+
+  &.question-btn:hover {
+    background: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
   }
-  
-  &.solved-btn {
-    &:hover {
-      background: #d4edda;
-      border-color: #28a745;
-      color: #155724;
-    }
+
+  &.solution-btn:hover {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
   }
-  
-  &.favorite-btn {
+
+  &.best-answer-btn:hover {
+    background: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+  }
+
+  &.upvote-btn {
     &.active {
       background: rgba(165, 42, 42, 0.1);
-      border-color: rgb(165, 42, 42);
-      color: rgb(165, 42, 42);
+      border-color: var(--primary-color);
+      color: var(--primary-color);
     }
   }
 }
