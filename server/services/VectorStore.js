@@ -15,14 +15,16 @@ class VectorStore {
     
     // Embedding 配置
     this.embeddingConfig = {
-      apiUrl: process.env.EMBEDDING_API_URL || '',
+      provider: process.env.EMBEDDING_PROVIDER || 'local', // openai/custom/local
+      apiUrl: process.env.EMBEDDING_API_URL || 'https://api.openai.com/v1/embeddings',
       apiKey: process.env.EMBEDDING_API_KEY || '',
-      model: process.env.EMBEDDING_MODEL || '',
+      model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
       dimensions: 512
     };
-    
+
     // 是否使用 API
-    this.useEmbeddingAPI = !!this.embeddingConfig.apiKey && 
+    this.useEmbeddingAPI = this.embeddingConfig.provider !== 'local' &&
+                           !!this.embeddingConfig.apiKey &&
                            this.embeddingConfig.apiKey !== 'your_api_key';
   }
 
@@ -31,13 +33,13 @@ class VectorStore {
    */
   async init() {
     this.isReady = true;
-    
+
     if (this.useEmbeddingAPI) {
-      console.log(`✅ VectorStore 初始化成功 (使用 ${this.embeddingConfig.model} embedding)`);
+      console.log(`✅ VectorStore 初始化成功 (${this.embeddingConfig.provider}: ${this.embeddingConfig.model})`);
     } else {
-      console.log('✅ VectorStore 初始化成功 (使用本地 hash embedding)');
+      console.log('✅ VectorStore 初始化成功 (本地 hash embedding)');
     }
-    
+
     return true;
   }
 
@@ -64,16 +66,55 @@ class VectorStore {
    * 调用 Embedding API
    */
   async callEmbeddingAPI(text) {
+    const { provider, apiUrl, apiKey, model } = this.embeddingConfig;
+
+    if (provider === 'openai') {
+      return this.callOpenAIEmbedding(text, apiUrl, apiKey, model);
+    } else {
+      return this.callCustomEmbedding(text, apiUrl, apiKey, model);
+    }
+  }
+
+  /**
+   * OpenAI Embedding API
+   */
+  async callOpenAIEmbedding(text, apiUrl, apiKey, model) {
     const response = await axios.post(
-      this.embeddingConfig.apiUrl,
+      apiUrl,
       {
-        model: this.embeddingConfig.model,
+        model,
         input: text,
         encoding_format: 'float'
       },
       {
         headers: {
-          'Authorization': `Bearer ${this.embeddingConfig.apiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    if (response.data?.data?.[0]?.embedding) {
+      return response.data.data[0].embedding;
+    }
+    throw new Error('OpenAI Embedding API 返回格式错误');
+  }
+
+  /**
+   * 自定义 Embedding API（兼容OpenAI格式）
+   */
+  async callCustomEmbedding(text, apiUrl, apiKey, model) {
+    const response = await axios.post(
+      apiUrl,
+      {
+        model,
+        input: text,
+        encoding_format: 'float'
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         timeout: 10000
