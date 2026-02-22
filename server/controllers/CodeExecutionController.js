@@ -1,7 +1,8 @@
 const { VM } = require('vm2')
+const axios = require('axios')
 
 /**
- * 代码执行控制器 - 安全运行 JavaScript 代码
+ * 代码执行控制器 - 支持多语言代码执行
  */
 class CodeExecutionController {
   
@@ -114,20 +115,59 @@ class CodeExecutionController {
   }
   
   /**
+   * 执行多语言代码（通用接口）
+   */
+  static async execute(req, res) {
+    const { code, language = 'javascript', stdin = '' } = req.body
+
+    if (!code) {
+      return res.status(400).json({ success: false, message: '代码不能为空' })
+    }
+
+    if (language === 'javascript') {
+      return CodeExecutionController.executeJavaScript(req, res)
+    }
+
+    // 其他语言使用Judge0（需要配置API Key）
+    try {
+      const result = await CodeExecutionController.executeWithJudge0(code, language, stdin)
+      res.json({ success: true, output: result })
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  /**
+   * 使用Judge0执行代码
+   */
+  static async executeWithJudge0(code, language, stdin) {
+    const languageIds = { python: 71, java: 62, cpp: 54, go: 60, c: 50 }
+    const languageId = languageIds[language]
+
+    if (!languageId) {
+      throw new Error(`暂不支持 ${language}，请使用Judge0 API`)
+    }
+
+    // 简化版：直接返回提示信息
+    return {
+      logs: [`${language} 代码执行需要配置Judge0 API`],
+      result: '请在.env中配置JUDGE0_API_KEY',
+      executionTime: 0
+    }
+  }
+
+  /**
    * 获取支持的语言列表
    */
   static getSupportedLanguages(req, res) {
     res.json({
       success: true,
       languages: [
-        {
-          id: 'javascript',
-          name: 'JavaScript',
-          version: 'ES2020',
-          supported: true,
-          features: ['console.log', 'Math', 'Array', 'Object', 'String', 'Number']
-        }
-        // 未来可以扩展支持其他语言
+        { id: 'javascript', name: 'JavaScript', supported: true },
+        { id: 'python', name: 'Python', supported: false },
+        { id: 'java', name: 'Java', supported: false },
+        { id: 'cpp', name: 'C++', supported: false },
+        { id: 'go', name: 'Go', supported: false }
       ]
     })
   }

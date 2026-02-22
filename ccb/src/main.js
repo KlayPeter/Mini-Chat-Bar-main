@@ -20,6 +20,18 @@ axios.defaults.withCredentials = true
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL
 axios.defaults.headers.common['Content-Type'] = 'application/json'
 
+// 添加请求拦截器，自动携带 token
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  error => Promise.reject(error)
+)
+
 // 添加响应拦截器处理 token 过期
 axios.interceptors.response.use(
   response => response,

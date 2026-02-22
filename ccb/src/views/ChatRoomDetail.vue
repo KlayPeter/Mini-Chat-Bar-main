@@ -45,6 +45,9 @@
             <Clock :size="16" />
             <span class="countdown-text">{{ timeRemaining }}</span>
           </div>
+          <button @click="showCodeEditor = !showCodeEditor" class="code-btn" :title="showCodeEditor ? '返回聊天' : '代码协作'">
+            <i>{{ showCodeEditor ? '💬' : '👨‍💻' }}</i>
+          </button>
           <button @click="showSummaryDialog = true" class="summary-btn" title="AI 生成总结">
             <FileText class="action-icon" />
           </button>
@@ -65,7 +68,7 @@
       />
 
       <!-- 消息列表 - 统一单栏布局 -->
-      <div class="message-area">
+      <div v-if="!showCodeEditor" class="message-area">
         <div class="messages-container" ref="messageListRef">
           <!-- AI 思考状态 -->
           <div v-if="isAIThinking" class="ai-thinking">
@@ -247,8 +250,14 @@
           </RecycleScroller>
         </div>
       </div>
+
+      <!-- 代码协作区域 -->
+      <div v-if="showCodeEditor" class="code-editor-area">
+        <CodeEditor :roomId="currentRoom._id" @save="handleSaveCode" />
+      </div>
+
       <!-- 输入区域 -->
-      <div class="input-container">
+      <div v-if="!showCodeEditor" class="input-container">
         <!-- 工具栏 -->
         <div class="input-toolbar" v-if="!showCodeInput">
           <button @click="showCodeInput = true" class="toolbar-btn" title="发送代码">
@@ -366,6 +375,7 @@ import EmojiReactions from '../components/EmojiReactions.vue'
 import MessageContent from '../components/MessageContent.vue'
 import AIInsightsDropdown from '../components/AIInsightsDropdown.vue'
 import BottomNavbar from '../components/BottomNavbar.vue'
+import CodeEditor from '../components/CodeEditor.vue'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -392,6 +402,7 @@ const messagesWithId = computed(() => {
 })
 const showRoomDetail = ref(false)
 const showSummaryDialog = ref(false)
+const showCodeEditor = ref(false)
 const showCodeInput = ref(false)
 const messageInput = ref('')
 const messageListRef = ref(null)
@@ -634,6 +645,20 @@ function handleSendMessage() {
   }
   
   messageInput.value = ''
+}
+
+async function handleSaveCode({ code, language }) {
+  try {
+    const title = `代码片段 - ${new Date().toLocaleString('zh-CN')}`
+    await axios.post(`${baseUrl}/api/snippet/save`, {
+      title,
+      code,
+      language
+    })
+    toast.success('代码片段已保存')
+  } catch (error) {
+    toast.error('保存失败')
+  }
 }
 
 function handleReply(message) {
@@ -2321,6 +2346,7 @@ onUnmounted(() => {
       }
       
       .summary-btn,
+      .code-btn,
       .detail-btn {
         width: 32px;
         height: 32px;
@@ -2339,12 +2365,19 @@ onUnmounted(() => {
   
   .message-area {
     padding: 12px;
-    
+
     .messages-container {
       gap: 12px;
     }
   }
-  
+
+  .code-editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .ai-thinking {
     padding: 10px 12px;
     
@@ -2425,6 +2458,7 @@ onUnmounted(() => {
       }
       
       .summary-btn,
+      .code-btn,
       .detail-btn {
         width: 30px;
         height: 30px;

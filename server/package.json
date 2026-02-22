@@ -21,7 +21,10 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "vm2": "^3.10.1",
-    "yamljs": "^0.3.0"
+    "ws": "^8.19.0",
+    "y-websocket": "^3.0.0",
+    "yamljs": "^0.3.0",
+    "yjs": "^13.6.29"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

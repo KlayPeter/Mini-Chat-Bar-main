@@ -5,10 +5,10 @@ const auth = require('../middlewares/auth')
 
 /**
  * @route   POST /api/code/execute
- * @desc    执行 JavaScript 代码
+ * @desc    执行多语言代码
  * @access  Private
  */
-router.post('/execute', auth, CodeExecutionController.executeJavaScript)
+router.post('/execute', auth, CodeExecutionController.execute)
 
 /**
  * @route   GET /api/code/languages

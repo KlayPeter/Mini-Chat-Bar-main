@@ -16,6 +16,7 @@ const passport = require('./config/passport')
 const connectDB = require('./config/db')
 const group_msg = require('./sockets/room')
 const private_msg = require('./sockets/chat')
+const setupCodeCollaboration = require('./sockets/codeCollaboration')
 console.log('开始导入路由模块...')
 const roomRouter = require('./routes/room')
 console.log('Room路由导入成功')
@@ -37,6 +38,8 @@ const favoriteRouter = require('./routes/favorite')
 console.log('Favorite路由导入成功')
 const codeExecutionRouter = require('./routes/codeExecution')
 console.log('CodeExecution路由导入成功')
+const codeSnippetRouter = require('./routes/codeSnippet')
+console.log('CodeSnippet路由导入成功')
 const questionRouter = require('./routes/question')
 console.log('Question路由导入成功')
 const auth = require('./middlewares/auth')
@@ -131,6 +134,7 @@ app.use('/api/agent', agentRouter)
 app.use('/api/chatroom-ai', chatroomAIRouter)
 app.use('/api/favorites', favoriteRouter)
 app.use('/api/code', codeExecutionRouter)
+app.use('/api/snippet', codeSnippetRouter)
 app.use('/api/question', questionRouter)
 
 // 静态文件服务 - 提供上传的文件访问
@@ -141,6 +145,9 @@ io.on('connection', (socket) => {
   private_msg(socket, io)
   group_msg(socket, io)
 })
+
+// 启动代码协作WebSocket服务
+setupCodeCollaboration(server)
 
 const PORT = process.env.PORT || 3000
 server.listen(PORT, async () => {
