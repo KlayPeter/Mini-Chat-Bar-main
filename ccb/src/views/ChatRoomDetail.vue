@@ -905,7 +905,7 @@ function initSocket() {
       if (!exists) {
         messages.value.push(data)
         scrollToBottom()
-        
+
         // 新消息到达时，刷新智能提示
         setTimeout(() => {
           loadAIInsights()
@@ -913,7 +913,19 @@ function initSocket() {
       }
     }
   })
-  
+
+  // AI流式内容块监听
+  socket.on('ai-stream-chunk', (data) => {
+    if (currentRoom.value && data.roomId === currentRoom.value.RoomID && !data.isComplete) {
+      // 查找最后一条AI消息并追加内容
+      const lastAIMessage = messages.value.slice().reverse().find(msg => msg.from === 'AI')
+      if (lastAIMessage) {
+        lastAIMessage.content += data.content
+        scrollToBottom()
+      }
+    }
+  })
+
   socket.on('message-reaction-updated', (data) => {
     const message = messages.value.find(m => m._id === data.messageId)
     if (message) {
@@ -1014,26 +1026,55 @@ function insertAIMention() {
 async function askAI(question) {
   try {
     isAIThinking.value = true
-    
-    const res = await axios.post(
-      `${baseUrl}/api/chatroom-ai/ask`,
+    const token = localStorage.getItem('token')
+
+    const response = await fetch(
+      `${baseUrl}/api/chatroom-ai/ask-stream`,
       {
-        roomId: currentRoom.value.RoomID,
-        question: question,
-        useRAG: true
-      },
-      { 
-        headers: getAuthHeaders(),
-        timeout: 120000
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          roomId: currentRoom.value.RoomID,
+          question: question,
+          useRAG: true
+        })
       }
     )
-    
-    if (res.data.success) {
-      toast.success('AI 回答已生成')
+
+    if (!response.ok) {
+      throw new Error('流式请求失败')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+
+            if (data.done) {
+              toast.success('AI 回答已生成')
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
     }
   } catch (err) {
     console.error('❌ AI 问答失败:', err)
-    toast.error(err.response?.data?.message || 'AI 问答失败')
+    toast.error('AI 问答失败')
   } finally {
     isAIThinking.value = false
   }

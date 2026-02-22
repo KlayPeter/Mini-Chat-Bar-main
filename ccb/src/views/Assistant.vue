@@ -325,27 +325,72 @@ const send = async (content) => {
         throw new Error(res.data.error || '请求失败');
       }
     } else {
-      // 使用普通接口
-      const res = await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/api/deepseek-chat`,
+      // 使用流式接口
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/deepseek-chat-stream`,
         {
-          question: content,
-          role: selectedRole.value
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 30000
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            question: content,
+            role: selectedRole.value
+          })
         }
       );
-      aiAnswer = res.data.answer;
-    }
 
-    messages.value.push({
-      from: "AI",
-      content: aiAnswer,
-      time: new Date().toISOString(),
-      sources: sources.length > 0 ? sources : undefined
-    });
+      if (!response.ok) {
+        throw new Error('流式请求失败');
+      }
+
+      // 添加一个空的AI消息，用于逐步更新
+      const aiMessageIndex = messages.value.length;
+      messages.value.push({
+        from: "AI",
+        content: "",
+        time: new Date().toISOString()
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.content) {
+                aiAnswer += data.content;
+                messages.value[aiMessageIndex].content = aiAnswer;
+
+                // 滚动到底部
+                await nextTick();
+                if (messageListRef.value) {
+                  messageListRef.value.scrollToBottom();
+                }
+              }
+
+              if (data.done) {
+                if (data.conversationId) {
+                  console.log('对话ID:', data.conversationId);
+                }
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      }
+    }
     
     // 确保AI回复后滚动到底部
     await nextTick()
