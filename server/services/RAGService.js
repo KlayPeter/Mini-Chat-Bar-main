@@ -8,7 +8,7 @@
  * - 检索策略优化
  */
 
-const vectorStore = require('./VectorStore');
+const vectorStore = require('./vectorStoreFactory');
 const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
 

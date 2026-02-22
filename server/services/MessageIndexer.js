@@ -7,7 +7,7 @@
  * - 异步处理，不阻塞消息发送
  */
 
-const vectorStore = require('./VectorStore');
+const vectorStore = require('./vectorStoreFactory');
 const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
 

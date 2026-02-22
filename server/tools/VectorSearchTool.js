@@ -6,7 +6,7 @@
 
 const Message = require('../models/Messages');
 const GroupMessage = require('../models/GroupMessage');
-const vectorStore = require('../services/VectorStore');
+const vectorStore = require('../services/vectorStoreFactory');
 
 class VectorSearchTool {
   /**
