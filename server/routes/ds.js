@@ -6,6 +6,9 @@ const AIController = require("../controllers/AIController");
 // AI聊天（支持上下文和角色）
 router.post("/deepseek-chat", auth, AIController.chat);
 
+// AI聊天（流式响应）
+router.post("/deepseek-chat-stream", auth, AIController.chatStream);
+
 // 获取对话历史
 router.get("/conversation/history", auth, AIController.getHistory);
 

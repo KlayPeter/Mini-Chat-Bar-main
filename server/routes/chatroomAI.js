@@ -6,6 +6,9 @@ const ChatRoomAIController = require('../controllers/ChatRoomAIController')
 // @AI 问答
 router.post('/ask', auth, ChatRoomAIController.askAI)
 
+// @AI 问答（流式响应）
+router.post('/ask-stream', auth, ChatRoomAIController.askAIStream)
+
 // 代码分析
 router.post('/analyze-code', auth, ChatRoomAIController.analyzeCode)
 

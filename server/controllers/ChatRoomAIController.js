@@ -12,6 +12,180 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
 class ChatRoomAIController {
   
   /**
+   * @AI 问答 - 流式响应版本
+   */
+  static async askAIStream(req, res) {
+    try {
+      const { roomId, question, useRAG = true } = req.body
+      const userId = req.user.userId
+
+      if (!roomId || !question) {
+        return res.status(400).json({ message: '缺少必要参数' })
+      }
+
+      if (!DEEPSEEK_API_KEY) {
+        return res.status(500).json({ message: 'DeepSeek API Key 未配置' })
+      }
+
+      // 设置SSE响应头
+      res.setHeader('Content-Type', 'text/event-stream')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+
+      const room = await Room.findOne({ RoomID: roomId })
+      if (!room) {
+        res.write(`data: ${JSON.stringify({ error: '聊天室不存在' })}\n\n`)
+        return res.end()
+      }
+
+      console.log(`🤖 AI 问答请求(流式): 聊天室=${room.RoomName}, 问题=${question}`)
+
+      // 构建上下文
+      let context = `你是一个专业的技术助手，正在帮助解答 "${room.RoomName}" 聊天室中的技术问题。\n`
+      context += `聊天室技术方向: ${room.techDirection || '通用'}\n\n`
+
+      let sources = []
+      if (useRAG) {
+        try {
+          const searchResults = await VectorSearchTool.search({
+            query: question,
+            chatType: 'group',
+            chatId: roomId,
+            topK: 5
+          })
+
+          if (searchResults && searchResults.length > 0) {
+            context += `以下是聊天室中相关的历史讨论:\n\n`
+            searchResults.forEach((result, index) => {
+              context += `[${index + 1}] ${result.sender}: ${result.content}\n`
+              sources.push({
+                sender: result.sender,
+                content: result.content.substring(0, 100),
+                relevance: result.relevance
+              })
+            })
+            context += `\n`
+          }
+        } catch (err) {
+          console.warn('RAG 检索失败，继续使用基础模式:', err.message)
+        }
+      }
+
+      context += `用户问题: ${question}\n\n`
+      context += `请提供专业、准确的技术回答。如果涉及代码，请给出具体示例。`
+
+      // 调用 DeepSeek API（流式）
+      const aiResponse = await axios.post(
+        DEEPSEEK_API_URL,
+        {
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: '你是一个专业的技术助手，擅长解答编程和技术问题。' },
+            { role: 'user', content: context }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: true
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+          },
+          responseType: 'stream',
+          timeout: 60000
+        }
+      )
+
+      let fullAnswer = ''
+      const io = req.app.get('io')
+
+      aiResponse.data.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(line => line.trim() !== '')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') {
+              return
+            }
+
+            try {
+              const parsed = JSON.parse(data)
+              const content = parsed.choices[0]?.delta?.content || ''
+              if (content) {
+                fullAnswer += content
+                res.write(`data: ${JSON.stringify({ content })}\n\n`)
+
+                // 通过Socket.IO实时推送增量内容
+                if (io) {
+                  io.to(roomId).emit('ai-stream-chunk', {
+                    roomId,
+                    content,
+                    isComplete: false
+                  })
+                }
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      })
+
+      aiResponse.data.on('end', async () => {
+        console.log(`✅ AI 回答生成成功(流式)，长度: ${fullAnswer.length}`)
+
+        // 保存AI消息到数据库
+        const aiMessage = new GroupMessage({
+          roomId: roomId,
+          from: 'AI',
+          fromName: 'AI 助手',
+          fromAvatar: '/images/ai-avatar.png',
+          content: fullAnswer,
+          messageType: 'text',
+          time: new Date()
+        })
+
+        await aiMessage.save()
+
+        // 通过Socket.IO推送完整消息
+        if (io) {
+          io.to(roomId).emit('group-message', {
+            roomId: roomId,
+            from: 'AI',
+            fromName: 'AI 助手',
+            fromAvatar: '/images/ai-avatar.png',
+            content: fullAnswer,
+            messageType: 'text',
+            time: new Date(),
+            _id: aiMessage._id,
+            isAI: true
+          })
+        }
+
+        res.write(`data: ${JSON.stringify({
+          done: true,
+          sources,
+          messageId: aiMessage._id
+        })}\n\n`)
+        res.end()
+      })
+
+      aiResponse.data.on('error', (error) => {
+        console.error('流式响应错误:', error)
+        res.write(`data: ${JSON.stringify({ error: '流式响应失败' })}\n\n`)
+        res.end()
+      })
+
+    } catch (err) {
+      console.error('❌ AI 问答失败(流式):', err)
+      res.write(`data: ${JSON.stringify({ error: 'AI 问答失败' })}\n\n`)
+      res.end()
+    }
+  }
+
+  /**
    * @AI 问答 - 在聊天室中回答技术问题
    */
   static async askAI(req, res) {

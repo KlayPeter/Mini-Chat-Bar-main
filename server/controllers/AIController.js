@@ -36,6 +36,139 @@ const ROLE_PROMPTS = {
 };
 
 class AIController {
+  // 发送消息给AI（流式响应）
+  static async chatStream(req, res) {
+    try {
+      const { question, role = 'default', customPrompt } = req.body;
+      const userId = req.user.userId;
+      const username = req.user.username;
+
+      if (!question) {
+        return res.status(400).json({ error: "问题不能为空" });
+      }
+
+      if (!DEEPSEEK_API_KEY) {
+        return res.status(500).json({ error: "服务器配置错误：DeepSeek API Key 未设置" });
+      }
+
+      // 设置SSE响应头
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      // 获取或创建用户的对话记录
+      let conversation = await AIConversation.findOne({ userId });
+
+      if (!conversation) {
+        conversation = new AIConversation({
+          userId,
+          role,
+          rolePrompt: customPrompt || ROLE_PROMPTS[role] || ROLE_PROMPTS.default,
+          messages: []
+        });
+      }
+
+      // 如果角色变更，重置对话
+      if (role !== conversation.role || (customPrompt && customPrompt !== conversation.rolePrompt)) {
+        conversation.role = role;
+        conversation.rolePrompt = customPrompt || ROLE_PROMPTS[role] || ROLE_PROMPTS.default;
+        conversation.messages = [];
+      }
+
+      // 添加用户消息
+      conversation.messages.push({
+        role: 'user',
+        content: question,
+        timestamp: new Date()
+      });
+
+      // 构建发送给AI的消息历史
+      const systemPrompt = conversation.rolePrompt.replace('${user}', username);
+      const recentMessages = conversation.messages.slice(-20);
+
+      const apiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...recentMessages.map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content
+        }))
+      ];
+
+      // 调用DeepSeek API（流式）
+      const response = await axios.post(
+        DEEPSEEK_API_URL,
+        {
+          model: "deepseek-chat",
+          messages: apiMessages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: true,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+          },
+          responseType: 'stream',
+          timeout: 30000
+        }
+      );
+
+      let fullAnswer = '';
+
+      response.data.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices[0]?.delta?.content || '';
+              if (content) {
+                fullAnswer += content;
+                res.write(`data: ${JSON.stringify({ content })}\n\n`);
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      });
+
+      response.data.on('end', async () => {
+        // 保存AI回复
+        conversation.messages.push({
+          role: 'assistant',
+          content: fullAnswer,
+          timestamp: new Date()
+        });
+
+        conversation.trimMessages(30);
+        await conversation.save();
+
+        res.write(`data: ${JSON.stringify({ done: true, conversationId: conversation._id })}\n\n`);
+        res.end();
+      });
+
+      response.data.on('error', (error) => {
+        console.error("流式响应错误:", error);
+        res.write(`data: ${JSON.stringify({ error: "流式响应失败" })}\n\n`);
+        res.end();
+      });
+
+    } catch (error) {
+      console.error("AI聊天失败:", error.response?.data || error.message);
+      res.write(`data: ${JSON.stringify({ error: "AI响应失败" })}\n\n`);
+      res.end();
+    }
+  }
+
   // 发送消息给AI
   static async chat(req, res) {
     try {
