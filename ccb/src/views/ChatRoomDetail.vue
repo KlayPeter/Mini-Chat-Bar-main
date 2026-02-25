@@ -55,6 +55,14 @@
           <button @click="showRoomDetail = true" class="detail-btn" title="聊天室详情">
             <Info :size="20" />
           </button>
+          <button @click="toggleMicrophone" class="voice-btn" :class="{ active: micEnabled }" :title="micEnabled ? '关闭麦克风' : '开启麦克风'">
+            <Mic v-if="micEnabled" :size="20" />
+            <MicOff v-else :size="20" />
+          </button>
+          <button @click="toggleSpeaker" class="voice-btn" :class="{ active: speakerEnabled }" :title="speakerEnabled ? '关闭扬声器' : '开启扬声器'">
+            <Volume2 v-if="speakerEnabled" :size="20" />
+            <VolumeX v-else :size="20" />
+          </button>
         </div>
       </div>
 
@@ -366,7 +374,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue3-virtual-scroller'
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
-import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon, ChevronLeft, Info } from 'lucide-vue-next'
+import { Code, FileText, HelpCircle, Send, MessageCircle, Sparkles, CheckCircle, Clock, Flame, Hourglass, MessageSquare, ThumbsUp, Heart, PartyPopper, Lightbulb, HelpCircle as QuestionIcon, ChevronLeft, Info, Mic, MicOff, Volume2, VolumeX } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -412,6 +420,8 @@ const showRoomDetail = ref(false)
 const showSummaryDialog = ref(false)
 const showCodeEditor = ref(false)
 const showCodeInput = ref(false)
+const micEnabled = ref(false)
+const speakerEnabled = ref(true)
 const messageInput = ref('')
 const messageListRef = ref(null)
 const replyingTo = ref(null) // 正在回复的消息
@@ -446,6 +456,254 @@ let socket = null
 function getAuthHeaders() {
   const token = localStorage.getItem('token')
   return { Authorization: `Bearer ${token}` }
+}
+
+// 语音功能相关
+let localStream = null
+let peerConnections = new Map()
+const remoteAudios = new Map()
+let audioContext = null
+let analyser = null
+let micCheckInterval = null
+
+async function toggleMicrophone() {
+  if (!micEnabled.value) {
+    // 开启麦克风
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      })
+
+      micEnabled.value = true
+      toast.success('麦克风已开启')
+
+      // 启动音频电平检测
+      startAudioLevelDetection()
+
+      // 通知服务器音频状态
+      socket.emit('voice-audio-status', {
+        roomId: currentRoom.value.RoomID,
+        userId: currentUserId.value,
+        audioEnabled: true
+      })
+
+      // 为房间内的其他用户创建连接
+      socket.emit('voice-request-peers', {
+        roomId: currentRoom.value.RoomID,
+        userId: currentUserId.value
+      })
+    } catch (err) {
+      console.error('获取麦克风权限失败:', err)
+      toast.error('无法访问麦克风,请检查浏览器权限设置')
+    }
+  } else {
+    // 关闭麦克风
+    // 停止音频检测
+    stopAudioLevelDetection()
+
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        track.stop()
+      })
+      localStream = null
+    }
+
+    micEnabled.value = false
+    toast.success('麦克风已关闭')
+
+    // 通知服务器音频状态
+    socket.emit('voice-audio-status', {
+      roomId: currentRoom.value.RoomID,
+      userId: currentUserId.value,
+      audioEnabled: false
+    })
+
+    // 关闭所有连接
+    peerConnections.forEach((pc, userId) => {
+      pc.close()
+    })
+    peerConnections.clear()
+  }
+}
+
+function toggleSpeaker() {
+  speakerEnabled.value = !speakerEnabled.value
+
+  // 控制所有远程音频的静音状态
+  remoteAudios.forEach((audio) => {
+    audio.muted = !speakerEnabled.value
+  })
+
+  toast.success(speakerEnabled.value ? '扬声器已开启' : '扬声器已关闭')
+}
+
+// 启动音频电平检测
+function startAudioLevelDetection() {
+  if (!localStream) return
+
+  try {
+    audioContext = new AudioContext()
+    analyser = audioContext.createAnalyser()
+    const microphone = audioContext.createMediaStreamSource(localStream)
+    const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+    microphone.connect(analyser)
+    analyser.fftSize = 256
+
+    let lastLogTime = 0
+    let silentCount = 0
+    let speakingCount = 0
+    const AUDIO_THRESHOLD = 3 // 降低阈值，更敏感
+
+    function checkAudioLevel() {
+      if (!micEnabled.value || !analyser) return
+
+      analyser.getByteFrequencyData(dataArray)
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+
+      const now = Date.now()
+
+      // 每秒输出一次音频电平
+      if (now - lastLogTime > 1000) {
+        const isSpeaking = average > AUDIO_THRESHOLD
+
+        if (isSpeaking) {
+          speakingCount++
+        } else {
+          silentCount++
+        }
+
+        lastLogTime = now
+      }
+
+      micCheckInterval = requestAnimationFrame(checkAudioLevel)
+    }
+
+    checkAudioLevel()
+  } catch (err) {
+    console.error('音频电平检测启动失败:', err)
+  }
+}
+
+// 停止音频电平检测
+function stopAudioLevelDetection() {
+  if (micCheckInterval) {
+    cancelAnimationFrame(micCheckInterval)
+    micCheckInterval = null
+  }
+
+  if (audioContext) {
+    audioContext.close()
+    audioContext = null
+  }
+
+  analyser = null
+}
+
+async function createPeerConnection(targetUserId, isInitiator) {
+  const configuration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  }
+
+  const pc = new RTCPeerConnection(configuration)
+  peerConnections.set(targetUserId, pc)
+
+  // 添加本地音频流
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream)
+    })
+  }
+
+  // 监听远程音频流
+  pc.ontrack = (event) => {
+    const remoteAudio = new Audio()
+    remoteAudio.srcObject = event.streams[0]
+    remoteAudio.muted = !speakerEnabled.value
+
+    remoteAudio.play()
+      .then(() => {
+        // Remote audio started playing
+      })
+      .catch(err => {
+        console.error('播放音频失败:', err)
+      })
+
+    remoteAudios.set(targetUserId, remoteAudio)
+  }
+
+  // 监听连接状态变化
+  pc.onconnectionstatechange = () => {
+    // Connection state changed
+  }
+
+  pc.oniceconnectionstatechange = () => {
+    // ICE connection state changed
+  }
+
+  // 监听 ICE candidate
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('voice-ice-candidate', {
+        roomId: currentRoom.value.RoomID,
+        from: currentUserId.value,
+        to: targetUserId,
+        candidate: event.candidate
+      })
+    }
+  }
+
+  // 如果是发起方，创建 offer
+  if (isInitiator) {
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+
+    socket.emit('voice-offer', {
+      roomId: currentRoom.value.RoomID,
+      from: currentUserId.value,
+      to: targetUserId,
+      offer: offer
+    })
+  }
+
+  return pc
+}
+
+async function handleVoiceOffer(data) {
+  const pc = await createPeerConnection(data.from, false)
+  await pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+
+  const answer = await pc.createAnswer()
+  await pc.setLocalDescription(answer)
+
+  socket.emit('voice-answer', {
+    roomId: currentRoom.value.RoomID,
+    from: currentUserId.value,
+    to: data.from,
+    answer: answer
+  })
+}
+
+async function handleVoiceAnswer(data) {
+  const pc = peerConnections.get(data.from)
+  if (pc) {
+    await pc.setRemoteDescription(new RTCSessionDescription(data.answer))
+  }
+}
+
+async function handleVoiceIceCandidate(data) {
+  const pc = peerConnections.get(data.from)
+  if (pc && data.candidate) {
+    await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+  }
 }
 
 async function loadCurrentUser() {
@@ -923,6 +1181,12 @@ function initSocket() {
         roomId: currentRoom.value.RoomID,
         userId: currentUserId.value
       })
+
+      // 自动加入语音房间
+      socket.emit('join-voice-room', {
+        roomId: currentRoom.value.RoomID,
+        userId: currentUserId.value
+      })
     }
   })
 
@@ -967,6 +1231,55 @@ function initSocket() {
     }
   })
 
+  // 语音相关事件监听
+  socket.on('voice-peer-list', async (data) => {
+    // 收到房间内其他用户列表，为每个用户创建连接
+    if (micEnabled.value && localStream) {
+      for (const peerId of data.peers) {
+        if (peerId !== currentUserId.value) {
+          await createPeerConnection(peerId, true)
+        }
+      }
+    }
+  })
+
+  socket.on('voice-offer', async (data) => {
+    if (micEnabled.value || speakerEnabled.value) {
+      await handleVoiceOffer(data)
+    }
+  })
+
+  socket.on('voice-answer', async (data) => {
+    await handleVoiceAnswer(data)
+  })
+
+  socket.on('voice-ice-candidate', async (data) => {
+    await handleVoiceIceCandidate(data)
+  })
+
+  socket.on('voice-user-joined', async (data) => {
+    // 新用户加入，如果我的麦克风开着，为新用户创建连接
+    if (micEnabled.value && localStream && data.userId !== currentUserId.value) {
+      await createPeerConnection(data.userId, true)
+    }
+  })
+
+  socket.on('voice-user-left', (data) => {
+    // 用户离开，关闭连接
+    const pc = peerConnections.get(data.userId)
+    if (pc) {
+      pc.close()
+      peerConnections.delete(data.userId)
+    }
+
+    const audio = remoteAudios.get(data.userId)
+    if (audio) {
+      audio.pause()
+      audio.srcObject = null
+      remoteAudios.delete(data.userId)
+    }
+  })
+
   socket.on('connect_error', (error) => {
     console.error('Socket 连接错误:', error)
     toast.error('连接失败，请刷新页面')
@@ -978,10 +1291,31 @@ function cleanupSocket() {
     // 离开当前聊天室
     if (currentRoom.value) {
       socket.emit('leave-room', currentRoom.value.RoomID)
+      socket.emit('leave-voice-room', {
+        roomId: currentRoom.value.RoomID,
+        userId: currentUserId.value
+      })
     }
     socket.disconnect()
     socket = null
   }
+
+  // 清理语音资源
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop())
+    localStream = null
+  }
+
+  peerConnections.forEach((pc) => {
+    pc.close()
+  })
+  peerConnections.clear()
+
+  remoteAudios.forEach((audio) => {
+    audio.pause()
+    audio.srcObject = null
+  })
+  remoteAudios.clear()
 }
 
 async function handleSendCode(codeData) {
@@ -1636,7 +1970,38 @@ onUnmounted(() => {
         background: #f5f5f5;
         color: #333;
       }
-      
+
+      // 语音按钮特殊样式
+      &.voice-btn {
+        position: relative;
+
+        &.active {
+          background: linear-gradient(135deg, rgb(165, 42, 42) 0%, rgb(140, 30, 30) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(165, 42, 42, 0.3);
+          animation: pulse-voice 2s infinite;
+
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(165, 42, 42, 0.4);
+          }
+
+          // 添加一个小的指示灯
+          &::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+            border: 1px solid white;
+            animation: blink 1.5s infinite;
+          }
+        }
+      }
+
       .action-icon {
         width: 18px;
         height: 18px;
@@ -1665,6 +2030,24 @@ onUnmounted(() => {
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes pulse-voice {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(165, 42, 42, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 12px rgba(165, 42, 42, 0.5);
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
   }
 }
 
