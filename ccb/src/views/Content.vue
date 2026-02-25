@@ -799,7 +799,18 @@ async function getlists() {
 // 获取对方头像
 async function getavatar() {
   if (!chatstore.currentChatUser) return
-  
+
+  // 如果是群聊，不获取用户头像
+  if (chatType.value === 'group' || chatstore.currentChatUser.startsWith('group_')) {
+    return
+  }
+
+  // 如果URL参数中已经有头像，优先使用URL参数的头像
+  if (route.query.img) {
+    avatar.value = route.query.img
+    return
+  }
+
   try {
     const res = await axios.get(
       `${baseUrl}/api/user/friend_avatar/${chatstore.currentChatUser}`
