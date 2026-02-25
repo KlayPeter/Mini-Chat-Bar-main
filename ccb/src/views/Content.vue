@@ -379,28 +379,47 @@ async function sendVoiceMessage() {
         messageType: 'audio',
         fileInfo: fileInfo
       }
-      
-      const messageRes = await axios.post(
-        `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
-        messageData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
 
-      if (messageRes.data) {
-        socket.emit('private-message', {
-          from: currentUserId.value,
-          to: chatstore.currentChatUser,
-          content: '',
-          messageType: 'audio',
-          fileInfo: fileInfo,
-          timestamp: new Date().toISOString()
-        })
-        
-        await getlists()
-        toast.success('语音发送成功')
-        cancelRecording()
+      // 区分群聊和私聊
+      if (chatType.value === 'group') {
+        // 群聊语音消息
+        const messageRes = await axios.post(
+          `${baseUrl}/room/${chatstore.currentChatUser}/messages`,
+          messageData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        )
+
+        if (messageRes.data) {
+          await getlists()
+          toast.success('语音发送成功')
+          cancelRecording()
+        }
+      } else {
+        // 私聊语音消息
+        const messageRes = await axios.post(
+          `${baseUrl}/api/chat/messages/${chatstore.currentChatUser}`,
+          messageData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        )
+
+        if (messageRes.data) {
+          socket.emit('private-message', {
+            from: currentUserId.value,
+            to: chatstore.currentChatUser,
+            content: '',
+            messageType: 'audio',
+            fileInfo: fileInfo,
+            timestamp: new Date().toISOString()
+          })
+
+          await getlists()
+          toast.success('语音发送成功')
+          cancelRecording()
+        }
       }
     } else {
       toast.error('语音文件上传失败')
