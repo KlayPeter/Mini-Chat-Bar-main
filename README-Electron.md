@@ -10,6 +10,7 @@ Coffee Chat Bar 现已支持 Electron 桌面应用，可以将 Web 应用打包�
 - npm 或 yarn 包管理器
 - 已配置好的前端开发环境
 - 已启动的后端服务器（运行在 http://localhost:3000）
+- MongoDB 数据库（运行在 mongodb://localhost:27017）
 
 ## 安装依赖
 
@@ -19,14 +20,16 @@ Coffee Chat Bar 现已支持 Electron 桌面应用，可以将 Web 应用打包�
 # 进入前端项目目录
 cd ccb
 
-# 安装 Electron 和构建工具
-npm install electron electron-builder cross-env --save-dev
+# 安装所有依赖（包括 Electron）
+npm install
 ```
 
 **注意：** 如果遇到网络连接问题，可以使用国内镜像源：
 
 ```bash
-npm install electron electron-builder cross-env --save-dev --registry=https://registry.npmmirror.com
+npm config set registry https://registry.npmmirror.com
+npm config set electron_mirror https://cdn.npmmirror.com/binaries/electron/
+npm install
 ```
 
 ### 2. 验证安装
@@ -41,10 +44,12 @@ npx electron --version
 ```
 ccb/
 ├── main.js                 # Electron 主进程文件
+├── preload.js              # 预加载脚本
 ├── package.json            # 项目配置文件
 ├── build/
 │   └── icon.png           # 应用图标
-├── dist/                  # 构建输出目录
+├── dist-new/              # Vite 构建输出目录
+├── release-new/           # Electron 打包输出目录
 ├── src/                   # Vue.js 源代码
 └── public/                # 静态资源
 ```
@@ -59,7 +64,8 @@ ccb/
    ```bash
    # 在项目根目录
    cd server
-   npm start
+   npm install
+   nodemon server.js
    ```
 
 2. **启动前端开发服务器**
@@ -144,14 +150,21 @@ npm run electron-pack
 ```json
 {
   "build": {
-    "appId": "com.example.ccb",
+    "appId": "com.minichatbar.app",
     "productName": "Mini Chat Bar",
-    "files": ["**/*"],
+    "files": [
+      "dist-new/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release-new"
     },
     "win": {
-      "target": ["nsis"]
+      "target": ["portable"],
+      "sign": false
     },
     "nsis": {
       "oneClick": false,
@@ -214,7 +227,7 @@ npm install electron --save-dev
 
 **解决方案**:
 1. 确保已运行 `npm run build` 构建前端项目
-2. 检查 `dist` 目录是否存在且包含构建文件
+2. 检查 `dist-new` 目录是否存在且包含构建文件
 3. 确保有足够的磁盘空间
 
 ### 4. 图标不显示
@@ -258,9 +271,9 @@ npm run dist
 
 ### 2. 输出文件
 
-打包完成后，可执行文件将生成在 `dist` 目录中：
+打包完成后，可执行文件将生成在 `release-new` 目录中：
 
-- **Windows**: `.exe` 安装程序
+- **Windows**: `.exe` 便携版应用
 - **macOS**: `.dmg` 磁盘映像
 - **Linux**: `.AppImage` 或 `.deb` 包
 
@@ -281,4 +294,4 @@ npm run dist
 
 ---
 
-**注意**: 本文档基于 Electron 36.4.0 版本编写，不同版本可能存在差异。建议查阅官方文档获取最新信息。
+**注意**: 本文档基于 Electron 36.8.1 版本编写，不同版本可能存在差异。建议查阅官方文档获取最新信息。
