@@ -220,10 +220,10 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
-import { useToast } from '../composables/useToast'
-import { useOnlineStatus } from '../composables/useOnlineStatus'
+import { useToast } from '../../composables/useToast'
+import { useOnlineStatus } from '../../composables/useOnlineStatus'
 import { socket, waitForSocketConnection } from '../../utils/socket'
-import { PasswordValidator } from '../utils/passwordValidator'
+import { PasswordValidator } from '../../utils/passwordValidator'
 
 const toast = useToast()
 const router = useRouter()

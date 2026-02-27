@@ -143,7 +143,7 @@ import hljs from 'highlight.js'
 // 使用 VSCode 风格的主题 - 深色背景
 import 'highlight.js/styles/vs2015.css'
 import axios from 'axios'
-import MessageContent from './MessageContent.vue'
+import MessageContent from '../chat/MessageContent.vue'
 
 const props = defineProps({
   message: {

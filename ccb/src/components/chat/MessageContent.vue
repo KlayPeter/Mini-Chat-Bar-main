@@ -14,9 +14,9 @@ import { computed, ref, onMounted } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/vs2015.css'
-import LinkPreview from './LinkPreview.vue'
-import { extractUrls } from '../utils/urlHelper'
-import { useLinkPreview } from '../composables/useLinkPreview'
+import LinkPreview from '../common/LinkPreview.vue'
+import { extractUrls } from '../../utils/urlHelper'
+import { useLinkPreview } from '../../composables/useLinkPreview'
 
 const props = defineProps({
   content: {

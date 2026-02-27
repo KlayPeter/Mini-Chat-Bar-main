@@ -112,9 +112,9 @@ import axios from 'axios'
 import { io } from 'socket.io-client'
 import CreateChatRoomDialog from './CreateChatRoomDialog.vue'
 import JoinChatRoomDialog from './JoinChatRoomDialog.vue'
-import PasswordInputDialog from './PasswordInputDialog.vue'
-import JoinConfirmDialog from './JoinConfirmDialog.vue'
-import { useToast } from '../composables/useToast'
+import PasswordInputDialog from '../dialog/PasswordInputDialog.vue'
+import JoinConfirmDialog from '../dialog/JoinConfirmDialog.vue'
+import { useToast } from '../../composables/useToast'
 
 const router = useRouter()
 const toast = useToast()

@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import Toast from '../components/Toast.vue'
+import Toast from '../components/common/Toast.vue'
 
 class ToastManager {
   constructor() {

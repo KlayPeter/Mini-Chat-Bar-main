@@ -204,8 +204,8 @@ import { useRouter } from 'vue-router'
 import { Star, Trash2, Copy, Search, X, Download, FileText, Video, Music, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from 'axios'
 import { useToast } from '../composables/useToast'
-import Sidebar from '../components/Sidebar.vue'
-import BottomNavbar from '../components/BottomNavbar.vue'
+import Sidebar from '../components/layout/Sidebar.vue'
+import BottomNavbar from '../components/layout/BottomNavbar.vue'
 
 const router = useRouter()
 const baseUrl = import.meta.env.VITE_BASE_URL

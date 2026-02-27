@@ -116,9 +116,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { Xmark, Search, Check } from '@iconoir/vue'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
-import GroupAvatar from './GroupAvatar.vue'
-import { getAvatarUrl } from '../utils/avatarHelper'
+import { useToast } from '../../composables/useToast'
+import GroupAvatar from '../contact/GroupAvatar.vue'
+import { getAvatarUrl } from '../../utils/avatarHelper'
 
 const props = defineProps({
   messages: {

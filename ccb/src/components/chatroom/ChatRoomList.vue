@@ -62,7 +62,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Code, Plus, Search, Lock } from 'lucide-vue-next'
 import axios from 'axios'
 import CreateChatRoomDialog from './CreateChatRoomDialog.vue'
-import { useToast } from '../composables/useToast'
+import { useToast } from '../../composables/useToast'
 
 const emit = defineEmits(['select-room'])
 const toast = useToast()

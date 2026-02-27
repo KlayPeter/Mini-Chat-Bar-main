@@ -51,8 +51,8 @@ import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
 import { ChatBubble, User, Star, Code } from '@iconoir/vue'
-import AIDigitalAssistant from './AIDigitalAssistant.vue'
-import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
+import AIDigitalAssistant from '../ai/AIDigitalAssistant.vue'
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatarHelper'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail', 'toggleAI', 'showchatrooms', 'refreshInsights', 'aiAction'])
 const router = useRouter()

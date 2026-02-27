@@ -157,9 +157,9 @@ import { DynamicScroller, DynamicScrollerItem } from 'vue3-virtual-scroller'
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
 import ChatMessage from './ChatMessage.vue'
 import { Xmark, ChatBubble, Refresh } from '@iconoir/vue'
-import MessageContextMenu from './MessageContextMenu.vue'
-import TextSelectionToolbar from '../TextSelectionToolbar.vue'
-import AIExplainDialog from '../AIExplainDialog.vue'
+import MessageContextMenu from '../common/MessageContextMenu.vue'
+import TextSelectionToolbar from '../common/TextSelectionToolbar.vue'
+import AIExplainDialog from '../ai/AIExplainDialog.vue'
 import { throttle } from '../../utils/performance'
 
 const props = defineProps({

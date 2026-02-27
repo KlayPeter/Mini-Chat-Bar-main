@@ -87,18 +87,18 @@
 </template>
 
 <script setup>
-import Sidebar from './Sidebar.vue'
-import LastChats from './LastChats.vue'
-import Contacts from './Contacts.vue'
-import ChatRoomListPanel from './ChatRoomListPanel.vue'
-import BottomNavbar from './BottomNavbar.vue'
-import WelcomeDashboard from './WelcomeDashboard.vue'
-import AIAssistantPanel from './AIAssistantPanel.vue'
+import Sidebar from '../layout/Sidebar.vue'
+import LastChats from '../layout/LastChats.vue'
+import Contacts from '../contact/Contacts.vue'
+import ChatRoomListPanel from '../chatroom/ChatRoomListPanel.vue'
+import BottomNavbar from '../layout/BottomNavbar.vue'
+import WelcomeDashboard from '../layout/WelcomeDashboard.vue'
+import AIAssistantPanel from '../ai/AIAssistantPanel.vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { onMounted, ref, watch, computed } from 'vue'
 import { nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useChatStore } from '../stores/useChatStore'
+import { useChatStore } from '../../stores/useChatStore'
 
 const theme = ref('beige')
 const container = ref(null)

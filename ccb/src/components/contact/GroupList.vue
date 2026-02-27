@@ -92,8 +92,8 @@ import axios from 'axios'
 import { io } from 'socket.io-client'
 import { Plus } from '@iconoir/vue'
 import GroupAvatar from './GroupAvatar.vue'
-import { useToast } from '../composables/useToast'
-import { getAvatarUrl } from '../utils/avatarHelper'
+import { useToast } from '../../composables/useToast'
+import { getAvatarUrl } from '../../utils/avatarHelper'
 import { socket } from '../../utils/socket'
 
 const baseUrl = import.meta.env.VITE_BASE_URL

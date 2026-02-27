@@ -128,7 +128,7 @@
 import { ref, computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
+import { useToast } from '../../composables/useToast'
 
 const emit = defineEmits(['close', 'created'])
 const toast = useToast()

@@ -118,8 +118,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { Code, Search } from 'lucide-vue-next'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
-import GroupAvatar from './GroupAvatar.vue'
+import { useToast } from '../../composables/useToast'
+import GroupAvatar from '../contact/GroupAvatar.vue'
 
 const props = defineProps({
   room: {

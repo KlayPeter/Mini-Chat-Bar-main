@@ -4,8 +4,8 @@
 </template>
 
 <script setup>
-import ChatView from './components/ChatView.vue'
-import SocketStatusIndicator from './components/SocketStatusIndicator.vue'
+import ChatView from './components/chat/ChatView.vue'
+import SocketStatusIndicator from './components/layout/SocketStatusIndicator.vue'
 import { useThemeStore } from './stores/useThemeStore'
 import { useOnlineStatus } from './composables/useOnlineStatus'
 import { onMounted, onUnmounted } from 'vue'

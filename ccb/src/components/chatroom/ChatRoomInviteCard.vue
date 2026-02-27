@@ -49,8 +49,8 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Code, Clock, ArrowRight } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
-import JoinConfirmDialog from './JoinConfirmDialog.vue'
+import { useToast } from '../../composables/useToast'
+import JoinConfirmDialog from '../dialog/JoinConfirmDialog.vue'
 
 const props = defineProps({
   inviteData: {

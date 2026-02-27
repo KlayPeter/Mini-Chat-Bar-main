@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { socket } from '../../utils/socket'
+import { socket } from '../utils/socket'
 
 // 在线用户集合（全局状态）
 const onlineUsers = ref(new Set())
@@ -14,15 +14,18 @@ export function useOnlineStatus() {
     // 更新当前用户ID（可能登录后有变化）
     currentUserId.value = localStorage.getItem('userId') || ''
     
-    if (!currentUserId.value) {      return
+    if (!currentUserId.value) {
+      return
     }
 
     // 如果已经初始化过，只更新在线状态
-    if (isInitialized) {      socket.emit('user-online', currentUserId.value)
+    if (isInitialized) {
+      socket.emit('user-online', currentUserId.value)
       onlineUsers.value.add(currentUserId.value)
       onlineUsers.value = new Set(onlineUsers.value)
       return
-    }    isInitialized = true
+    }
+    isInitialized = true
 
     // 先清理旧的监听器，避免重复注册
     cleanup()
@@ -36,17 +39,20 @@ export function useOnlineStatus() {
 
     // 监听在线用户列表更新
     socket.on('online-users-update', (users) => {
-      onlineUsers.value = new Set(users)    })
+      onlineUsers.value = new Set(users)
+    })
 
     // 监听用户上线
     socket.on('user-online-notification', (userId) => {
       onlineUsers.value.add(userId)
-      onlineUsers.value = new Set(onlineUsers.value)    })
+      onlineUsers.value = new Set(onlineUsers.value)
+    })
 
     // 监听用户离线
     socket.on('user-offline-notification', (userId) => {
       onlineUsers.value.delete(userId)
-      onlineUsers.value = new Set(onlineUsers.value)    })
+      onlineUsers.value = new Set(onlineUsers.value)
+    })
 
     // 页面可见性变化（添加防抖）
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -70,7 +76,8 @@ export function useOnlineStatus() {
       visibilityTimeout = setTimeout(() => {
         const userId = localStorage.getItem('userId') || currentUserId.value
         if (userId && userId !== 'null' && userId !== '' && isInitialized) {
-          socket.emit('user-online', userId)        }
+          socket.emit('user-online', userId)
+        }
       }, 500)
     }
   }

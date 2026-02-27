@@ -61,7 +61,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Xmark } from '@iconoir/vue'
-import { useThemeStore } from '../stores/useThemeStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 
 const props = defineProps({
   show: {

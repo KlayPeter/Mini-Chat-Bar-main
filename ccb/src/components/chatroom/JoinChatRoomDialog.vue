@@ -2,34 +2,39 @@
   <div class="dialog-overlay" @click.self="$emit('close')">
     <div class="dialog-content">
       <div class="dialog-header">
-        <div class="room-info">
-          <Code :size="24" class="room-icon" />
-          <div>
-            <h3>{{ roomName }}</h3>
-            <p class="room-desc">此聊天室需要密码才能加入</p>
-          </div>
-        </div>
+        <h3>加入聊天室</h3>
         <button @click="$emit('close')" class="close-btn">×</button>
       </div>
       
       <div class="dialog-body">
         <div class="form-group">
-          <label>输入密码</label>
+          <label>邀请码</label>
+          <input 
+            v-model="inviteCode" 
+            type="text" 
+            placeholder="请输入邀请码"
+            class="form-input"
+            @keyup.enter="joinRoom"
+          />
+          <span class="form-hint">输入聊天室的邀请码以加入</span>
+        </div>
+        
+        <div class="form-group" v-if="needPassword">
+          <label>密码</label>
           <input 
             v-model="password" 
             type="password" 
-            placeholder="请输入聊天室密码"
+            placeholder="请输入密码"
             class="form-input"
             @keyup.enter="joinRoom"
-            autofocus
           />
         </div>
       </div>
       
       <div class="dialog-footer">
         <button @click="$emit('close')" class="cancel-btn">取消</button>
-        <button @click="joinRoom" class="submit-btn" :disabled="!password.trim()">
-          加入聊天室
+        <button @click="joinRoom" class="submit-btn" :disabled="!inviteCode.trim()">
+          加入
         </button>
       </div>
     </div>
@@ -38,47 +43,42 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Code } from 'lucide-vue-next'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
-
-const props = defineProps({
-  roomId: String,
-  roomName: String
-})
+import { useToast } from '../../composables/useToast'
 
 const emit = defineEmits(['close', 'joined'])
 const toast = useToast()
 const baseUrl = import.meta.env.VITE_BASE_URL
 
+const inviteCode = ref('')
 const password = ref('')
+const needPassword = ref(false)
 
 async function joinRoom() {
-  if (!password.value.trim()) {
-    toast.error('请输入密码')
+  if (!inviteCode.value.trim()) {
+    toast.error('请输入邀请码')
     return
   }
   
   try {
     const token = localStorage.getItem('token')
     const res = await axios.post(
-      `${baseUrl}/room/join-by-password`,
+      `${baseUrl}/room/join`,
       {
-        roomId: props.roomId,
+        inviteCode: inviteCode.value.trim(),
         password: password.value
       },
       { headers: { Authorization: `Bearer ${token}` } }
     )
     
     if (res.data.success) {
-      toast.success('成功加入聊天室')
       emit('joined', res.data.room)
     }
   } catch (err) {
     console.error('加入聊天室失败:', err)
     if (err.response?.status === 401) {
-      toast.error('密码错误')
-      password.value = ''
+      needPassword.value = true
+      toast.error('需要密码')
     } else {
       toast.error(err.response?.data?.message || '加入聊天室失败')
     }
@@ -114,8 +114,11 @@ async function joinRoom() {
   background: white;
   border-radius: 12px;
   width: 90%;
-  max-width: 420px;
+  max-width: 450px;
+  max-height: 90vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: slideUp 0.3s;
 }
 
@@ -132,38 +135,16 @@ async function joinRoom() {
 
 .dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
   border-bottom: 1px solid #e8e8e8;
   
-  .room-info {
-    display: flex;
-    gap: 12px;
-    flex: 1;
-    
-    .room-icon {
-      width: 40px;
-      height: 40px;
-      padding: 8px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, rgb(165, 42, 42) 0%, rgb(140, 30, 30) 100%);
-      color: white;
-      flex-shrink: 0;
-    }
-    
-    h3 {
-      margin: 0 0 4px 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .room-desc {
-      margin: 0;
-      font-size: 13px;
-      color: #999;
-    }
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
   }
   
   .close-btn {
@@ -179,7 +160,6 @@ async function joinRoom() {
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    flex-shrink: 0;
     
     &:hover {
       background: #f5f5f5;
@@ -190,9 +170,17 @@ async function joinRoom() {
 
 .dialog-body {
   padding: 24px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .form-group {
+  margin-bottom: 20px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
   label {
     display: block;
     margin-bottom: 8px;
@@ -203,7 +191,7 @@ async function joinRoom() {
   
   .form-input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 10px 14px;
     border: 1px solid #e8e8e8;
     border-radius: 8px;
     font-size: 14px;
@@ -219,6 +207,13 @@ async function joinRoom() {
     &::placeholder {
       color: #bbb;
     }
+  }
+  
+  .form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #999;
   }
 }
 

@@ -317,7 +317,7 @@ import { ref, computed, nextTick, watch } from 'vue'
 import { Emoji, Folder, Microphone, Pause, Xmark, Search } from '@iconoir/vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
-import EmojiPicker from '../EmojiPicker.vue'
+import EmojiPicker from '../common/EmojiPicker.vue'
 
 // 配置 marked
 marked.setOptions({

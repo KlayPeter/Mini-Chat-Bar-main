@@ -58,7 +58,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
+import { useToast } from '../../composables/useToast'
 
 const props = defineProps({
   group: {

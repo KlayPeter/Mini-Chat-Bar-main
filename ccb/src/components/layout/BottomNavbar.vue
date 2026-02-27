@@ -88,8 +88,8 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { socket } from '../../utils/socket'
 import { useRouter, useRoute } from 'vue-router'
-import AIDigitalAssistant from './AIDigitalAssistant.vue'
-import { getAvatarUrl } from '../utils/avatarHelper'
+import AIDigitalAssistant from '../ai/AIDigitalAssistant.vue'
+import { getAvatarUrl } from '../../utils/avatarHelper'
 
 const emit = defineEmits(['showchat', 'showcontacts', 'todetail'])
 const router = useRouter()

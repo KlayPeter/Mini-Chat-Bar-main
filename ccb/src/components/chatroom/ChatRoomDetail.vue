@@ -119,9 +119,9 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { X, Code, Copy, Share2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
+import { useToast } from '../../composables/useToast'
 import ShareRoomDialog from './ShareRoomDialog.vue'
-import ConfirmDialog from './ConfirmDialog.vue'
+import ConfirmDialog from '../dialog/ConfirmDialog.vue'
 
 const props = defineProps({
   room: {

@@ -1,5 +1,5 @@
 import { ref, createApp } from 'vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ConfirmDialog from '../components/dialog/ConfirmDialog.vue'
 
 // 全局确认弹窗实例
 let confirmInstance = null

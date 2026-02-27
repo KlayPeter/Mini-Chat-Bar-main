@@ -125,7 +125,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { useChatStore } from '../stores/useChatStore'
+import { useChatStore } from '../../stores/useChatStore'
 import { Search, ChatBubble } from '@iconoir/vue'
 
 const props = defineProps({

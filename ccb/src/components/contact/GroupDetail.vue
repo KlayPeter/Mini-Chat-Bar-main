@@ -109,10 +109,10 @@ import { ref, computed, onMounted } from 'vue'
 import { EditPencil, UserPlus } from '@iconoir/vue'
 import axios from 'axios'
 import GroupAvatar from './GroupAvatar.vue'
-import InviteMemberDialog from './InviteMemberDialog.vue'
-import { useToast } from '../composables/useToast'
-import { useConfirm } from '../composables/useConfirm'
-import { getAvatarUrl } from '../utils/avatarHelper'
+import InviteMemberDialog from '../dialog/InviteMemberDialog.vue'
+import { useToast } from '../../composables/useToast'
+import { useConfirm } from '../../composables/useConfirm'
+import { getAvatarUrl } from '../../utils/avatarHelper'
 
 const props = defineProps({
   group: {

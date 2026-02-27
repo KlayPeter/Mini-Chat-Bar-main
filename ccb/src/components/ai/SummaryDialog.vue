@@ -128,7 +128,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
+import { useToast } from '../../composables/useToast'
 import { 
   Xmark, 
   ChatBubble, 

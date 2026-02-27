@@ -20,7 +20,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getAvatarUrl, handleAvatarError } from '../utils/avatarHelper'
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatarHelper'
 
 const props = defineProps({
   members: {

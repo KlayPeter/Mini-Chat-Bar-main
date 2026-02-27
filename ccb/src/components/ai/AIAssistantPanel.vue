@@ -123,8 +123,8 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { Xmark, Trash } from '@iconoir/vue'
 import axios from 'axios'
-import { useToast } from '../composables/useToast'
-import { useConfirm } from '../composables/useConfirm'
+import { useToast } from '../../composables/useToast'
+import { useConfirm } from '../../composables/useConfirm'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },

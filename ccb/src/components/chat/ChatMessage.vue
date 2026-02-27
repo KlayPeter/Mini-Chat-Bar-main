@@ -196,8 +196,8 @@
 <script setup>
 import { computed } from 'vue'
 import { Search, Camera, Microphone } from '@iconoir/vue'
-import ChatRoomInviteCard from '../ChatRoomInviteCard.vue'
-import MessageContent from '../MessageContent.vue'
+import ChatRoomInviteCard from '../chatroom/ChatRoomInviteCard.vue'
+import MessageContent from './MessageContent.vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'

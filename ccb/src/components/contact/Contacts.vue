@@ -287,13 +287,13 @@
 import axios from "axios";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { defineEmits } from "vue";
-import { useChatStore } from "../stores/useChatStore";
-import { useOnlineStatus } from "../composables/useOnlineStatus";
-import { useToast } from '../composables/useToast';
-import { useConfirm } from '../composables/useConfirm';
+import { useChatStore } from "../../stores/useChatStore";
+import { useOnlineStatus } from "../../composables/useOnlineStatus";
+import { useToast } from '../../composables/useToast';
+import { useConfirm } from '../../composables/useConfirm';
 import { useRouter } from 'vue-router';
 import { Group } from '@iconoir/vue';
-import { getAvatarUrl } from '../utils/avatarHelper';
+import { getAvatarUrl } from '../../utils/avatarHelper';
 import GroupAvatar from './GroupAvatar.vue';
 
 const { isUserOnline } = useOnlineStatus()

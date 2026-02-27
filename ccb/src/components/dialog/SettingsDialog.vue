@@ -118,9 +118,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { Xmark, EditPencil, Palette, Check, ProfileCircle, Upload, LogOut } from '@iconoir/vue'
-import { useThemeStore } from '../stores/useThemeStore'
-import { useToast } from '../composables/useToast'
-import { useConfirm } from '../composables/useConfirm'
+import { useThemeStore } from '../../stores/useThemeStore'
+import { useToast } from '../../composables/useToast'
+import { useConfirm } from '../../composables/useConfirm'
 import { socket } from '../../utils/socket'
 import axios from 'axios'
 
