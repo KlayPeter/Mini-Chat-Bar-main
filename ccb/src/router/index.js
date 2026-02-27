@@ -2,10 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../components/layout/Login.vue'
 import ChatView from '../components/chat/ChatView.vue'
 import Content from '../views/Content.vue'
-import Assistant from '../views/Assistant.vue'
 import Moments from '../views/Moments.vue'
 import Favorites from '../views/Favorites.vue'
-import GroupChat from '../views/GroupChat.vue'
+// import GroupChat from '../views/GroupChat.vue'
 import ChatRoom from '../views/ChatRoom.vue'
 import ChatRoomDetail from '../views/ChatRoomDetail.vue'
 import ChatRoomWelcome from '../components/chatroom/ChatRoomWelcome.vue'
@@ -44,11 +43,6 @@ const routes = [
         name: 'chatroom-detail',
         component: ChatRoomDetail
       },
-      {
-        path: '/chat-ai',
-        name: 'chat-ai',
-        component: Assistant
-      }
     ],
     meta: { requiresAuth: true }
   },
@@ -66,11 +60,11 @@ const routes = [
     component: Favorites,
     meta: { requiresAuth: true }
   },
-  {
-    path: "/group-chat",
-    component: GroupChat,
-    meta: { requiresAuth: true }
-  },
+  // {
+  //   path: "/group-chat",
+  //   component: GroupChat,
+  //   meta: { requiresAuth: true }
+  // },
   {
     path: "/chatroom",
     component: ChatRoom,

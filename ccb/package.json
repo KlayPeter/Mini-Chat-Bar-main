@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .eslintignore",
+    "format": "prettier --write \"src/**/*.{js,vue,json,css,scss}\"",
     "electron": "electron .",
     "electron-dev": "cross-env NODE_ENV=development electron .",
     "electron-pack": "npm run build && electron-builder",
